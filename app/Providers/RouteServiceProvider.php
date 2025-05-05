@@ -47,8 +47,13 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());
         });
 
-        // Custom limiter for login: 5 attempts per minute.
+        // Custom limiter for login: 30 attempts per minute.
         RateLimiter::for('login', function (Request $request) {
+            return Limit::perMinute(30)->by($request->ip());
+        });
+
+        // Custom limiter for register: 30 attempts per minute.
+        RateLimiter::for('register', function (Request $request) {
             return Limit::perMinute(30)->by($request->ip());
         });
     }

@@ -17,10 +17,14 @@ use Illuminate\Support\Facades\Route;
 
 Route::controller(ApiAuthController::class)->group(function () {
     Route::post('/login', 'login')->middleware('throttle:login');
-    Route::post('/register', 'register')->middleware('throttle:register');
+    // Route::post('/register', 'register')->middleware('throttle:register');
+    // Route::post('/verify-otp', 'verifyOtp')->middleware('throttle:verify');
+    // Route::post('/resend-otp', 'resendOtp')->middleware('throttle:resend');
+    Route::post('/register', 'register');
+    Route::post('/verify-otp', 'verifyOtp');
+    Route::post('/resend-otp', 'resendOtp');
 });
 
 Route::middleware('auth:sanctum')->group(function () {
-
     Route::post('/logout', [ApiAuthController::class, 'logout']);
 });

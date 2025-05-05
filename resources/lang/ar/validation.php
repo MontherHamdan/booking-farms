@@ -1,216 +1,77 @@
 <?php
 
 return [
-    'accepted'             => 'يجب قبول :attribute.',
-    'active_url'           => ':attribute ليس عنوان موقع صالح.',
-    'after'                => 'يجب أن يكون :attribute تاريخًا بعد :date.',
-    'after_or_equal'       => 'يجب أن يكون :attribute تاريخًا بعد أو يساوي :date.',
-    'alpha'                => 'يجب أن يحتوي :attribute على حروف فقط.',
-    'alpha_dash'           => 'يجب أن يحتوي :attribute على حروف وأرقام وشرطات فقط.',
-    'alpha_num'            => 'يجب أن يحتوي :attribute على حروف وأرقام فقط.',
-    'array'                => 'يجب أن يكون :attribute مصفوفة.',
-    'before'               => 'يجب أن يكون :attribute تاريخًا قبل :date.',
-    'before_or_equal'      => 'يجب أن يكون :attribute تاريخًا قبل أو يساوي :date.',
-    'between'              => [
-        'numeric' => 'يجب أن يكون :attribute بين :min و :max.',
-        'file'    => 'يجب أن يكون حجم :attribute بين :min و :max كيلوبايت.',
-        'string'  => 'يجب أن يكون عدد أحرف :attribute بين :min و :max.',
-        'array'   => 'يجب أن يحتوي :attribute على عدد من العناصر بين :min و :max.',
-    ],
-    'boolean'              => 'يجب أن يكون حقل :attribute صحيحًا أو خاطئًا.',
-    'confirmed'            => 'تأكيد :attribute غير متطابق.',
-    'date'                 => ':attribute ليس تاريخًا صالحًا.',
-    'date_format'          => 'لا يتطابق :attribute مع الشكل :format.',
-    'different'            => 'يجب أن يكون :attribute و :other مختلفين.',
-    'digits'               => 'يجب أن يكون :attribute :digits أرقام.',
-    'digits_between'       => 'يجب أن يكون عدد أرقام :attribute بين :min و :max.',
-    'dimensions'           => 'يحتوي :attribute على أبعاد صورة غير صالحة.',
-    'distinct'             => 'لدى حقل :attribute قيمة مكررة.',
-    'email'                => 'يجب أن يكون :attribute بريدًا إلكترونيًا صالحًا.',
-    'exists'               => 'المحدد :attribute غير صالح.',
-    'file'                 => 'يجب أن يكون :attribute ملفًا.',
-    'filled'               => 'حقل :attribute مطلوب.',
-    'gt'                   => [
-        'numeric' => 'يجب أن يكون :attribute أكبر من :value.',
-        'file'    => 'يجب أن يكون حجم :attribute أكبر من :value كيلوبايت.',
-        'string'  => 'يجب أن يكون عدد أحرف :attribute أكبر من :value.',
-        'array'   => 'يجب أن يحتوي :attribute على أكثر من :value عناصر.',
-    ],
-    'gte'                  => [
-        'numeric' => 'يجب أن يكون :attribute أكبر من أو يساوي :value.',
-        'file'    => 'يجب أن يكون حجم :attribute أكبر من أو يساوي :value كيلوبايت.',
-        'string'  => 'يجب أن يكون عدد أحرف :attribute أكبر من أو يساوي :value.',
-        'array'   => 'يجب أن يحتوي :attribute على :value عناصر على الأقل.',
-    ],
-    'image'                => 'يجب أن يكون :attribute صورة.',
-    'in'                   => 'المحدد :attribute غير صالح.',
-    'in_array'             => 'حقل :attribute غير موجود في :other.',
-    'integer'              => 'يجب أن يكون :attribute رقمًا صحيحًا.',
-    'ip'                   => 'يجب أن يكون :attribute عنوان IP صالحًا.',
-    'ipv4'                 => 'يجب أن يكون :attribute عنوان IPv4 صالحًا.',
-    'ipv6'                 => 'يجب أن يكون :attribute عنوان IPv6 صالحًا.',
-    'json'                 => 'يجب أن يكون :attribute نص JSON صالحًا.',
-    'lt'                   => [
-        'numeric' => 'يجب أن يكون :attribute أقل من :value.',
-        'file'    => 'يجب أن يكون حجم :attribute أقل من :value كيلوبايت.',
-        'string'  => 'يجب أن يكون عدد أحرف :attribute أقل من :value.',
-        'array'   => 'يجب أن يحتوي :attribute على أقل من :value عناصر.',
-    ],
-    'lte'                  => [
-        'numeric' => 'يجب أن يكون :attribute أقل من أو يساوي :value.',
-        'file'    => 'يجب أن يكون حجم :attribute أقل من أو يساوي :value كيلوبايت.',
-        'string'  => 'يجب أن يكون عدد أحرف :attribute أقل من أو يساوي :value.',
-        'array'   => 'يجب ألا يحتوي :attribute على أكثر من :value عناصر.',
-    ],
-    'max'                  => [
-        'numeric' => 'يجب ألا يكون :attribute أكبر من :max.',
-        'file'    => 'يجب ألا يتجاوز حجم :attribute :max كيلوبايت.',
-        'string'  => 'يجب ألا يزيد عدد أحرف :attribute عن :max.',
-        'array'   => 'يجب ألا يحتوي :attribute على أكثر من :max عناصر.',
-    ],
-    'mimes'                => 'يجب أن يكون :attribute ملف من نوع: :values.',
-    'mimetypes'            => 'يجب أن يكون :attribute ملف من نوع: :values.',
-    'min'                  => [
-        'numeric' => 'يجب أن يكون :attribute على الأقل :min.',
-        'file'    => 'يجب ألا يقل حجم :attribute عن :min كيلوبايت.',
-        'string'  => 'يجب ألا يقل عدد أحرف :attribute عن :min.',
-        'array'   => 'يجب أن يحتوي :attribute على الأقل على :min عناصر.',
-    ],
-    'not_in'               => 'المحدد :attribute غير صالح.',
-    'not_regex'            => 'تنسيق :attribute غير صالح.',
-    'numeric'              => 'يجب أن يكون :attribute رقمًا.',
-    'present'              => 'يجب تقديم حقل :attribute.',
-    'regex'                => 'تنسيق :attribute غير صالح.',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validation Language Lines
+    |--------------------------------------------------------------------------
+    */
+
     'required'             => 'حقل :attribute مطلوب.',
-    'required_if'          => 'حقل :attribute مطلوب عندما يكون :other :value.',
-    'required_unless'      => 'حقل :attribute مطلوب ما لم يكن :other في :values.',
-    'required_with'        => 'حقل :attribute مطلوب عندما يكون :values موجودًا.',
-    'required_with_all'    => 'حقل :attribute مطلوب عندما تكون :values موجودة.',
-    'required_without'     => 'حقل :attribute مطلوب عندما لا يكون :values موجودًا.',
-    'required_without_all' => 'حقل :attribute مطلوب عندما لا يكون أي من :values موجودًا.',
-    'same'                 => 'يجب أن يتطابق :attribute مع :other.',
-    'size'                 => [
-        'numeric' => 'يجب أن يكون حجم :attribute :size.',
-        'file'    => 'يجب أن يكون حجم :attribute :size كيلوبايت.',
-        'string'  => 'يجب أن يحتوي :attribute على :size أحرف.',
-        'array'   => 'يجب أن يحتوي :attribute على :size عناصر.',
+    'string'               => 'حقل :attribute يجب أن يكون نصاً.',
+    'max'                  => [
+        'string' => 'حقل :attribute لا يمكن أن يتجاوز :max حرفاً.',
     ],
-    'starts_with'          => 'يجب أن يبدأ :attribute بأحد القيم التالية: :values.',
-    'string'               => 'يجب أن يكون :attribute نصًا.',
-    'timezone'             => 'يجب أن يكون :attribute منطقة زمنية صالحة.',
-    'unique'               => ':attribute مستخدم من قبل.',
-    'uploaded'             => 'فشل تحميل :attribute.',
-    'url'                  => 'تنسيق :attribute غير صالح.',
-    'uuid'                 => 'يجب أن يكون :attribute معرف UUID صالحًا.',
-    
+    'min'                  => [
+        'string' => 'حقل :attribute يجب أن يكون على الأقل :min حروف.',
+    ],
+    'confirmed'            => 'تأكيد :attribute غير متطابق.',
+    'unique'               => 'حقل :attribute مستخدم مسبقاً.',
+    'max' => [
+        'string' => 'حقل :attribute لا يمكن أن يتجاوز :max حروف.',
+    ],
+
+    'size' => [
+        'string' => 'حقل :attribute يجب أن يكون :size حروف.',
+    ],
+    /*
+    |--------------------------------------------------------------------------
+    | Custom Validation Language Lines
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify custom messages for attributes using the
+    | convention "attribute.rule" to name the lines.
+    |
+    */
+
     'custom' => [
         'name' => [
-            'required' => 'اسم التصنيف مطلوب.',
+            'required' => 'الاسم مطلوب.',
+            'max'      => 'الاسم لا يمكن أن يتجاوز :max حروف.',
         ],
-        'image_id' => [
-            'required' => 'صورة التصنيف مطلوبة.',
-            'exists'   => 'الصورة المختارة غير موجودة.',
+        'phone' => [
+            'required' => 'رقم الهاتف مطلوب.',
+            'max'      => 'رقم الهاتف لا يمكن أن يتجاوز :max أرقام.',
+            'unique'   => 'رقم الهاتف مستخدم من قبل.',
         ],
-        'price' => [
-            'nullable' => 'السعر اختياري.',
-            'numeric'  => 'يجب أن يكون السعر رقمًا.',
-            'min'      => 'يجب ألا يكون السعر أقل من :min.',
+        'city' => [
+            'required' => 'المدينة مطلوبة.',
         ],
-        'sub_categories' => [
-            'required' => 'يجب تحديد الفئات الفرعية.',
-            'array'    => 'يجب أن تكون الفئات الفرعية مصفوفة.',
+        'password' => [
+            'required'   => 'كلمة المرور مطلوبة.',
+            'min'        => 'يجب أن تتكون كلمة المرور من :min حروف على الأقل.',
+            'confirmed' => 'تأكيد كلمة المرور غير متطابق.',
         ],
-        'sub_categories.*.id' => [
-            'nullable' => 'حقل معرف الفئة الفرعية اختياري.',
-            'exists'   => 'الفئة الفرعية المختارة غير موجودة.',
-        ],
-        'sub_categories.*.name' => [
-            'required' => 'اسم الفئة الفرعية مطلوب.',
-            'string'   => 'يجب أن يكون اسم الفئة الفرعية نصًا.',
-            'max'      => 'يجب ألا يزيد اسم الفئة الفرعية عن :max حرفًا.',
-        ],
-        'sub_categories.*.price' => [
-            'nullable' => 'السعر اختياري.',
-            'numeric'  => 'يجب أن يكون السعر رقمًا.',
-            'min'      => 'يجب ألا يكون السعر أقل من :min.',
-        ],
-        'sub_categories.*.status' => [
-            'required' => 'حالة الفئة الفرعية مطلوبة.',
-            'in'       => 'يجب أن تكون الحالة إما متاحة، غير متاحة، أو قيد الصيانة.',
-        ],
-        'games' => [
-            'required' => 'يجب إدخال الألعاب.',
-            'array'    => 'يجب أن تكون الألعاب مصفوفة.',
-        ],
-        'games.*.id' => [
-            'nullable' => 'حقل معرف اللعبة اختياري.',
-            'exists'   => 'اللعبة المختارة غير موجودة.',
-        ],
-        'games.*.name' => [
-            'required' => 'اسم اللعبة مطلوب.',
-            'string'   => 'يجب أن يكون اسم اللعبة نصًا.',
-            'max'      => 'يجب ألا يزيد اسم اللعبة عن :max حرفًا.',
-        ],
-        'games.*.count' => [
-            'required' => 'عدد اللعبة مطلوب.',
-            'integer'  => 'يجب أن يكون عدد اللعبة رقمًا صحيحًا.',
-            'min'      => 'يجب ألا يكون عدد اللعبة أقل من :min.',
-        ],
-        'games.*.price' => [
-            'nullable' => 'السعر اختياري.',
-            'numeric'  => 'يجب أن يكون السعر رقمًا.',
-        ],
-        'games' => [
-            'required' => 'يجب إدخال الألعاب.',
-            'array'    => 'يجب أن تكون الألعاب مصفوفة.',
-        ],
-        'games.*.id' => [
-            'nullable' => 'حقل معرف اللعبة اختياري.',
-            'exists'   => 'اللعبة المختارة غير موجودة.',
-        ],
-        'games.*.name' => [
-            'required' => 'اسم اللعبة مطلوب.',
-            'string'   => 'يجب أن يكون اسم اللعبة نصًا.',
-            'max'      => 'يجب ألا يزيد اسم اللعبة عن :max حرفًا.',
-        ],
-        'games.*.count' => [
-            'required' => 'عدد اللعبة مطلوب.',
-            'integer'  => 'يجب أن يكون عدد اللعبة رقمًا صحيحًا.',
-            'min'      => 'يجب ألا يكون عدد اللعبة أقل من :min.',
-        ],
-        'games.*.price' => [
-            'nullable' => 'السعر اختياري.',
-            'numeric'  => 'يجب أن يكون السعر رقمًا.',
-        ],
-        'additional_items' => [
-            'required' => 'يجب تحديد العناصر الإضافية.',
-            'array'    => 'يجب أن تكون العناصر الإضافية مصفوفة.',
-        ],
-        'additional_items.*.id' => [
-            'nullable' => 'حقل معرف العنصر الإضافي اختياري.',
-            'exists'   => 'العنصر الإضافي المختار غير موجود.',
-        ],
-        'additional_items.*.name' => [
-            'required' => 'اسم العنصر الإضافي مطلوب.',
-            'string'   => 'يجب أن يكون اسم العنصر الإضافي نصًا.',
-            'max'      => 'يجب ألا يزيد اسم العنصر الإضافي عن :max حرفًا.',
-        ],
-        'additional_items.*.price' => [
-            'nullable' => 'السعر اختياري.',
-            'numeric'  => 'يجب أن يكون السعر رقمًا.',
-            'min'      => 'يجب ألا يكون السعر أقل من :min.',
-        ],
-        'additional_items.*.count' => [
-            'required' => 'عدد العناصر الإضافية مطلوب.',
-            'integer'  => 'يجب أن يكون العدد رقمًا صحيحًا.',
-            'min'      => 'يجب ألا يكون عدد العناصر الإضافية أقل من :min.',
+        'otp' => [
+            'required' => 'رمز التحقق مطلوب.',
+            'string'   => 'رمز التحقق يجب أن يكون نصاً.',
+            'size'     => 'رمز التحقق يجب أن يتكون من :size أرقام بالضبط.',
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Custom Validation Attributes
+    |--------------------------------------------------------------------------
+    */
+
     'attributes' => [
-        'name'   => 'اسم التصنيف',
-        'image'  => 'صورة التصنيف',
-        'count'  => 'العدد',
-        'status' => 'الحالة',
+        'name'     => 'الاسم',
+        'phone'    => 'رقم الهاتف',
+        'city'     => 'المدينة',
+        'password' => 'كلمة المرور',
+        'otp'   => 'رمز التحقق',
     ],
+
 ];
