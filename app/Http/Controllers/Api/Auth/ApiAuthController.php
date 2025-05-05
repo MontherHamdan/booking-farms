@@ -12,6 +12,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 
 class ApiAuthController extends Controller
 {
@@ -34,10 +35,10 @@ class ApiAuthController extends Controller
     public function register(Request $request)
     {
         /**
-         * First step in registration process - store user data and send OTP.
+         * First step in registration process - store user data and send OTP with security token.
          *
          * This method validates user input, creates a new unverified user record,
-         * generates an OTP code, and returns success message.
+         * generates an OTP code with a security token, and returns success message.
          *
          * @param \Illuminate\Http\Request $request
          * @return \Illuminate\Http\JsonResponse
@@ -53,13 +54,17 @@ class ApiAuthController extends Controller
         ]);
 
         try {
-            // 2) Look for an existing *unverified* user
+            // Look for an existing *unverified* user
             $user = User::where('phone', $validated['phone'])
                         ->whereNull('phone_verified_at')
                         ->first();
 
-            $otpData = [
-                'otp_code'       => $this->staticOtp,
+            // Generate a security token that will be required during verification
+            $securityToken = Str::random(64);
+            
+            $userData = [
+                'otp_code'       => Hash::make($this->staticOtp),
+                'security_token' => $securityToken,
                 'otp_expires_at' => Carbon::now()->addMinutes($this->otpExpiryMinutes),
                 'name'           => $validated['name'],
                 'city'           => $validated['city'],
@@ -68,19 +73,20 @@ class ApiAuthController extends Controller
 
             if ($user) {
                 // update the unverified user
-                $user->update($otpData);
+                $user->update($userData);
             } else {
                 // create brand‑new record
                 $user = User::create(array_merge(
                     ['phone' => $validated['phone']],
-                    $otpData
+                    $userData
                 ));
             }
 
-            // 3) In production you'd dispatch an SMS job here…
+            // In production you'd dispatch an SMS job here with just the OTP
             return $this->successResponse(true, [
-                'message'    => 'OTP has been sent to your phone number',
-                'expires_in' => "{$this->otpExpiryMinutes} minutes",
+                'message'        => 'OTP has been sent to your phone number',
+                'security_token' => $securityToken,
+                'expires_in'     => "{$this->otpExpiryMinutes} minutes",
             ], null, 200);
 
         } catch (\Exception $e) {
@@ -95,20 +101,20 @@ class ApiAuthController extends Controller
     public function verifyOtp(Request $request)
     {
         /**
-         * Verify OTP and complete registration process.
+         * Verify OTP with security token to complete registration process.
          *
-         * This method validates the OTP input, verifies it against stored OTP,
-         * completes user registration upon successful verification, and returns token.
+         * This method validates the OTP and security token, verifies them against stored data,
+         * completes user registration upon successful verification, and returns auth token.
          *
          * @param \Illuminate\Http\Request $request
          * @return \Illuminate\Http\JsonResponse
          */
-        $request->validate([
-            'phone' => 'required|string|max:20',
-            'otp' => 'required|string|size:4',
+        $data = $request->validate([
+            'phone'          => 'required|string|max:20',
+            'otp'            => 'required|string|size:4',
+            'security_token' => 'required|string',
         ]);
         try {
-
             $user = User::where('phone', $request->phone)
                         ->whereNull('phone_verified_at')
                         ->first();
@@ -122,16 +128,24 @@ class ApiAuthController extends Controller
                 return $this->errorResponse(__('auth.otp_expired'), 400);
             }
 
-            // Verify OTP
-            if ($user->otp_code !== $request->otp) {
-                return $this->errorResponse(__('auth.invalid_otp'), 400);
+            // 1) first match the hashed OTP
+            if (! Hash::check($data['otp'], $user->otp_code)) {
+                return $this->errorResponse(__('auth.invalid_verification'), 400);
+            }
+
+            // 2) then guard+compare the token
+            if (! $user->security_token ||
+                ! hash_equals($user->security_token, $data['security_token'])
+            ) {
+                return $this->errorResponse(__('auth.invalid_verification'), 400);
             }
 
             // Mark phone as verified
             $user->update([
                 'phone_verified_at' => Carbon::now(),
-                'otp_code' => null,
-                'otp_expires_at' => null,
+                'otp_code'          => null,
+                'security_token'    => null,
+                'otp_expires_at'    => null,
             ]);
 
             // Create token
@@ -139,14 +153,14 @@ class ApiAuthController extends Controller
 
             $responseData = [
                 'access_token' => $token,
-                'token_type' => 'Bearer',
-                'user' => new UserResource($user),
+                'token_type'   => 'Bearer',
+                'user'         => new UserResource($user),
             ];
 
             return $this->successResponse(true, $responseData, null, 200);
         } catch (\Exception $e) {
             $this->logException($e, [
-                'request' => $request->except('otp'),
+                'request' => $request->except(['otp', 'security_token']),
             ]);
 
             return $this->errorResponse(__('error.internal_error'), 500);
@@ -156,42 +170,48 @@ class ApiAuthController extends Controller
     public function resendOtp(Request $request)
     {
         /**
-         * Resend OTP code to user.
+         * Resend OTP code to user with validation of existing security token.
          *
          * @param \Illuminate\Http\Request $request
          * @return \Illuminate\Http\JsonResponse
          */
+        $data = $request->validate([
+            'phone'          => 'required|string|max:20',
+            'security_token' => 'required|string', // Require the original security token
+        ]);
         try {
-            $request->validate([
-                'phone' => 'required|string|max:20',
-            ]);
-
             $user = User::where('phone', $request->phone)
                         ->whereNull('phone_verified_at')
                         ->first();
-
+    
             if (!$user) {
                 return $this->errorResponse(__('auth.user_not_found'), 404);
             }
-
-            // Update OTP code and expiry
+    
+            // Verify the security token matches
+            if (!$user->security_token || !hash_equals($user->security_token, $data['security_token'])) {
+                return $this->errorResponse(__('auth.invalid_token'), 400);
+            }
+    
+            // Generate a new OTP but keep the same security token
             $user->update([
-                'otp_code' => $this->staticOtp,
+                'otp_code'       => Hash::make($this->staticOtp),
                 'otp_expires_at' => Carbon::now()->addMinutes($this->otpExpiryMinutes),
             ]);
-
-            // In production, you would send the OTP via SMS here
+    
+            // In production, you would send only the OTP via SMS here
             $responseData = [
-                'message' => 'OTP has been resent to your phone number',
-                'expires_in' => $this->otpExpiryMinutes . ' minutes',
+                'message'        => 'OTP has been resent to your phone number',
+                'security_token' => $user->security_token, // Return the same token for consistency
+                'expires_in'     => $this->otpExpiryMinutes . ' minutes',
             ];
-
+    
             return $this->successResponse(true, $responseData, null, 200);
         } catch (\Exception $e) {
             $this->logException($e, [
-                'request' => $request->all(),
+                'request' => $request->except('security_token'),
             ]);
-
+    
             return $this->errorResponse(__('error.internal_error'), 500);
         }
     }

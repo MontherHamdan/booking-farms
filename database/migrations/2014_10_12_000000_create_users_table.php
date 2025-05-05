@@ -19,7 +19,8 @@ return new class extends Migration
             $table->timestamp('phone_verified_at')->nullable();
 
             // add columns to hold the OTP code and expiry
-            $table->string('otp_code', 6)->nullable();
+            $table->string('otp_code', 255)->nullable();
+            $table->string('security_token')->nullable();
             $table->timestamp('otp_expires_at')->nullable();
 
             $table->string('password');
