@@ -170,7 +170,8 @@ class ApiAuthController extends Controller
     public function resendOtp(Request $request)
     {
         /**
-         * Resend OTP code to user with validation of existing security token.
+         * Resend OTP code to user with validation of existing security token
+         * and generation of a new security token.
          *
          * @param \Illuminate\Http\Request $request
          * @return \Illuminate\Http\JsonResponse
@@ -180,7 +181,7 @@ class ApiAuthController extends Controller
             'security_token' => 'required|string', // Require the original security token
         ]);
         try {
-            $user = User::where('phone', $request->phone)
+            $user = User::where('phone', $data['phone'])
                         ->whereNull('phone_verified_at')
                         ->first();
     
@@ -193,16 +194,20 @@ class ApiAuthController extends Controller
                 return $this->errorResponse(__('auth.invalid_token'), 400);
             }
     
-            // Generate a new OTP but keep the same security token
+            // Generate a new security token
+            $newSecurityToken = Str::random(64);
+            
+            // Update OTP code, security token and expiry
             $user->update([
                 'otp_code'       => Hash::make($this->staticOtp),
+                'security_token' => $newSecurityToken,
                 'otp_expires_at' => Carbon::now()->addMinutes($this->otpExpiryMinutes),
             ]);
     
             // In production, you would send only the OTP via SMS here
             $responseData = [
                 'message'        => 'OTP has been resent to your phone number',
-                'security_token' => $user->security_token, // Return the same token for consistency
+                'security_token' => $newSecurityToken, // Return the new token
                 'expires_in'     => $this->otpExpiryMinutes . ' minutes',
             ];
     
