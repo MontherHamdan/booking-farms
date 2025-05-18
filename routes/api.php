@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Auth\ApiAuthController;
-use App\Http\Controllers\Api\CityController;
+use App\Http\Controllers\Api\ApiCityController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -24,7 +24,7 @@ Route::controller(ApiAuthController::class)->group(function () {
 });
 
 # Public city routes
-Route::get('/cities', [CityController::class, 'index']);
+Route::get('/cities', [ApiCityController::class, 'index']);
 
 # Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -34,7 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     
     # City management
-    Route::prefix('cities')->controller(CityController::class)->group(function () {
+    Route::prefix('cities')->controller(ApiCityController::class)->group(function () {
         Route::put('/{city_id}', 'update');
         Route::post('/', 'store');
         Route::delete('/{city_id}', 'destroy'); 

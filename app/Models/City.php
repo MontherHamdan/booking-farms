@@ -10,7 +10,8 @@ class City extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name',
+        'name_ar',
+        'name_en',
         'status',
         'image',
         'order',
@@ -27,20 +28,19 @@ class City extends Model
      * 
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public static function scopeOrdered()
+    public function scopeOrdered($query)
     {
-        return static::orderBy('order', 'asc');
+        return $query->orderBy('order', 'asc');
     }
-    
+
     /**
      * Scope a query to only include published cities
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param \Illuminate\Database\Eloquent\Builder $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopePublished($query)
     {
         return $query->where('status', self::STATUS_PUBLISHED);
     }
-
 }
