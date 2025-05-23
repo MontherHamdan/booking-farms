@@ -20,6 +20,7 @@ return new class extends Migration
             $table->text('description_ar')->nullable();
             $table->text('description_en')->nullable();
             $table->integer('passengers_count')->nullable();
+            $table->json('not_available_dates')->nullable();
             $table->timestamps();
         });
     }

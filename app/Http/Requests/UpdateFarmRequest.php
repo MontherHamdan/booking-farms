@@ -44,6 +44,10 @@ class UpdateFarmRequest extends FormRequest
                 }),
             ],
             
+            // Not available dates validation
+            'not_available_dates' => 'nullable|array',
+            'not_available_dates.*' => 'date|after_or_equal:today',
+            
             // Pricing validation - all optional
             'day_use_pricing' => 'nullable|array',
             'day_use_pricing.saturday_price' => 'nullable|numeric|min:0',
@@ -75,34 +79,33 @@ class UpdateFarmRequest extends FormRequest
     }
 
     /**
-     * Get custom messages for validator errors.
+     * Configure the validator instance.
      *
-     * @return array<string, string>
+     * @param  \Illuminate\Validation\Validator  $validator
+     * @return void
      */
-    public function messages(): array
+    public function withValidator($validator)
     {
-        return [
-            'city_id.exists' => 'Selected city does not exist',
-            'name_ar.string' => 'Arabic name must be text',
-            'name_ar.max' => 'Arabic name cannot exceed 255 characters',
-            'name_en.string' => 'English name must be text',
-            'name_en.max' => 'English name cannot exceed 255 characters',
-            'description_ar.string' => 'Arabic description must be text',
-            'description_en.string' => 'English description must be text',
-            'passengers_count.integer' => 'Passengers count must be a number',
-            'passengers_count.min' => 'Passengers count must be at least 1',
-            'features.*.exists' => 'One or more selected features do not exist',
-            'main_image.image' => 'Main image must be a valid image file',
-            'main_image.mimes' => 'Main image must be jpeg, png, jpg, or gif format',
-            'main_image.max' => 'Main image size cannot exceed 2MB',
-            'images.*.image' => 'Uploaded files must be images',
-            'images.*.mimes' => 'Images must be jpeg, png, jpg, or gif format',
-            'images.*.max' => 'Images may not be larger than 2MB',
-            'delete_image_ids.*.exists' => 'One or more image IDs are invalid',
-            
-            // Pricing validation messages
-            '*.*.numeric' => 'Price must be a valid number',
-            '*.*.min' => 'Price cannot be negative',
-        ];
+        $validator->after(function ($validator) {
+            // Validate not available dates for duplicates
+            if ($this->filled('not_available_dates')) {
+                $dates = $this->not_available_dates;
+                if (count($dates) !== count(array_unique($dates))) {
+                    $validator->errors()->add('not_available_dates', 'Duplicate dates are not allowed in not available dates.');
+                }
+
+                // Check for valid date format and future dates
+                foreach ($dates as $index => $date) {
+                    try {
+                        $carbonDate = \Carbon\Carbon::parse($date);
+                        if ($carbonDate->isPast()) {
+                            $validator->errors()->add("not_available_dates.{$index}", "Date {$date} cannot be in the past.");
+                        }
+                    } catch (\Exception $e) {
+                        $validator->errors()->add("not_available_dates.{$index}", "Date {$date} is not a valid date format.");
+                    }
+                }
+            }
+        });
     }
 }

@@ -35,6 +35,10 @@ class StoreFarmRequest extends FormRequest
             'images' => 'nullable|array',
             'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
             
+            // Not available dates validation
+            'not_available_dates' => 'nullable|array',
+            'not_available_dates.*' => 'date|after_or_equal:today',
+            
             // Pricing validation - all optional
             'day_use_pricing' => 'nullable|array',
             'day_use_pricing.saturday_price' => 'nullable|numeric|min:0',
@@ -78,6 +82,26 @@ class StoreFarmRequest extends FormRequest
             if (empty($this->name_ar) && empty($this->name_en)) {
                 $validator->errors()->add('name', 'At least one name (Arabic or English) is required.');
             }
+
+            // Validate not available dates for duplicates
+            if ($this->filled('not_available_dates')) {
+                $dates = $this->not_available_dates;
+                if (count($dates) !== count(array_unique($dates))) {
+                    $validator->errors()->add('not_available_dates', 'Duplicate dates are not allowed in not available dates.');
+                }
+
+                // Check for valid date format and future dates
+                foreach ($dates as $index => $date) {
+                    try {
+                        $carbonDate = \Carbon\Carbon::parse($date);
+                        if ($carbonDate->isPast()) {
+                            $validator->errors()->add("not_available_dates.{$index}", "Date {$date} cannot be in the past.");
+                        }
+                    } catch (\Exception $e) {
+                        $validator->errors()->add("not_available_dates.{$index}", "Date {$date} is not a valid date format.");
+                    }
+                }
+            }
         });
     }
 
@@ -105,6 +129,11 @@ class StoreFarmRequest extends FormRequest
             'images.*.image' => 'All gallery images must be valid image files.',
             'images.*.mimes' => 'Gallery images must be jpeg, png, jpg, or gif format.',
             'images.*.max' => 'Gallery image size cannot exceed 2MB.',
+            
+            // Not available dates validation messages
+            'not_available_dates.array' => 'Not available dates must be an array.',
+            'not_available_dates.*.date' => 'Each not available date must be a valid date.',
+            'not_available_dates.*.after_or_equal' => 'Not available dates must be today or in the future.',
             
             // Pricing validation messages
             '*.*.numeric' => 'Price must be a valid number.',

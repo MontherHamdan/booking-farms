@@ -25,6 +25,16 @@ class Farm extends Model
         'description_ar',
         'description_en',
         'passengers_count',
+        'not_available_dates',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'not_available_dates' => 'array',
     ];
 
     /**
@@ -125,5 +135,23 @@ class Farm extends Model
         }
         
         return empty($allPrices) ? 0 : max($allPrices);
+    }
+
+    /**
+     * Get formatted not available dates.
+     */
+    public function getFormattedNotAvailableDatesAttribute(): array
+    {
+        if (!$this->not_available_dates) {
+            return [];
+        }
+
+        return array_map(function ($date) {
+            return [
+                'date' => $date,
+                'formatted' => \Carbon\Carbon::parse($date)->format('Y-m-d'),
+                'human_readable' => \Carbon\Carbon::parse($date)->format('M d, Y'),
+            ];
+        }, $this->not_available_dates);
     }
 }

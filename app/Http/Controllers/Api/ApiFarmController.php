@@ -38,6 +38,15 @@ class ApiFarmController extends Controller
                 $query->where('city_id', $request->city_id);
             }
             
+            // Filter by availability if date is provided
+            if ($request->has('available_date')) {
+                $date = $request->available_date;
+                $query->where(function ($q) use ($date) {
+                    $q->whereNull('not_available_dates')
+                      ->orWhereJsonDoesntContain('not_available_dates', $date);
+                });
+            }
+            
             // First, get the farms with their basic relations including pricing
             $farms = $query->with(['city', 'features', 'pricing'])->paginate($request->per_page ?? 15);
             
@@ -93,6 +102,9 @@ class ApiFarmController extends Controller
             }
             if ($request->filled('passengers_count')) {
                 $farmData['passengers_count'] = $request->passengers_count;
+            }
+            if ($request->filled('not_available_dates')) {
+                $farmData['not_available_dates'] = $request->not_available_dates;
             }
 
             // 1) Create the Farm
@@ -209,6 +221,9 @@ class ApiFarmController extends Controller
             }
             if ($request->has('passengers_count')) {
                 $updateData['passengers_count'] = $request->passengers_count;
+            }
+            if ($request->has('not_available_dates')) {
+                $updateData['not_available_dates'] = $request->not_available_dates;
             }
 
             if (!empty($updateData)) {

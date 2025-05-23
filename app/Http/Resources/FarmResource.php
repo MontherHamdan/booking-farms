@@ -23,6 +23,8 @@ class FarmResource extends JsonResource
             'description_ar' => $this->description_ar,
             'description_en' => $this->description_en,
             'passengers_count' => $this->passengers_count,
+            'not_available_dates' => $this->not_available_dates,
+            'formatted_not_available_dates' => $this->formatted_not_available_dates,
             'minimum_price' => $this->whenLoaded('pricing', function () {
                 return $this->minimum_price;
             }),
