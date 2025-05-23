@@ -56,37 +56,35 @@ class CityController extends Controller
     {
         try {
             $validated = $request->validated();
-            
+
             // Handle image upload
             if ($request->hasFile('image')) {
-                // Generate human-readable filename
-                $ext = $request->file('image')->getClientOriginalExtension();
-                $slug = Str::slug($validated['name_en']);
+                $ext      = $request->file('image')->getClientOriginalExtension();
+                $slug     = Str::slug($validated['name_en']);
                 $filename = "{$slug}-" . time() . ".{$ext}";
 
-                // Upload to S3
+                // Upload to S3 under 'cities/' folder
                 $path = $request->file('image')
                     ->storeAs('cities', $filename, 's3');
 
                 $validated['image'] = Storage::disk('s3')->url($path);
             }
-            
-            // Set default order if not provided
+
+            // Default ordering
             if (empty($validated['order'])) {
-                $maxOrder = City::max('order') ?? 0;
-                $validated['order'] = $maxOrder + 1;
+                $validated['order'] = (City::max('order') ?? 0) + 1;
             }
-            
+
             City::create($validated);
-            
+
             return redirect()->route('cities.index')
-                ->with('success', 'City created successfully.');
+                             ->with('success', 'City created successfully.');
         } catch (\Exception $e) {
             $this->logErrorAndRedirect($e, 'Error storing city: ');
-            
+
             return redirect()->back()
-                ->with('error', __('error.internal_error'))
-                ->withInput();
+                             ->with('error', 'Internal server error. Please try again later.')
+                             ->withInput();
         }
     }
 
@@ -106,7 +104,7 @@ class CityController extends Controller
             $this->logErrorAndRedirect($e, 'Error in city edit page: ');
             
             return redirect()->route('cities.index')
-                ->with('error', __('error.internal_error'));
+                ->with('error', 'Internal server error. Please try again later.');
         }
     }
 
@@ -120,44 +118,39 @@ class CityController extends Controller
     public function update(UpdateCityRequest $request, $city_id)
     {
         try {
-            // Fetch the city
-            $city = City::findOrFail($city_id);
-            
-            // Get validated data
+            $city      = City::findOrFail($city_id);
             $validated = $request->validated();
-            
+
             // Handle image upload
             if ($request->hasFile('image')) {
+                // Delete old image if present
                 if ($city->image) {
                     $oldPath = parse_url($city->image, PHP_URL_PATH);
                     if ($oldPath) {
-                        $oldKey = ltrim($oldPath, '/');
-                        Storage::disk('s3')->delete($oldKey);
+                        Storage::disk('s3')->delete(ltrim($oldPath, '/'));
                     }
                 }
-                
-                // Generate new filename
-                $ext = $request->file('image')->getClientOriginalExtension();
-                $slug = Str::slug($validated['name_en']);
+
+                $ext      = $request->file('image')->getClientOriginalExtension();
+                $slug     = Str::slug($validated['name_en']);
                 $filename = "{$slug}-" . time() . ".{$ext}";
-                
-                // Upload to S3
+
                 $path = $request->file('image')
                     ->storeAs('cities', $filename, 's3');
-                
+
                 $validated['image'] = Storage::disk('s3')->url($path);
             }
-            
+
             $city->update($validated);
-            
+
             return redirect()->route('cities.index')
-                ->with('success', 'City updated successfully.');
+                             ->with('success', 'City updated successfully.');
         } catch (\Exception $e) {
             $this->logErrorAndRedirect($e, 'Error updating city: ');
-            
+
             return redirect()->back()
-                ->with('error', __('error.internal_error'))
-                ->withInput();
+                             ->with('error', 'Internal server error. Please try again later.')
+                             ->withInput();
         }
     }
 
@@ -189,7 +182,7 @@ class CityController extends Controller
             $this->logErrorAndRedirect($e, 'Error deleting city: ');
             
             return redirect()->back()
-                ->with('error', __('error.internal_error'));
+                ->with('error', 'Internal server error. Please try again later.');
         }
     }
 }

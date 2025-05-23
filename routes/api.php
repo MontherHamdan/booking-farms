@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\ApiFarmController;
+use App\Http\Controllers\Api\ApiFeatureController;
 use App\Http\Controllers\Api\Auth\ApiAuthController;
 use App\Http\Controllers\Api\ApiCityController;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +28,10 @@ Route::controller(ApiAuthController::class)->group(function () {
 # Public city routes
 Route::get('/cities', [ApiCityController::class, 'index']);
 
+# Public farm routes
+Route::get('/farms', [ApiFarmController::class, 'index']);
+Route::get('/farms/{farm}', [ApiFarmController::class, 'show']);
+
 # Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     # User related routes
@@ -33,11 +39,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [ApiAuthController::class, 'logout']);
     });
     
-    # City management
-    Route::prefix('cities')->controller(ApiCityController::class)->group(function () {
-        Route::put('/{city_id}', 'update');
+    # Feature management
+    Route::get('/features', [ApiFeatureController::class, 'index']);
+
+    # Farm management
+    Route::prefix('farms')->controller(ApiFarmController::class)->group(function () {
         Route::post('/', 'store');
-        Route::delete('/{city_id}', 'destroy'); 
-        Route::get('/{city}', 'show');
+        Route::put('/{farm}', 'update');
+        Route::delete('/{farm}', 'destroy');
     });
 });

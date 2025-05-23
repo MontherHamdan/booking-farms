@@ -57,11 +57,19 @@
                     </a>
                 </li>
         
-                 <li class="menu-title mt-2">Cities</li>
+                <li class="menu-title mt-2">Cities</li>
                 <li>
                     <a href="{{ route('cities.index') }}">
                         <i class="mdi mdi-cart-outline"></i>
                         <span> cities </span>
+                    </a>
+                </li>
+
+                <li class="menu-title mt-2">Features</li>
+                <li>
+                    <a href="{{ route('features.index') }}">
+                        <i class="mdi mdi-cart-outline"></i>
+                        <span> Features </span>
                     </a>
                 </li>
                 

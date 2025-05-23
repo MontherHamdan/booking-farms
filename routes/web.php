@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CityController;
+use App\Http\Controllers\FeatureController;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,3 +19,4 @@ use App\Http\Controllers\CityController;
 Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
 
 Route::resource('cities', CityController::class);
+Route::resource('features', FeatureController::class);
