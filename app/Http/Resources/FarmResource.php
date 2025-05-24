@@ -92,6 +92,10 @@ class FarmResource extends JsonResource
                         'price_type' => $pricing->price_type,
                         // 'min_price' => $pricing->min_price,
                         // 'max_price' => $pricing->max_price,
+                        'start_time' => $pricing->formatted_start_time,
+                        'end_time' => $pricing->formatted_end_time,
+                        'time_range' => $pricing->time_range,
+                        'duration_hours' => $pricing->duration_in_hours,
                         'day_prices' => $pricing->day_prices,
                         // Add prices after offer for each pricing type
                         'day_prices_after_offer' => $this->calculatePricingAfterOffer($pricing),

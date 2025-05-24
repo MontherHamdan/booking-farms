@@ -22,6 +22,8 @@ return new class extends Migration
             $table->decimal('wednesday_price', 10, 2);
             $table->decimal('thursday_price', 10, 2);
             $table->decimal('friday_price', 10, 2);
+            $table->time('start_time')->nullable();
+            $table->time('end_time')->nullable();
             $table->timestamps();
             
             // Ensure one pricing record per farm per price type

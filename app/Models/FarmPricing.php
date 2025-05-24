@@ -18,6 +18,8 @@ class FarmPricing extends Model
     protected $fillable = [
         'farm_id',
         'price_type',
+        'start_time',
+        'end_time',
         'saturday_price',
         'sunday_price',
         'monday_price',
@@ -33,6 +35,8 @@ class FarmPricing extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'start_time' => 'datetime:H:i',
+        'end_time' => 'datetime:H:i',
         'saturday_price' => 'decimal:2',
         'sunday_price' => 'decimal:2',
         'monday_price' => 'decimal:2',
@@ -55,7 +59,7 @@ class FarmPricing extends Model
      */
     public function getMinPriceAttribute(): float
     {
-        return min([
+        $prices = array_filter([
             $this->saturday_price,
             $this->sunday_price,
             $this->monday_price,
@@ -63,7 +67,11 @@ class FarmPricing extends Model
             $this->wednesday_price,
             $this->thursday_price,
             $this->friday_price,
-        ]);
+        ], function($price) {
+            return $price > 0; // Only consider prices greater than 0
+        });
+
+        return empty($prices) ? 0 : min($prices);
     }
 
     /**
@@ -105,5 +113,53 @@ class FarmPricing extends Model
             'thursday' => $this->thursday_price,
             'friday' => $this->friday_price,
         ];
+    }
+
+    /**
+     * Get formatted start time.
+     */
+    public function getFormattedStartTimeAttribute(): string
+    {
+        return $this->start_time ? $this->start_time->format('H:i') : '';
+    }
+
+    /**
+     * Get formatted end time.
+     */
+    public function getFormattedEndTimeAttribute(): string
+    {
+        return $this->end_time ? $this->end_time->format('H:i') : '';
+    }
+
+    /**
+     * Get time range as a formatted string.
+     */
+    public function getTimeRangeAttribute(): string
+    {
+        if (!$this->start_time || !$this->end_time) {
+            return '';
+        }
+
+        return $this->start_time->format('H:i') . ' - ' . $this->end_time->format('H:i');
+    }
+
+    /**
+     * Get duration in hours.
+     */
+    public function getDurationInHoursAttribute(): float
+    {
+        if (!$this->start_time || !$this->end_time) {
+            return 0;
+        }
+
+        $start = $this->start_time;
+        $end = $this->end_time;
+
+        // Handle overnight periods
+        if ($end->lt($start)) {
+            $end = $end->addDay();
+        }
+
+        return $start->diffInHours($end, true);
     }
 }

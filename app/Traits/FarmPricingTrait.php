@@ -16,15 +16,19 @@ trait FarmPricingTrait
         
         foreach ($priceTypes as $priceType) {
             if ($this->hasPricingDataForType($request, $priceType)) {
+                $pricingData = $request->input("{$priceType}_pricing");
+                
                 $farm->pricing()->create([
                     'price_type' => $priceType,
-                    'saturday_price' => $request->input("{$priceType}_pricing.saturday_price", 0),
-                    'sunday_price' => $request->input("{$priceType}_pricing.sunday_price", 0),
-                    'monday_price' => $request->input("{$priceType}_pricing.monday_price", 0),
-                    'tuesday_price' => $request->input("{$priceType}_pricing.tuesday_price", 0),
-                    'wednesday_price' => $request->input("{$priceType}_pricing.wednesday_price", 0),
-                    'thursday_price' => $request->input("{$priceType}_pricing.thursday_price", 0),
-                    'friday_price' => $request->input("{$priceType}_pricing.friday_price", 0),
+                    'start_time' => $pricingData['start_time'] ?? null,
+                    'end_time' => $pricingData['end_time'] ?? null,
+                    'saturday_price' => $pricingData['saturday_price'] ?? 0,
+                    'sunday_price' => $pricingData['sunday_price'] ?? 0,
+                    'monday_price' => $pricingData['monday_price'] ?? 0,
+                    'tuesday_price' => $pricingData['tuesday_price'] ?? 0,
+                    'wednesday_price' => $pricingData['wednesday_price'] ?? 0,
+                    'thursday_price' => $pricingData['thursday_price'] ?? 0,
+                    'friday_price' => $pricingData['friday_price'] ?? 0,
                 ]);
             }
         }
@@ -39,16 +43,20 @@ trait FarmPricingTrait
         
         foreach ($priceTypes as $priceType) {
             if ($this->hasPricingDataForType($request, $priceType)) {
+                $pricingData = $request->input("{$priceType}_pricing");
+                
                 $farm->pricing()->updateOrCreate(
                     ['price_type' => $priceType],
                     [
-                        'saturday_price' => $request->input("{$priceType}_pricing.saturday_price", 0),
-                        'sunday_price' => $request->input("{$priceType}_pricing.sunday_price", 0),
-                        'monday_price' => $request->input("{$priceType}_pricing.monday_price", 0),
-                        'tuesday_price' => $request->input("{$priceType}_pricing.tuesday_price", 0),
-                        'wednesday_price' => $request->input("{$priceType}_pricing.wednesday_price", 0),
-                        'thursday_price' => $request->input("{$priceType}_pricing.thursday_price", 0),
-                        'friday_price' => $request->input("{$priceType}_pricing.friday_price", 0),
+                        'start_time' => $pricingData['start_time'] ?? null,
+                        'end_time' => $pricingData['end_time'] ?? null,
+                        'saturday_price' => $pricingData['saturday_price'] ?? 0,
+                        'sunday_price' => $pricingData['sunday_price'] ?? 0,
+                        'monday_price' => $pricingData['monday_price'] ?? 0,
+                        'tuesday_price' => $pricingData['tuesday_price'] ?? 0,
+                        'wednesday_price' => $pricingData['wednesday_price'] ?? 0,
+                        'thursday_price' => $pricingData['thursday_price'] ?? 0,
+                        'friday_price' => $pricingData['friday_price'] ?? 0,
                     ]
                 );
             }
@@ -62,5 +70,103 @@ trait FarmPricingTrait
     {
         return $request->has("{$priceType}_pricing") && 
                is_array($request->input("{$priceType}_pricing"));
+    }
+
+    /**
+     * Get default time ranges for price types.
+     */
+    protected function getDefaultTimeRanges(): array
+    {
+        return [
+            'day_use' => [
+                'start_time' => '08:00',
+                'end_time' => '18:00'
+            ],
+            'night' => [
+                'start_time' => '18:00',
+                'end_time' => '08:00'
+            ],
+            'full_day' => [
+                'start_time' => '00:00',
+                'end_time' => '23:59'
+            ]
+        ];
+    }
+
+    /**
+     * Set default time ranges if not provided.
+     */
+    protected function setDefaultTimeRanges(Request $request): void
+    {
+        $defaultRanges = $this->getDefaultTimeRanges();
+        
+        foreach ($defaultRanges as $priceType => $timeRange) {
+            if ($request->has("{$priceType}_pricing")) {
+                $pricingData = $request->input("{$priceType}_pricing");
+                
+                if (empty($pricingData['start_time'])) {
+                    $pricingData['start_time'] = $timeRange['start_time'];
+                }
+                
+                if (empty($pricingData['end_time'])) {
+                    $pricingData['end_time'] = $timeRange['end_time'];
+                }
+                
+                $request->merge(["{$priceType}_pricing" => $pricingData]);
+            }
+        }
+    }
+
+    /**
+     * Validate time ranges don't overlap (except for full_day).
+     */
+    protected function validateTimeRanges(Request $request): array
+    {
+        $errors = [];
+        $timeRanges = [];
+        
+        // Collect all time ranges
+        foreach (['day_use', 'night'] as $priceType) {
+            if ($this->hasPricingDataForType($request, $priceType)) {
+                $pricingData = $request->input("{$priceType}_pricing");
+                
+                if (!empty($pricingData['start_time']) && !empty($pricingData['end_time'])) {
+                    $timeRanges[$priceType] = [
+                        'start' => $pricingData['start_time'],
+                        'end' => $pricingData['end_time']
+                    ];
+                }
+            }
+        }
+        
+        // Check for overlaps between day_use and night
+        if (count($timeRanges) >= 2) {
+            if ($this->timeRangesOverlap($timeRanges['day_use'], $timeRanges['night'])) {
+                $errors[] = 'Day use and night pricing time ranges cannot overlap.';
+            }
+        }
+        
+        return $errors;
+    }
+
+    /**
+     * Check if two time ranges overlap.
+     */
+    private function timeRangesOverlap(array $range1, array $range2): bool
+    {
+        $start1 = \Carbon\Carbon::createFromFormat('H:i', $range1['start']);
+        $end1 = \Carbon\Carbon::createFromFormat('H:i', $range1['end']);
+        $start2 = \Carbon\Carbon::createFromFormat('H:i', $range2['start']);
+        $end2 = \Carbon\Carbon::createFromFormat('H:i', $range2['end']);
+        
+        // Handle overnight periods
+        if ($end1->lt($start1)) {
+            $end1 = $end1->addDay();
+        }
+        if ($end2->lt($start2)) {
+            $end2 = $end2->addDay();
+        }
+        
+        return $start1->lt($end2) && $start2->lt($end1);
     }
 }
