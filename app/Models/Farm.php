@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Farm extends Model
 {
@@ -86,6 +87,22 @@ class Farm extends Model
     }
 
     /**
+     * Get all offers for the farm.
+     */
+    public function offers(): HasMany
+    {
+        return $this->hasMany(FarmOffer::class);
+    }
+
+    /**
+     * Get the current valid offer for the farm.
+     */
+    public function currentOffer(): HasOne
+    {
+        return $this->hasOne(FarmOffer::class)->valid()->orderBy('percentage', 'desc');
+    }
+
+    /**
      * Get day use pricing.
      */
     public function dayUsePricing()
@@ -107,6 +124,36 @@ class Farm extends Model
     public function fullDayPricing()
     {
         return $this->hasOne(FarmPricing::class)->where('price_type', 'full_day');
+    }
+
+    /**
+     * Check if farm has a valid offer.
+     */
+    public function hasValidOffer(): bool
+    {
+        return $this->offers()->valid()->exists();
+    }
+
+    /**
+     * Get the current offer percentage (0 if no valid offer).
+     */
+    public function getCurrentOfferPercentage(): float
+    {
+        $offer = $this->currentOffer;
+        return $offer ? $offer->percentage : 0;
+    }
+
+    /**
+     * Calculate price after offer discount.
+     */
+    public function getPriceAfterOffer(float $originalPrice): float
+    {
+        if (!$this->hasValidOffer()) {
+            return $originalPrice;
+        }
+
+        $discount = ($originalPrice * $this->getCurrentOfferPercentage()) / 100;
+        return max(0, $originalPrice - $discount);
     }
 
     /**
@@ -135,6 +182,22 @@ class Farm extends Model
         }
         
         return empty($allPrices) ? 0 : max($allPrices);
+    }
+
+    /**
+     * Get the minimum price after offer discount.
+     */
+    public function getMinimumPriceAfterOfferAttribute(): float
+    {
+        return $this->getPriceAfterOffer($this->minimum_price);
+    }
+
+    /**
+     * Get the maximum price after offer discount.
+     */
+    public function getMaximumPriceAfterOfferAttribute(): float
+    {
+        return $this->getPriceAfterOffer($this->maximum_price);
     }
 
     /**

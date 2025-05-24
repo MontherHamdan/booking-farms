@@ -11,6 +11,7 @@ use App\Http\Resources\IndexShowFarmResource;
 use App\Models\Farm;
 use App\Models\FarmImage;
 use App\Models\FarmPricing;
+use App\Models\FarmOffer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -47,8 +48,7 @@ class ApiFarmController extends Controller
                 });
             }
             
-            // First, get the farms with their basic relations including pricing
-            $farms = $query->with(['city', 'features', 'pricing'])->paginate($request->per_page ?? 15);
+            $farms = $query->with(['city', 'features', 'pricing', 'offers'])->paginate($request->per_page ?? 15);
             
             // After pagination, load the images separately for each farm
             $farms->getCollection()->transform(function ($farm) {
@@ -125,7 +125,18 @@ class ApiFarmController extends Controller
             // 3) Create pricing data
             $this->createFarmPricing($farm, $request);
 
-            // 4) Upload main_image
+            // 4) Create offer if provided
+            if ($request->filled('offer')) {
+                $offerData = $request->offer;
+                $farm->offers()->create([
+                    'percentage' => $offerData['percentage'],
+                    'start_date' => $offerData['start_date'],
+                    'end_date' => $offerData['end_date'],
+                    'is_active' => $offerData['is_active'] ?? true,
+                ]);
+            }
+
+            // 5) Upload main_image
             if ($request->hasFile('main_image')) {
                 $mainFile = $request->file('main_image');
                 $ext = $mainFile->getClientOriginalExtension();
@@ -143,7 +154,7 @@ class ApiFarmController extends Controller
                 ]);
             }
 
-            // 5) Upload any gallery images
+            // 6) Upload any gallery images
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $index => $image) {
                     $ext = $image->getClientOriginalExtension();
@@ -164,7 +175,7 @@ class ApiFarmController extends Controller
 
             DB::commit();
 
-            $farm->load(['city', 'features', 'images', 'pricing']);
+            $farm->load(['city', 'features', 'images', 'pricing', 'offers']);
             return response()->json([
                 'status' => 'success',
                 'data' => new FarmResource($farm),
@@ -184,7 +195,7 @@ class ApiFarmController extends Controller
     public function show(Farm $farm): JsonResponse
     {
         try {
-            $farm->load(['city', 'features', 'images', 'user', 'pricing']);
+            $farm->load(['city', 'features', 'images', 'user', 'pricing', 'offers']);
             
             return $this->successResponse(true, new IndexShowFarmResource($farm), null, 200);
 
@@ -238,7 +249,24 @@ class ApiFarmController extends Controller
             // 3) Update pricing data
             $this->updateFarmPricing($farm, $request);
 
-            // 4) Replace or add main_image
+            // 4) Handle offer updates
+            if ($request->filled('delete_current_offer') && $request->delete_current_offer) {
+                // Delete current offers
+                $farm->offers()->delete();
+            } elseif ($request->filled('offer')) {
+                // Delete existing offers and create new one
+                $farm->offers()->delete();
+                
+                $offerData = $request->offer;
+                $farm->offers()->create([
+                    'percentage' => $offerData['percentage'],
+                    'start_date' => $offerData['start_date'],
+                    'end_date' => $offerData['end_date'],
+                    'is_active' => $offerData['is_active'] ?? true,
+                ]);
+            }
+
+            // 5) Replace or add main_image
             if ($request->hasFile('main_image')) {
                 // delete old main
                 $oldMain = $farm->images()->where('is_main', true)->first();
@@ -265,7 +293,7 @@ class ApiFarmController extends Controller
                 ]);
             }
 
-            // 5) Handle new gallery images
+            // 6) Handle new gallery images
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $index => $image) {
                     $ext = $image->getClientOriginalExtension();
@@ -284,7 +312,7 @@ class ApiFarmController extends Controller
                 }
             }
 
-            // 6) Delete any flagged images
+            // 7) Delete any flagged images
             if ($request->filled('delete_image_ids')) {
                 $toDelete = $farm->images()->whereIn('id', $request->delete_image_ids)->get();
                 foreach ($toDelete as $img) {
@@ -296,7 +324,7 @@ class ApiFarmController extends Controller
 
             DB::commit();
 
-            $farm->load(['city', 'features', 'images', 'pricing']);
+            $farm->load(['city', 'features', 'images', 'pricing', 'offers']);
             return response()->json([
                 'status' => 'success',
                 'data' => new FarmResource($farm),
@@ -327,7 +355,7 @@ class ApiFarmController extends Controller
                 }
             }
             
-            // The farm, feature relationships, images, and pricing will be deleted due to cascading constraints
+            // The farm, feature relationships, images, pricing, and offers will be deleted due to cascading constraints
             $farm->delete();
             
             DB::commit();

@@ -25,12 +25,31 @@ class IndexShowFarmResource extends JsonResource
             'passengers_count' => $this->passengers_count,
             'not_available_dates' => $this->not_available_dates,
             'formatted_not_available_dates' => $this->formatted_not_available_dates,
+
+            // Original prices
             'minimum_price' => $this->whenLoaded('pricing', function () {
                 return $this->minimum_price;
             }),
             'maximum_price' => $this->whenLoaded('pricing', function () {
                 return $this->maximum_price;
             }),
+            
+            // Prices after offer discount
+            'minimum_price_after_offer' => $this->whenLoaded('pricing', function () {
+                return $this->minimum_price_after_offer;
+            }),
+            'maximum_price_after_offer' => $this->whenLoaded('pricing', function () {
+                return $this->maximum_price_after_offer;
+            }),
+            
+            // Offer information
+            'has_valid_offer' => $this->whenLoaded('offers', function () {
+                return $this->hasValidOffer();
+            }),
+            'current_offer_percentage' => $this->whenLoaded('offers', function () {
+                return $this->getCurrentOfferPercentage();
+            }),
+
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'city' => $this->whenLoaded('city', function () {
@@ -66,5 +85,29 @@ class IndexShowFarmResource extends JsonResource
                 });
             }),
         ];
+    }
+
+    /**
+     * Calculate pricing after offer for a specific pricing model
+     */
+    private function calculatePricingAfterOffer($pricing)
+    {
+        if (!$this->hasValidOffer()) {
+            return $pricing->day_prices;
+        }
+
+        $offerPercentage = $this->getCurrentOfferPercentage();
+        $pricesAfterOffer = [];
+
+        foreach ($pricing->day_prices as $day => $price) {
+            if ($price !== null) {
+                $discount = ($price * $offerPercentage) / 100;
+                $pricesAfterOffer[$day] = max(0, $price - $discount);
+            } else {
+                $pricesAfterOffer[$day] = null;
+            }
+        }
+
+        return $pricesAfterOffer;
     }
 }

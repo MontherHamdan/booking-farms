@@ -48,6 +48,14 @@ class UpdateFarmRequest extends FormRequest
             'not_available_dates' => 'nullable|array',
             'not_available_dates.*' => 'date|after_or_equal:today',
             
+            // Offer validation
+            'offer' => 'nullable|array',
+            'offer.percentage' => 'required_with:offer|numeric|min:0|max:100',
+            'offer.start_date' => 'required_with:offer|date|after_or_equal:today',
+            'offer.end_date' => 'required_with:offer|date|after:offer.start_date',
+            'offer.is_active' => 'nullable|boolean',
+            'delete_current_offer' => 'nullable|boolean',
+            
             // Pricing validation - all optional
             'day_use_pricing' => 'nullable|array',
             'day_use_pricing.saturday_price' => 'nullable|numeric|min:0',
@@ -106,6 +114,74 @@ class UpdateFarmRequest extends FormRequest
                     }
                 }
             }
+
+            // Validate offer dates
+            if ($this->filled('offer')) {
+                $offer = $this->offer;
+                if (isset($offer['start_date']) && isset($offer['end_date'])) {
+                    try {
+                        $startDate = \Carbon\Carbon::parse($offer['start_date']);
+                        $endDate = \Carbon\Carbon::parse($offer['end_date']);
+                        
+                        if ($endDate->lte($startDate)) {
+                            $validator->errors()->add('offer.end_date', 'End date must be after start date.');
+                        }
+                    } catch (\Exception $e) {
+                        $validator->errors()->add('offer', 'Invalid offer date format.');
+                    }
+                }
+            }
         });
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'city_id.exists' => 'Selected city does not exist.',
+            'name_ar.string' => 'Arabic name must be text.',
+            'name_ar.max' => 'Arabic name cannot exceed 255 characters.',
+            'name_en.string' => 'English name must be text.',
+            'name_en.max' => 'English name cannot exceed 255 characters.',
+            'description_ar.string' => 'Arabic description must be text.',
+            'description_en.string' => 'English description must be text.',
+            'passengers_count.integer' => 'Passengers count must be a number.',
+            'passengers_count.min' => 'Passengers count must be at least 1.',
+            'features.*.exists' => 'One or more selected features do not exist.',
+            'main_image.image' => 'Main image must be a valid image file.',
+            'main_image.mimes' => 'Main image must be jpeg, png, jpg, or gif format.',
+            'main_image.max' => 'Main image size cannot exceed 2MB.',
+            'images.*.image' => 'All gallery images must be valid image files.',
+            'images.*.mimes' => 'Gallery images must be jpeg, png, jpg, or gif format.',
+            'images.*.max' => 'Gallery image size cannot exceed 2MB.',
+            
+            // Not available dates validation messages
+            'not_available_dates.array' => 'Not available dates must be an array.',
+            'not_available_dates.*.date' => 'Each not available date must be a valid date.',
+            'not_available_dates.*.after_or_equal' => 'Not available dates must be today or in the future.',
+            
+            // Offer validation messages
+            'offer.array' => 'Offer must be an object.',
+            'offer.percentage.required_with' => 'Offer percentage is required when offer is provided.',
+            'offer.percentage.numeric' => 'Offer percentage must be a number.',
+            'offer.percentage.min' => 'Offer percentage cannot be negative.',
+            'offer.percentage.max' => 'Offer percentage cannot exceed 100%.',
+            'offer.start_date.required_with' => 'Offer start date is required when offer is provided.',
+            'offer.start_date.date' => 'Offer start date must be a valid date.',
+            'offer.start_date.after_or_equal' => 'Offer start date must be today or in the future.',
+            'offer.end_date.required_with' => 'Offer end date is required when offer is provided.',
+            'offer.end_date.date' => 'Offer end date must be a valid date.',
+            'offer.end_date.after' => 'Offer end date must be after start date.',
+            'offer.is_active.boolean' => 'Offer active status must be true or false.',
+            'delete_current_offer.boolean' => 'Delete current offer must be true or false.',
+            
+            // Pricing validation messages
+            '*.*.numeric' => 'Price must be a valid number.',
+            '*.*.min' => 'Price cannot be negative.',
+        ];
     }
 }
