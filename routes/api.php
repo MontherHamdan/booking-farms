@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\ApiFarmController;
+use App\Http\Controllers\Api\ApiFavoriteFarmController;
 use App\Http\Controllers\Api\ApiFeatureController;
 use App\Http\Controllers\Api\Auth\ApiAuthController;
 use App\Http\Controllers\Api\ApiCityController;
@@ -47,5 +48,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', 'store');
         Route::put('/{farm}', 'update');
         Route::delete('/{farm}', 'destroy');
+    });
+
+    # Favorite farms management
+    Route::prefix('favorites')->controller(ApiFavoriteFarmController::class)->group(function () {
+        Route::get('/', 'index');                           
+        Route::post('/farms/{farm_id}/toggle', 'toggle');      
     });
 });
