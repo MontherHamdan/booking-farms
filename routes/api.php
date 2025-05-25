@@ -32,13 +32,12 @@ Route::get('/cities', [ApiCityController::class, 'index']);
 # Public farm routes
 Route::get('/farms', [ApiFarmController::class, 'index']);
 Route::get('/farms/{farm}', [ApiFarmController::class, 'show']);
+Route::post('/farms/filter', [ApiFarmController::class, 'filter']);
 
 # Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     # User related routes
-    Route::prefix('user')->group(function () {
-        Route::post('/logout', [ApiAuthController::class, 'logout']);
-    });
+    Route::post('/logout', [ApiAuthController::class, 'logout']);
     
     # Feature management
     Route::get('/features', [ApiFeatureController::class, 'index']);

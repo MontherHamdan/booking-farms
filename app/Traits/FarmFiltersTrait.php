@@ -21,12 +21,20 @@ trait FarmFiltersTrait
     }
 
     /**
-     * Apply city filter
+     * Apply city filter - supports single city_id or array of city_ids
      */
     private function applyCityFilter($query, Request $request)
     {
-        if ($request->has('city_id') && $request->city_id) {
-            $query->where('city_id', $request->city_id);
+        $cityId = $request->input('city_id');
+        
+        if ($cityId) {
+            if (is_array($cityId)) {
+                // Multiple cities
+                $query->whereIn('city_id', $cityId);
+            } else {
+                // Single city (backward compatibility)
+                $query->where('city_id', $cityId);
+            }
         }
         
         return $query;
@@ -92,26 +100,50 @@ trait FarmFiltersTrait
     }
 
     /**
-     * Apply available time filter (day_use, night, full_day)
+     * Apply available time filter - supports single available_time or array of available_times
      */
     private function applyAvailableTimeFilter($query, Request $request)
     {
         $availableTime = $request->input('available_time');
         
-        if ($availableTime && in_array($availableTime, ['day_use', 'night', 'full_day'])) {
-            $query->whereHas('pricing', function ($pricingQuery) use ($availableTime) {
-                $pricingQuery->where('price_type', $availableTime)
-                           ->where(function ($dayQuery) {
-                               // Ensure all days have pricing greater than 0
-                               $dayQuery->where('saturday_price', '>', 0)
-                                       ->where('sunday_price', '>', 0)
-                                       ->where('monday_price', '>', 0)
-                                       ->where('tuesday_price', '>', 0)
-                                       ->where('wednesday_price', '>', 0)
-                                       ->where('thursday_price', '>', 0)
-                                       ->where('friday_price', '>', 0);
-                           });
-            });
+        if ($availableTime) {
+            if (is_array($availableTime)) {
+                // Multiple available times - farm should have pricing for ANY of the specified times
+                $validTimes = array_intersect($availableTime, ['day_use', 'night', 'full_day']);
+                
+                if (!empty($validTimes)) {
+                    $query->whereHas('pricing', function ($pricingQuery) use ($validTimes) {
+                        $pricingQuery->whereIn('price_type', $validTimes)
+                                ->where(function ($dayQuery) {
+                                    // Ensure all days have pricing greater than 0
+                                    $dayQuery->where('saturday_price', '>', 0)
+                                            ->where('sunday_price', '>', 0)
+                                            ->where('monday_price', '>', 0)
+                                            ->where('tuesday_price', '>', 0)
+                                            ->where('wednesday_price', '>', 0)
+                                            ->where('thursday_price', '>', 0)
+                                            ->where('friday_price', '>', 0);
+                                });
+                    });
+                }
+            } else {
+                // Single available time (backward compatibility)
+                if (in_array($availableTime, ['day_use', 'night', 'full_day'])) {
+                    $query->whereHas('pricing', function ($pricingQuery) use ($availableTime) {
+                        $pricingQuery->where('price_type', $availableTime)
+                                ->where(function ($dayQuery) {
+                                    // Ensure all days have pricing greater than 0
+                                    $dayQuery->where('saturday_price', '>', 0)
+                                            ->where('sunday_price', '>', 0)
+                                            ->where('monday_price', '>', 0)
+                                            ->where('tuesday_price', '>', 0)
+                                            ->where('wednesday_price', '>', 0)
+                                            ->where('thursday_price', '>', 0)
+                                            ->where('friday_price', '>', 0);
+                                });
+                    });
+                }
+            }
         }
         
         return $query;

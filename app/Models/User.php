@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
 {
@@ -47,4 +48,14 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    /**
+     * Get the farms that the user has favorited.
+     */
+    public function favoriteFarms(): BelongsToMany
+    {
+        return $this->belongsToMany(Farm::class, 'favorite_farms', 'user_id', 'farm_id')
+                    ->withTimestamps();
+    }
+    
 }

@@ -22,6 +22,7 @@ use App\Traits\ExceptionLoggerTrait;
 use App\Traits\FarmPricingTrait;
 use App\Traits\FarmFiltersTrait;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 
 
 class ApiFarmController extends Controller
@@ -36,11 +37,23 @@ class ApiFarmController extends Controller
         try {
             $query = Farm::query();
             
-            // Apply all filters using the trait
-            $this->applyFarmFilters($query, $request);
+            // Apply only has_offer filter for GET method
+            $this->applyOfferFilter($query, $request);
             
-            $farms = $query->with(['pricing', 'city', 'user', 'features', 'images', 'offers'])->paginate($request->per_page ?? 15);
+            $relationships = ['pricing', 'city', 'user', 'features', 'images', 'offers'];
+
+            // Check for authenticated user using Sanctum guard
+            $user = Auth::guard('sanctum')->user();
             
+            // Add user-specific favorites if authenticated
+            if ($user) {
+                $relationships['favoritedBy'] = function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                };
+            }
+
+            $farms = $query->with($relationships)->paginate($request->per_page ?? 10);      
+
             // After pagination, load the images separately for each farm
             $farms->getCollection()->transform(function ($farm) {
                 // Get the main image
@@ -58,6 +71,56 @@ class ApiFarmController extends Controller
             return $this->successResponse(true, new FarmCollection($farms), null, 200);
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'fetch farms']);
+            return $this->errorResponse(__('error.internal_error'), 500);
+        }
+    }
+
+    /**
+     * Filter farms with advanced criteria (POST method)
+     * Includes all available filters
+     */
+    public function filter(Request $request): JsonResponse
+    {
+        try {
+            // Validate the request
+            $request->validate([
+                'city_id' => 'nullable|array',
+                'city_id.*' => 'integer|exists:cities,id',
+                'min_price' => 'nullable|numeric|min:0',
+                'max_price' => 'nullable|numeric|min:0',
+                'has_offer' => 'nullable|boolean',
+                'available_time' => 'nullable|array',
+                'available_time.*' => 'string|in:day_use,night,full_day',
+                'date' => 'nullable|date_format:Y-m-d|after_or_equal:today',
+                'start_date' => 'nullable|date_format:Y-m-d|after_or_equal:today',
+                'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+                'per_page' => 'nullable|integer|min:1|max:100'
+            ]);
+
+            $query = Farm::query();
+            
+            // Apply all filters using the trait
+            $this->applyFarmFilters($query, $request);
+            
+            $farms = $query->with(['pricing', 'city', 'user', 'features', 'images', 'offers'])->paginate($request->per_page ?? 10);
+            
+            // After pagination, load the images separately for each farm
+            $farms->getCollection()->transform(function ($farm) {
+                // Get the main image
+                $mainImage = $farm->images()->where('is_main', true)->get();
+                
+                // Get up to 4 non-main images
+                $nonMainImages = $farm->images()->where('is_main', false)->limit(4)->get();
+                
+                // Combine the collections
+                $farm->setRelation('images', $mainImage->concat($nonMainImages));
+                
+                return $farm;
+            });
+            
+            return $this->successResponse(true, new FarmCollection($farms), null, 200);
+        } catch (Exception $e) {
+            $this->logException($e, ['action' => 'filter farms', 'filters' => $request->all()]);
             return $this->errorResponse(__('error.internal_error'), 500);
         }
     }

@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Auth;
 
 class IndexShowFarmResource extends JsonResource
 {
@@ -14,6 +15,9 @@ class IndexShowFarmResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // Get authenticated user using Sanctum guard
+        $user = Auth::guard('sanctum')->user();
+        
         return [
             'id' => $this->id,
             'user_id' => $this->user_id,
@@ -51,6 +55,12 @@ class IndexShowFarmResource extends JsonResource
             'has_valid_offer' => $this->whenLoaded('offers', function () {
                 return $this->hasValidOffer();
             }),
+
+            // Favorite status (only when user is authenticated)
+            'is_favorite' => $this->when($user !== null, function () use ($user) {
+                return $this->isFavoriteByUser($user->id);
+            }),
+
             'current_offer_percentage' => $this->whenLoaded('offers', function () {
                 return $this->getCurrentOfferPercentage();
             }),
@@ -77,6 +87,7 @@ class IndexShowFarmResource extends JsonResource
                         'id' => $feature->id,
                         'name_ar' => $feature->name_ar,
                         'name_en' => $feature->name_en,
+                        'icon' => $feature->icon,
                     ];
                 });
             }),

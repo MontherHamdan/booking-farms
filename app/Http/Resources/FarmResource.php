@@ -73,6 +73,7 @@ class FarmResource extends JsonResource
                         'id' => $feature->id,
                         'name_ar' => $feature->name_ar,
                         'name_en' => $feature->name_en,
+                        'icon' => $feature->icon,
                     ];
                 });
             }),

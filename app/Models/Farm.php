@@ -251,4 +251,25 @@ class Farm extends Model
             ];
         }, $this->not_available_dates);
     }
+
+    /**
+     * Get users who favorited this farm.
+     */
+    public function favoritedBy(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'favorite_farms', 'farm_id', 'user_id')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Check if this farm is favorited by a specific user.
+     */
+    public function isFavoriteByUser($userId): bool
+    {
+        if (!$userId) {
+            return false;
+        }
+        
+        return $this->favoritedBy()->where('user_id', $userId)->exists();
+    }
 }
