@@ -87,6 +87,40 @@ class Farm extends Model
     }
 
     /**
+     * Get available price types (where all days have pricing).
+     */
+    public function getAvailablePriceTypesAttribute(): array
+    {
+        return $this->pricing->filter(function ($pricing) {
+            return $this->isPriceTypeComplete($pricing);
+        })->pluck('price_type')->toArray();
+    }
+
+    /**
+     * Check if a price type has complete pricing for all days.
+     */
+    private function isPriceTypeComplete($pricing): bool
+    {
+        $dayPrices = [
+            $pricing->saturday_price,
+            $pricing->sunday_price,
+            $pricing->monday_price,
+            $pricing->tuesday_price,
+            $pricing->wednesday_price,
+            $pricing->thursday_price,
+            $pricing->friday_price,
+        ];
+
+        foreach ($dayPrices as $price) {
+            if (!$price || $price <= 0) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Get all offers for the farm.
      */
     public function offers(): HasMany

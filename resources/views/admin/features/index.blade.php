@@ -39,9 +39,9 @@
                 <td class="text-center align-middle">{{ $feature->id }}</td>
                 <td class="text-center align-middle">
                   @if($feature->icon)
-                    <img src="{{ $feature->icon }}" alt="{{ $feature->name_en }}" class="img-thumbnail" width="50">
+                    <img src="{{ $feature->icon }}" alt="{{ $feature->name_en }}" width="50">
                   @else
-                    <span class="badge badge-secondary">None</span>
+                    <span class="bg bg-secondary">None</span>
                   @endif
                 </td>
                 <td class="text-center align-middle">{{ $feature->name_en }}</td>

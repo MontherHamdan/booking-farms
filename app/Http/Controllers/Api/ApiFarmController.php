@@ -20,12 +20,13 @@ use Exception;
 use App\Traits\JsonResponseTrait;
 use App\Traits\ExceptionLoggerTrait;
 use App\Traits\FarmPricingTrait;
+use App\Traits\FarmFiltersTrait;
 use Illuminate\Support\Str;
 
 
 class ApiFarmController extends Controller
 {
-    use JsonResponseTrait, ExceptionLoggerTrait, FarmPricingTrait;
+    use JsonResponseTrait, ExceptionLoggerTrait, FarmPricingTrait, FarmFiltersTrait;
 
     /**
      * Display a listing of farms.
@@ -35,20 +36,10 @@ class ApiFarmController extends Controller
         try {
             $query = Farm::query();
             
-            if ($request->has('city_id')) {
-                $query->where('city_id', $request->city_id);
-            }
+            // Apply all filters using the trait
+            $this->applyFarmFilters($query, $request);
             
-            // Filter by availability if date is provided
-            if ($request->has('available_date')) {
-                $date = $request->available_date;
-                $query->where(function ($q) use ($date) {
-                    $q->whereNull('not_available_dates')
-                      ->orWhereJsonDoesntContain('not_available_dates', $date);
-                });
-            }
-            
-            $farms = $query->with(['city', 'features', 'pricing', 'offers'])->paginate($request->per_page ?? 15);
+            $farms = $query->with(['pricing', 'city', 'user', 'features', 'images', 'offers'])->paginate($request->per_page ?? 15);
             
             // After pagination, load the images separately for each farm
             $farms->getCollection()->transform(function ($farm) {

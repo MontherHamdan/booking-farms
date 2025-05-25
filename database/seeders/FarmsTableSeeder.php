@@ -1,0 +1,141 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Http\File;
+use Illuminate\Support\Carbon;
+use App\Models\Farm;
+use App\Models\Feature;
+use App\Models\City;
+
+class FarmsTableSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // 1) Define your farms with slug for files and Arabic names
+        $farms = [
+            ['slug' => 'valancia',      'name_ar' => 'فالنسيا'],
+            ['slug' => 'taj',           'name_ar' => 'تاج'],
+            ['slug' => 'stars',         'name_ar' => 'نجوم'],
+            ['slug' => 'serein',        'name_ar' => 'سيرين'],
+            ['slug' => 'qemah',         'name_ar' => 'القمة'],
+            ['slug' => 'mountain-view', 'name_ar' => 'الجبل-مطل'],
+            ['slug' => 'monther',       'name_ar' => 'منذر'],
+            ['slug' => 'logo',          'name_ar' => 'لوجو'],
+            ['slug' => 'golden',        'name_ar' => 'الذهب'],
+            ['slug' => 'alkaram',       'name_ar' => 'الكرم'],
+        ];
+
+        // 2) Preload cities & features for random assignment
+        $cityIds = City::published()->ordered()->pluck('id')->all();
+        $featureIds = Feature::orderBy('order')->pluck('id')->all();
+
+        foreach ($farms as $index => $info) {
+            $slug = $info['slug'];
+            $nameEn = Str::title(str_replace('-', ' ', $slug));
+            $nameAr = $info['name_ar'];
+            $descriptionEn = "Enjoy a luxurious stay at {$nameEn}, featuring modern amenities, scenic views, and personalized service.";
+            $descriptionAr = "استمتع بإقامة فاخرة في {$nameAr}، مع وسائل الراحة الحديثة والإطلالات الخلابة والخدمة المميزة.";
+
+            // 3) Create farm record
+            $farm = Farm::create([
+                'user_id'             => 1,
+                'city_id'             => $cityIds[array_rand($cityIds)],
+                'name_en'             => $nameEn,
+                'name_ar'             => $nameAr,
+                'description_en'      => $descriptionEn,
+                'description_ar'      => $descriptionAr,
+                'passengers_count'    => rand(4, 20),
+                'not_available_dates' => [
+                    Carbon::now()->addDays(rand(5, 15))->toDateString(),
+                    Carbon::now()->addDays(rand(16, 30))->toDateString(),
+                ],
+            ]);
+
+            // 4) Attach a random subset of features
+            shuffle($featureIds);
+            $farm->features()->attach(array_slice($featureIds, 0, rand(3, 6)));
+
+            // 5) Create pricing entries
+            $this->createPricing($farm);
+
+            // 6) Optionally create an offer for variety
+            if ($index % 2 === 0) {
+                $start = Carbon::now()->addDays(rand(1, 10));
+                $end   = (clone $start)->addDays(rand(3, 7));
+                $farm->offers()->create([
+                    'percentage' => rand(5, 30),
+                    'start_date' => $start->toDateString(),
+                    'end_date'   => $end->toDateString(),
+                    'is_active'  => true,
+                ]);
+            }
+
+            // 7) Upload and attach images: main + gallery (1–10)
+            $this->attachImages($farm, $slug);
+
+            $this->command->info("Seeded farm: {$nameEn} ({$nameAr}) (ID: {$farm->id})");
+        }
+
+        $this->command->info('All farms seeded successfully.');
+    }
+
+    /** Create pricing for each type */
+    protected function createPricing(Farm $farm): void
+    {
+        $types = ['day_use', 'night', 'full_day'];
+        foreach ($types as $type) {
+            $farm->pricing()->create([
+                'price_type'     => $type,
+                'start_time'     => $type === 'night' ? '18:00' : '08:00',
+                'end_time'       => $type === 'day_use' ? '18:00' : ($type === 'night' ? '06:00' : '23:59'),
+                'saturday_price' => rand(100, 300),
+                'sunday_price'   => rand(100, 300),
+                'monday_price'   => rand(100, 300),
+                'tuesday_price'  => rand(100, 300),
+                'wednesday_price'=> rand(100, 300),
+                'thursday_price' => rand(100, 300),
+                'friday_price'   => rand(100, 300),
+            ]);
+        }
+    }
+
+    /** Upload main and gallery images */
+    protected function attachImages(Farm $farm, string $slug): void
+    {
+        // Use storage/app/farm_images instead of app_path
+        $base = storage_path('app/farm_images');
+
+        // Main image
+        $this->uploadAndCreateImage($farm, "{$base}/{$slug}_main.jpg", true);
+
+        // Gallery images 1–10
+        for ($i = 1; $i <= 10; $i++) {
+            $this->uploadAndCreateImage($farm, "{$base}/{$slug}_{$i}.jpg", false);
+        }
+    }
+
+    /** Helper to upload and attach */
+    protected function uploadAndCreateImage(Farm $farm, string $localPath, bool $isMain): void
+    {
+        if (! file_exists($localPath)) {
+            $this->command->warn("Missing image: {$localPath}");
+            return;
+        }
+
+        $ext      = pathinfo($localPath, PATHINFO_EXTENSION);
+        $filename = Str::slug($farm->name_en) . '-' . ($isMain ? 'main' : uniqid()) . ".{$ext}";
+
+        $file = new File($localPath);
+        $path = Storage::disk('s3')->putFileAs('farms', $file, $filename);
+        $url  = Storage::disk('s3')->url($path);
+
+        $farm->images()->create([ 'image_path' => $url, 'is_main' => $isMain ]);
+    }
+}

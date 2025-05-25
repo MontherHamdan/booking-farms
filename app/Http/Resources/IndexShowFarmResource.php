@@ -1,4 +1,4 @@
-<?php
+<?php 
 
 namespace App\Http\Resources;
 
@@ -30,16 +30,21 @@ class IndexShowFarmResource extends JsonResource
             'minimum_price' => $this->whenLoaded('pricing', function () {
                 return $this->minimum_price;
             }),
-            'maximum_price' => $this->whenLoaded('pricing', function () {
-                return $this->maximum_price;
-            }),
+            // 'maximum_price' => $this->whenLoaded('pricing', function () {
+            //     return $this->maximum_price;
+            // }),
             
             // Prices after offer discount
             'minimum_price_after_offer' => $this->whenLoaded('pricing', function () {
                 return $this->minimum_price_after_offer;
             }),
-            'maximum_price_after_offer' => $this->whenLoaded('pricing', function () {
-                return $this->maximum_price_after_offer;
+            // 'maximum_price_after_offer' => $this->whenLoaded('pricing', function () {
+            //     return $this->maximum_price_after_offer;
+            // }),
+            
+            // Available price types (only when all days have pricing)
+            'available_price_types' => $this->whenLoaded('pricing', function () {
+                return $this->getAvailablePriceTypes();
             }),
             
             // Offer information
@@ -59,11 +64,11 @@ class IndexShowFarmResource extends JsonResource
                     'name_en' => $this->city->name_en ?? '',
                 ];
             }),
-            'user' => $this->whenLoaded('user', function () {
+            'farm owner' => $this->whenLoaded('user', function () {
                 return [
                     'id' => $this->user->id,
                     'name' => $this->user->name,
-                    'email' => $this->user->email,
+                    'phone' => $this->user->phone,
                 ];
             }),
             'features' => $this->whenLoaded('features', function () {
@@ -88,26 +93,51 @@ class IndexShowFarmResource extends JsonResource
     }
 
     /**
-     * Calculate pricing after offer for a specific pricing model
+     * Get available price types where all days have pricing data.
      */
-    private function calculatePricingAfterOffer($pricing)
+    private function getAvailablePriceTypes(): array
     {
-        if (!$this->hasValidOffer()) {
-            return $pricing->day_prices;
+        $availableTypes = [];
+        
+        foreach ($this->pricing as $pricing) {
+            if ($this->isPriceTypeComplete($pricing)) {
+                $availableTypes[] = [
+                    'type' => $pricing->price_type,
+                    'start_time' => $pricing->formatted_start_time,
+                    'end_time' => $pricing->formatted_end_time,
+                    'time_range' => $pricing->time_range,
+                    'duration_hours' => $pricing->duration_in_hours,
+                    'min_price' => $pricing->min_price,
+                    // 'max_price' => $pricing->max_price,
+                ];
+            }
         }
+        
+        return $availableTypes;
+    }
 
-        $offerPercentage = $this->getCurrentOfferPercentage();
-        $pricesAfterOffer = [];
+    /**
+     * Check if a price type has complete pricing data for all days.
+     */
+    private function isPriceTypeComplete($pricing): bool
+    {
+        $dayPrices = [
+            $pricing->saturday_price,
+            $pricing->sunday_price,
+            $pricing->monday_price,
+            $pricing->tuesday_price,
+            $pricing->wednesday_price,
+            $pricing->thursday_price,
+            $pricing->friday_price,
+        ];
 
-        foreach ($pricing->day_prices as $day => $price) {
-            if ($price !== null) {
-                $discount = ($price * $offerPercentage) / 100;
-                $pricesAfterOffer[$day] = max(0, $price - $discount);
-            } else {
-                $pricesAfterOffer[$day] = null;
+        // Check if all days have prices greater than 0
+        foreach ($dayPrices as $price) {
+            if (!$price || $price <= 0) {
+                return false;
             }
         }
 
-        return $pricesAfterOffer;
+        return true;
     }
 }

@@ -60,11 +60,11 @@ class FarmResource extends JsonResource
                     'name_en' => $this->city->name_en ?? '',
                 ];
             }),
-            'user' => $this->whenLoaded('user', function () {
+            'farm owner' => $this->whenLoaded('user', function () {
                 return [
                     'id' => $this->user->id,
                     'name' => $this->user->name,
-                    'email' => $this->user->email,
+                    'phone' => $this->user->phone,
                 ];
             }),
             'features' => $this->whenLoaded('features', function () {

@@ -22,7 +22,7 @@ class CityController extends Controller
     public function index()
     {
         try {
-            $cities = City::orderBy('order', 'asc')->paginate(10);
+            $cities = City::orderBy('order', 'asc')->paginate(12);
             
             return view('admin.cities.index', compact('cities'));
         } catch (\Exception $e) {
