@@ -67,8 +67,8 @@ class FarmsTableSeeder extends Seeder
 
             // 6) Optionally create an offer for variety
             if ($index % 2 === 0) {
-                $start = Carbon::now()->addDays(rand(1, 10));
-                $end   = (clone $start)->addDays(rand(3, 7));
+                $start = Carbon::now();
+                $end   = (clone $start)->addDays(rand(50, 100));
                 $farm->offers()->create([
                     'percentage' => rand(5, 30),
                     'start_date' => $start->toDateString(),

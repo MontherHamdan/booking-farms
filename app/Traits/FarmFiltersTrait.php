@@ -16,7 +16,7 @@ trait FarmFiltersTrait
         $this->applyPriceRangeFilter($query, $request);
         $this->applyAvailableTimeFilter($query, $request);
         $this->applyDateAvailabilityFilter($query, $request);
-        
+        $this->applyOfferFilter($query, $request);
         return $query;
     }
 
