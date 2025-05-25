@@ -23,7 +23,8 @@ use App\Traits\FarmPricingTrait;
 use App\Traits\FarmFiltersTrait;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
-
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Validator;
 
 class ApiFarmController extends Controller
 {
@@ -82,8 +83,8 @@ class ApiFarmController extends Controller
     public function filter(Request $request): JsonResponse
     {
         try {
-            // Validate the request
-            $request->validate([
+            // Validate the request with localized messages and attributes
+            $validator = Validator::make($request->all(), [
                 'city_id' => 'nullable|array',
                 'city_id.*' => 'integer|exists:cities,id',
                 'min_price' => 'nullable|numeric|min:0',
@@ -95,7 +96,11 @@ class ApiFarmController extends Controller
                 'start_date' => 'nullable|date_format:Y-m-d|after_or_equal:today',
                 'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
                 'per_page' => 'nullable|integer|min:1|max:100'
-            ]);
+            ], __('farm.validation'), __('farm.attributes'));
+
+            if ($validator->fails()) {
+                return $this->errorResponse($validator->errors(), 422);
+            }
 
             $query = Farm::query();
             
@@ -118,13 +123,83 @@ class ApiFarmController extends Controller
                 return $farm;
             });
             
-            return $this->successResponse(true, new FarmCollection($farms), null, 200);
+            return $this->successResponse(true, new FarmCollection($farms), __('farm.farms_filtered_successfully'), 200);
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'filter farms', 'filters' => $request->all()]);
             return $this->errorResponse(__('error.internal_error'), 500);
         }
     }
 
+    /**
+     * Calculate farm price based on selected dates and price type.
+     */
+    public function calculatePrice(Request $request, $farmId): JsonResponse
+    {
+        try {
+            // Validate with localized messages and attributes
+            $validator = Validator::make($request->all(), [
+                'dates' => 'required|array|min:1',
+                'dates.*' => 'required|date|after_or_equal:today',
+                'price_type' => 'required|string|in:day_use,night,full_day'
+            ], __('farm.validation'), __('farm.attributes'));
+
+            if ($validator->fails()) {
+                return $this->errorResponse($validator->errors(), 422);
+            }
+
+            // Fetch farm with pricing and offers
+            $farm = Farm::with(['pricing', 'offers'])->find($farmId);
+            
+            if (!$farm) {
+                return $this->errorResponse(__('farm.not_found', ['id' => $farmId]), 404);
+            }
+
+            $dates = $request->dates;
+            $priceType = $request->price_type;
+
+            // Get pricing for selected type
+            $pricing = $farm->pricing()->where('price_type', $priceType)->first();
+            if (!$pricing) {
+                return $this->errorResponse(__('farm.pricing_not_available', ['price_type' => __('farm.price_types.' . $priceType)]), 400);
+            }
+
+            // Ensure none of the dates are blocked
+            $unavailable = array_intersect($dates, $farm->not_available_dates ?? []);
+            if ($unavailable) {
+                return $this->errorResponse(__('farm.unavailable_dates', ['dates' => implode(', ', $unavailable)]), 400);
+            }
+
+            // Calculate subtotal before discount
+            $subtotal = collect($dates)->sum(function ($date) use ($pricing) {
+                $day = strtolower(Carbon::parse($date)->format('l'));
+                return $pricing->{"{$day}_price"} ?? 0;
+            });
+
+            // Determine current offer percentage
+            $offer = $farm->currentOffer;
+            $percentage = $offer->percentage ?? 0;
+
+            // Compute discount and final total
+            $discountAmount = ($subtotal * $percentage) / 100;
+            $total = $subtotal - $discountAmount;
+
+            // Simplified response with offer details
+            $data = [
+                'price_before_offer' => $subtotal,
+                'offer_percentage'   => $percentage,
+                'is_offer'           => $percentage > 0,
+                'discount_amount'    => $discountAmount,
+                'price_after_offer'  => $total,
+            ];
+            
+            return $this->successResponse(true, $data, __('farm.price_calculated_successfully'), 200);
+
+        } catch (Exception $e) {
+            $this->logException($e, ['action' => 'calculate farm price', 'farm_id' => $farmId]);
+            return $this->errorResponse(__('error.internal_error'), 500);
+        }
+    }
+    
     /**
      * Store a newly created farm in storage.
      */
@@ -246,15 +321,19 @@ class ApiFarmController extends Controller
     /**
      * Display the specified farm.
      */
-    public function show(Farm $farm): JsonResponse
+    public function show($farm_id): JsonResponse
     {
         try {
-            $farm->load(['city', 'features', 'images', 'user', 'pricing', 'offers']);
+            $farm = Farm::with(['city', 'features', 'images', 'user', 'pricing', 'offers'])->find($farm_id);
+
+            if (!$farm) {
+                return $this->errorResponse(__('farm.not_found', ['id' => $farm_id]), 404);
+            }
             
             return $this->successResponse(true, new IndexShowFarmResource($farm), null, 200);
 
         } catch (Exception $e) {
-            $this->logException($e, ['action' => 'show farm', 'id' => $farm->id]);
+            $this->logException($e, ['action' => 'show farm', 'id' => $farm_id]);
             return $this->errorResponse(__('error.internal_error'), 500);
         }    
     }

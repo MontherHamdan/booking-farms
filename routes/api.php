@@ -31,8 +31,9 @@ Route::get('/cities', [ApiCityController::class, 'index']);
 
 # Public farm routes
 Route::get('/farms', [ApiFarmController::class, 'index']);
-Route::get('/farms/{farm}', [ApiFarmController::class, 'show']);
+Route::get('/farms/{farm_id}', [ApiFarmController::class, 'show']);
 Route::post('/farms/filter', [ApiFarmController::class, 'filter']);
+Route::post('/farms/{farm}/calculate-price', [ApiFarmController::class, 'calculatePrice']);
 
 # Protected routes
 Route::middleware('auth:sanctum')->group(function () {
