@@ -18,7 +18,6 @@ class UsersTableSeeder extends Seeder
      */
     public function run(): void
     {
-        $faker = Faker::create();
 
         // 1) Create a known admin user
         User::create([
@@ -32,21 +31,6 @@ class UsersTableSeeder extends Seeder
             'phone_verified_at' => Carbon::now(),
         ]);
 
-        // 2) Generate 10 random users
-        for ($i = 0; $i < 10; $i++) {
-            $phone = $faker->numerify('07########');
-            User::create([
-                'name'              => $faker->name,
-                'phone'             => $phone,
-                'city'              => City::inRandomOrder()->value('id'),
-                'password'          => Hash::make('password'),
-                'otp_code'          => $faker->numerify('######'),
-                'otp_expires_at'    => Carbon::now()->addMinutes(10),
-                'security_token'    => Str::random(60),
-                'phone_verified_at' => $faker->boolean(80) ? Carbon::now() : null,
-            ]);
-        }
-
-        $this->command->info('Users seeded: 1 admin + 10 random.');
+        $this->command->info('Users seeded: 1 admin ');
     }
 }
