@@ -14,8 +14,10 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('phone');
+            $table->string('email')->unique()->nullable();        
+            $table->string('phone')->unique()->nullable();          
             $table->string('city');
+            $table->string('avatar')->nullable();
             $table->timestamp('phone_verified_at')->nullable();
 
             // add columns to hold the OTP code and expiry

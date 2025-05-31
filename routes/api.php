@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ApiFavoriteFarmController;
 use App\Http\Controllers\Api\ApiFeatureController;
 use App\Http\Controllers\Api\Auth\ApiAuthController;
 use App\Http\Controllers\Api\ApiCityController;
+use App\Http\Controllers\Api\ApiUserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -37,9 +38,19 @@ Route::post('/farms/{farm}/calculate-price', [ApiFarmController::class, 'calcula
 
 # Protected routes
 Route::middleware('auth:sanctum')->group(function () {
-    # User related routes
+
+    // logout api
     Route::post('/logout', [ApiAuthController::class, 'logout']);
-    
+
+    # User related routes 
+    Route::prefix('users')->controller(ApiUserController::class)->group(function () {
+        Route::post('/logout', 'logout');
+        Route::get('/profile', 'profile');
+        Route::put('/update-profile', 'updateProfile');
+        Route::post('/update-avatar', 'updateAvatar');
+        Route::delete('/delete-avatar', 'deleteAvatar');
+    });    
+
     # Feature management
     Route::get('/features', [ApiFeatureController::class, 'index']);
 

@@ -223,7 +223,7 @@ class Farm extends Model
      */
     public function getMinimumPriceAfterOfferAttribute(): float
     {
-        return $this->getPriceAfterOffer($this->minimum_price);
+        return round($this->getPriceAfterOffer($this->minimum_price), 2);
     }
 
     /**
@@ -231,7 +231,7 @@ class Farm extends Model
      */
     public function getMaximumPriceAfterOfferAttribute(): float
     {
-        return $this->getPriceAfterOffer($this->maximum_price);
+        return round($this->getPriceAfterOffer($this->maximum_price), 2);
     }
 
     /**

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreFarmRequest;
 use App\Http\Requests\UpdateFarmRequest;
+use App\Http\Requests\FilterFarmRequest;
+use App\Http\Requests\CalculatePriceRequest;
 use App\Http\Resources\FarmCollection;
 use App\Http\Resources\FarmResource;
 use App\Http\Resources\IndexShowFarmResource;
@@ -80,27 +82,9 @@ class ApiFarmController extends Controller
      * Filter farms with advanced criteria (POST method)
      * Includes all available filters
      */
-    public function filter(Request $request): JsonResponse
+    public function filter(FilterFarmRequest $request): JsonResponse
     {
         try {
-            // Validate the request with localized messages and attributes
-            $validator = Validator::make($request->all(), [
-                'city_id' => 'nullable|array',
-                'city_id.*' => 'integer|exists:cities,id',
-                'min_price' => 'nullable|numeric|min:0',
-                'max_price' => 'nullable|numeric|min:0',
-                'has_offer' => 'nullable|boolean',
-                'available_time' => 'nullable|array',
-                'available_time.*' => 'string|in:day_use,night,full_day',
-                'date' => 'nullable|date_format:Y-m-d|after_or_equal:today',
-                'start_date' => 'nullable|date_format:Y-m-d|after_or_equal:today',
-                'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
-                'per_page' => 'nullable|integer|min:1|max:100'
-            ], __('farm.validation'), __('farm.attributes'));
-
-            if ($validator->fails()) {
-                return $this->errorResponse($validator->errors(), 422);
-            }
 
             $query = Farm::query();
             
@@ -123,7 +107,7 @@ class ApiFarmController extends Controller
                 return $farm;
             });
             
-            return $this->successResponse(true, new FarmCollection($farms), __('farm.farms_filtered_successfully'), 200);
+            return $this->successResponse(true, new FarmCollection($farms), null, 200);
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'filter farms', 'filters' => $request->all()]);
             return $this->errorResponse(__('error.internal_error'), 500);
@@ -133,19 +117,9 @@ class ApiFarmController extends Controller
     /**
      * Calculate farm price based on selected dates and price type.
      */
-    public function calculatePrice(Request $request, $farmId): JsonResponse
+    public function calculatePrice(CalculatePriceRequest $request, $farmId): JsonResponse
     {
         try {
-            // Validate with localized messages and attributes
-            $validator = Validator::make($request->all(), [
-                'dates' => 'required|array|min:1',
-                'dates.*' => 'required|date|after_or_equal:today',
-                'price_type' => 'required|string|in:day_use,night,full_day'
-            ], __('farm.validation'), __('farm.attributes'));
-
-            if ($validator->fails()) {
-                return $this->errorResponse($validator->errors(), 422);
-            }
 
             // Fetch farm with pricing and offers
             $farm = Farm::with(['pricing', 'offers'])->find($farmId);
@@ -192,7 +166,7 @@ class ApiFarmController extends Controller
                 'price_after_offer'  => $total,
             ];
             
-            return $this->successResponse(true, $data, __('farm.price_calculated_successfully'), 200);
+            return $this->successResponse(true, $data, null, 200);
 
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'calculate farm price', 'farm_id' => $farmId]);

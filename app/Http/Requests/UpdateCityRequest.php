@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\City;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateCityRequest extends FormRequest
 {
@@ -15,7 +16,7 @@ class UpdateCityRequest extends FormRequest
      */
     public function authorize()
     {
-        return true; 
+        return Auth::check();
     }
 
     /**
