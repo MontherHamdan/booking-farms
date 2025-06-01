@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // User‐related (under /users)
     Route::prefix('users')->controller(ApiUserProfileController::class)->group(function () {
         Route::get('/profile',        'profile');
+        Route::get('/avatar',        'getAvatar');
         Route::put('/update-profile', 'updateProfile');
         Route::post('/update-avatar', 'updateAvatar');
         Route::delete('/delete-avatar','deleteAvatar');

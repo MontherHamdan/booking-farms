@@ -41,6 +41,32 @@ class ApiUserProfileController extends Controller
         }
     }
 
+    public function getAvatar(Request $request)
+    {
+        /**
+         * Get authenticated user avatar.
+         *
+         * This method returns only the user's avatar URL.
+         *
+         * @param \Illuminate\Http\Request $request
+         * @return \Illuminate\Http\JsonResponse
+         */
+        try {
+            $user = $request->user();
+            
+            return $this->successResponse(true, [
+                'avatar' => $user->avatar,
+            ], null, 200);
+            
+        } catch (\Exception $e) {
+            $this->logException($e, [
+                'user_id' => $request->user()->id,
+            ]);
+
+            return $this->errorResponse(__('error.internal_error'), 500);
+        }
+    }
+
     public function updateProfile(UpdateProfileRequest $request)
     {
         /**
@@ -121,7 +147,6 @@ class ApiUserProfileController extends Controller
 
             return $this->successResponse(true, [
                 'message'    => __('auth.avatar_updated_successfully'),
-                'avatar_url' => $avatarUrl,
                 'user'       => new UserResource($user->fresh()),
             ], null, 200);
 
