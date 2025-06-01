@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Api\Users;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
@@ -11,10 +11,10 @@ use App\Traits\ExceptionLoggerTrait;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use App\Http\Requests\UpdateProfileRequest;
-use App\Http\Requests\UpdateAvatarRequest;
+use App\Http\Requests\User\UpdateProfileRequest;
+use App\Http\Requests\User\UpdateAvatarRequest;
 
-class ApiUserController extends Controller
+class ApiUserProfileController extends Controller
 {
     use JsonResponseTrait, ExceptionLoggerTrait;
 
@@ -96,7 +96,7 @@ class ApiUserController extends Controller
          * @return \Illuminate\Http\JsonResponse
          */
         try {
-            $user = Auth::user();
+            $user = $request->user();
             
             // Delete old avatar if present
             if ($user->avatar) {

@@ -1,10 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Dashboard;
 
-use App\Models\Order;
-use Illuminate\Http\Request;
-use DB;
+use App\Http\Controllers\Controller;
 use App\Models\User;
 
 class DashboardController extends Controller

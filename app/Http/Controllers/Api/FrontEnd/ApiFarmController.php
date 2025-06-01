@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Api\FrontEnd;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreFarmRequest;
-use App\Http\Requests\UpdateFarmRequest;
-use App\Http\Requests\FilterFarmRequest;
-use App\Http\Requests\CalculatePriceRequest;
+use App\Http\Requests\FarmOwner\StoreFarmRequest;
+use App\Http\Requests\FarmOwner\UpdateFarmRequest;
+use App\Http\Requests\FrontEnd\FilterFarmRequest;
+use App\Http\Requests\FrontEnd\CalculatePriceRequest;
 use App\Http\Resources\FarmCollection;
 use App\Http\Resources\FarmResource;
 use App\Http\Resources\IndexShowFarmResource;
@@ -112,6 +112,26 @@ class ApiFarmController extends Controller
             $this->logException($e, ['action' => 'filter farms', 'filters' => $request->all()]);
             return $this->errorResponse(__('error.internal_error'), 500);
         }
+    }
+
+    /**
+     * Display the specified farm.
+     */
+    public function show($farm_id): JsonResponse
+    {
+        try {
+            $farm = Farm::with(['city', 'features', 'images', 'user', 'pricing', 'offers'])->find($farm_id);
+
+            if (!$farm) {
+                return $this->errorResponse(__('farm.not_found', ['id' => $farm_id]), 404);
+            }
+            
+            return $this->successResponse(true, new IndexShowFarmResource($farm), null, 200);
+
+        } catch (Exception $e) {
+            $this->logException($e, ['action' => 'show farm', 'id' => $farm_id]);
+            return $this->errorResponse(__('error.internal_error'), 500);
+        }    
     }
 
     /**
@@ -292,25 +312,7 @@ class ApiFarmController extends Controller
         }
     }
 
-    /**
-     * Display the specified farm.
-     */
-    public function show($farm_id): JsonResponse
-    {
-        try {
-            $farm = Farm::with(['city', 'features', 'images', 'user', 'pricing', 'offers'])->find($farm_id);
-
-            if (!$farm) {
-                return $this->errorResponse(__('farm.not_found', ['id' => $farm_id]), 404);
-            }
-            
-            return $this->successResponse(true, new IndexShowFarmResource($farm), null, 200);
-
-        } catch (Exception $e) {
-            $this->logException($e, ['action' => 'show farm', 'id' => $farm_id]);
-            return $this->errorResponse(__('error.internal_error'), 500);
-        }    
-    }
+ 
 
     /**
      * Update the specified farm in storage.

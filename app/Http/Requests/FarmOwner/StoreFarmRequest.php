@@ -1,12 +1,11 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\FarmOwner;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 
-class UpdateFarmRequest extends FormRequest
+class StoreFarmRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -23,8 +22,6 @@ class UpdateFarmRequest extends FormRequest
      */
     public function rules(): array
     {
-        $farm = $this->route('farm');
-        
         return [
             'city_id' => 'nullable|exists:cities,id',
             'name_ar' => 'nullable|string|max:255',
@@ -34,16 +31,10 @@ class UpdateFarmRequest extends FormRequest
             'passengers_count' => 'nullable|integer|min:1',
             'features' => 'nullable|array',
             'features.*' => 'exists:features,id',
+            'features_string' => 'nullable|string',
             'main_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'images' => 'nullable|array',
             'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
-            'delete_image_ids' => 'nullable|array',
-            'delete_image_ids.*' => [
-                'integer',
-                Rule::exists('farm_images', 'id')->where(function ($query) use ($farm) {
-                    $query->where('farm_id', $farm->id);
-                }),
-            ],
             
             // Not available dates validation
             'not_available_dates' => 'nullable|array',
@@ -55,7 +46,6 @@ class UpdateFarmRequest extends FormRequest
             'offer.start_date' => 'required_with:offer|date|after_or_equal:today',
             'offer.end_date' => 'required_with:offer|date|after:offer.start_date',
             'offer.is_active' => 'nullable|boolean',
-            'delete_current_offer' => 'nullable|boolean',
             
             // Pricing validation - all optional
             'day_use_pricing' => 'nullable|array',
@@ -96,6 +86,11 @@ class UpdateFarmRequest extends FormRequest
     public function withValidator($validator)
     {
         $validator->after(function ($validator) {
+            // Ensure at least one name is provided
+            if (empty($this->name_ar) && empty($this->name_en)) {
+                $validator->errors()->add('name', 'At least one name (Arabic or English) is required.');
+            }
+
             // Validate not available dates for duplicates
             if ($this->filled('not_available_dates')) {
                 $dates = $this->not_available_dates;
@@ -178,7 +173,6 @@ class UpdateFarmRequest extends FormRequest
             'offer.end_date.date' => 'Offer end date must be a valid date.',
             'offer.end_date.after' => 'Offer end date must be after start date.',
             'offer.is_active.boolean' => 'Offer active status must be true or false.',
-            'delete_current_offer.boolean' => 'Delete current offer must be true or false.',
             
             // Pricing validation messages
             '*.*.numeric' => 'Price must be a valid number.',

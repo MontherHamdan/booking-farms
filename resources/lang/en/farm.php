@@ -9,6 +9,14 @@ return [
     
     'fields_retrieved_successfully' => 'Farm form fields retrieved successfully',
     'farms_filtered_successfully' => 'Farms filtered successfully',
+
+    // keys for rating-related errors/successes:
+    'already_rated'           => 'You have already rated this farm.',
+    'no_existing_rating'      => 'No existing rating found for this farm.',
+    'not_yet_rated'           => 'You have not rated this farm.',
+    'rating_deleted_success'  => 'Rating deleted successfully.',
+    'rating_created_success' => 'Rating created successfully.',
+    'rating_updated_success' => 'Rating updated successfully.',
     
     'validation' => [
         // Filter validation messages
@@ -43,6 +51,31 @@ return [
         'price_type.required' => 'Price type is required',
         'price_type.string' => 'Price type must be a string',
         'price_type.in' => 'The selected price type is invalid. Allowed values: day_use, night, full_day',
+
+        'rating' => [
+            'required'     => 'Please provide a rating.',
+            'numeric'      => 'Rating must be a valid number.',
+            'min'          => 'Rating must be at least :min.',
+            'max'          => 'Rating cannot exceed :max.',
+            'increments'   => 'Rating must be between 1.0 and 5.0 in 0.5 increments (e.g., 1.0, 1.5, 2.0, etc.).',
+        ],
+
+        'review' => [
+            'string'      => 'Review must be a valid text.',
+            'max'         => 'Review cannot exceed :max characters.',
+        ],
+
+        'ratings' => [
+            'per_page.integer'   => 'Per page must be a number.',
+            'per_page.min'       => 'Per page must be at least :min.',
+            'per_page.max'       => 'Per page cannot exceed :max.',
+
+            'sort_by.in'         => 'Sort by must be one of: :values (newest, oldest, highest_rating).',
+
+            'star_filter.integer'=> 'Star filter must be a number.',
+            'star_filter.min'    => 'Star filter must be at least :min.',
+            'star_filter.max'    => 'Star filter cannot exceed :max.',
+        ],
     ],
     
     'attributes' => [
@@ -57,6 +90,13 @@ return [
         'per_page' => 'Per Page',
         'dates' => 'Dates',
         'price_type' => 'Price Type',
+        'rating'  => 'Rating',
+        'review'  => 'Review',
+        'ratings' => [
+            'per_page'   => 'Per Page',
+            'sort_by'    => 'Sort By',
+            'star_filter'=> 'Star Filter',
+        ],
     ],
     
     'price_types' => [

@@ -1,9 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\CityController;
-use App\Http\Controllers\FeatureController;
+use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\Dashboard\CityController;
+use App\Http\Controllers\Dashboard\FeatureController;
 
 /*
 |--------------------------------------------------------------------------

@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreFeatureRequest;
-use App\Http\Requests\UpdateFeatureRequest;
+use App\Http\Requests\Dashboard\StoreFeatureRequest;
+use App\Http\Requests\Dashboard\UpdateFeatureRequest;
 use App\Models\Feature;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;

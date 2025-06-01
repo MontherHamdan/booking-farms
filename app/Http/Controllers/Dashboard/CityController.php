@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreCityRequest;
-use App\Http\Requests\UpdateCityRequest;
+use App\Http\Requests\Dashboard\StoreCityRequest;
+use App\Http\Requests\Dashboard\UpdateCityRequest;
 use App\Models\City;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;

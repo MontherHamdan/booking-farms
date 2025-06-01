@@ -87,6 +87,14 @@ class Farm extends Model
     }
 
     /**
+     * Get all ratings for the farm.
+     */
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(FarmRating::class);
+    }
+
+    /**
      * Get available price types (where all days have pricing).
      */
     public function getAvailablePriceTypesAttribute(): array
@@ -271,5 +279,101 @@ class Farm extends Model
         }
         
         return $this->favoritedBy()->where('user_id', $userId)->exists();
+    }
+
+    /**
+     * Get the average rating for this farm.
+     */
+    public function getAverageRatingAttribute(): float
+    {
+        return round($this->ratings()->avg('rating') ?? 0, 1);
+    }
+
+    /**
+     * Get the total number of ratings for this farm.
+     */
+    public function getTotalRatingsAttribute(): int
+    {
+        return $this->ratings()->count();
+    }
+
+    /**
+     * Get rating breakdown (count of each rating value).
+     */
+    public function getRatingBreakdownAttribute(): array
+    {
+        $breakdown = [
+            '1' => 0,
+            '2' => 0,
+            '3' => 0,
+            '4' => 0,
+            '5' => 0
+        ];
+        
+        // Get all ratings grouped by star level
+        $ratings = $this->ratings()
+            ->selectRaw('FLOOR(CAST(rating AS DECIMAL(2,1))) as star_level, COUNT(*) as count')
+            ->groupBy('star_level')
+            ->get();
+        
+        foreach ($ratings as $ratingData) {
+            $starLevel = (string)$ratingData->star_level;
+            if (isset($breakdown[$starLevel])) {
+                $breakdown[$starLevel] = $ratingData->count;
+            }
+        }
+        
+        return $breakdown;
+    }
+
+    /**
+     * Get the latest ratings for this farm.
+     */
+    public function getLatestRatingsAttribute()
+    {
+        return $this->ratings()
+                    ->with('user:id,name')
+                    ->latest()
+                    ->limit(5)
+                    ->get();
+    }
+
+    /**
+     * Check if a specific user has rated this farm.
+     */
+    public function isRatedByUser($userId): bool
+    {
+        if (!$userId) {
+            return false;
+        }
+        
+        return $this->ratings()->where('user_id', $userId)->exists();
+    }
+
+    /**
+     * Get the rating given by a specific user.
+     */
+    public function getUserRating($userId)
+    {
+        if (!$userId) {
+            return null;
+        }
+        
+        return $this->ratings()->where('user_id', $userId)->first();
+    }
+
+    /**
+     * Get formatted average rating display.
+     */
+    public function getFormattedRatingAttribute(): string
+    {
+        $average = $this->average_rating;
+        $total = $this->total_ratings;
+        
+        if ($total === 0) {
+            return 'No ratings yet';
+        }
+        
+        return $average . ' (' . $total . ' rating' . ($total != 1 ? 's' : '') . ')';
     }
 }

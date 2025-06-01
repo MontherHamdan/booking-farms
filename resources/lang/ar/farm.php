@@ -9,6 +9,14 @@ return [
     
     'fields_retrieved_successfully' => 'تم استرداد حقول نموذج المزرعة بنجاح',
     'farms_filtered_successfully' => 'تم تصفية المزارع بنجاح',
+
+    // keys for rating-related errors/successes:
+    'already_rated'           => 'لقد قمت بتقييم هذه المزرعة بالفعل.',
+    'no_existing_rating'      => 'لا يوجد تقييم حالي لهذه المزرعة.',
+    'not_yet_rated'           => 'لم تقم بتقييم هذه المزرعة بعد.',
+    'rating_deleted_success'  => 'تم حذف التقييم بنجاح.',
+    'rating_created_success' => 'تم إنشاء التقييم بنجاح.',
+    'rating_updated_success' => 'تم تحديث التقييم بنجاح.',
     
     'validation' => [
         // Filter validation messages
@@ -43,6 +51,31 @@ return [
         'price_type.required' => 'نوع السعر مطلوب',
         'price_type.string' => 'نوع السعر يجب أن يكون نصًا',
         'price_type.in' => 'نوع السعر المحدد غير صالح. القيم المسموحة: استخدام يومي، ليلي، يوم كامل',
+
+        'rating' => [
+            'required'     => 'الرجاء إدخال التقييم.',
+            'numeric'      => 'يجب أن يكون التقييم رقمًا صالحًا.',
+            'min'          => 'يجب أن يكون التقييم على الأقل :min.',
+            'max'          => 'لا يمكن أن يتجاوز التقييم :max.',
+            'increments'   => 'يجب أن يكون التقييم بين 1.0 و 5.0 بفواصل 0.5 (مثلاً 1.0، 1.5، 2.0، إلخ).',
+        ],
+
+        'review' => [
+            'string'      => 'يجب أن تكون المراجعة نصًا صالحًا.',
+            'max'         => 'لا يمكن أن تتجاوز المراجعة :max حرفًا.',
+        ],
+
+        'ratings' => [
+            'per_page.integer'   => 'حقل عدد العناصر في الصفحة يجب أن يكون رقماً.',
+            'per_page.min'       => 'يجب أن تكون عدد العناصر في الصفحة على الأقل :min.',
+            'per_page.max'       => 'لا يمكن أن تتجاوز عدد العناصر في الصفحة :max.',
+
+            'sort_by.in'         => 'حقل الفرز يجب أن يكون واحداً من: :values (newest, oldest, highest_rating).',
+
+            'star_filter.integer'=> 'حقل تصفية النجوم يجب أن يكون رقماً.',
+            'star_filter.min'    => 'حقل تصفية النجوم يجب أن يكون على الأقل :min.',
+            'star_filter.max'    => 'حقل تصفية النجوم لا يمكن أن يتجاوز :max.',
+        ],
     ],
     
     'attributes' => [
@@ -57,6 +90,13 @@ return [
         'per_page' => 'عدد العناصر في الصفحة',
         'dates' => 'التواريخ',
         'price_type' => 'نوع السعر',
+        'rating'  => 'التقييم',
+        'review'  => 'المراجعة',
+        'ratings' => [
+            'per_page'   => 'عدد العناصر في الصفحة',
+            'sort_by'    => 'طريقة الفرز',
+            'star_filter'=> 'تصفية النجوم',
+        ],
     ],
     
     'price_types' => [
