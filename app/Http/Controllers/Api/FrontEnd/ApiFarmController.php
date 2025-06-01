@@ -9,7 +9,7 @@ use App\Http\Requests\FrontEnd\FilterFarmRequest;
 use App\Http\Requests\FrontEnd\CalculatePriceRequest;
 use App\Http\Resources\FarmCollection;
 use App\Http\Resources\FarmResource;
-use App\Http\Resources\IndexShowFarmResource;
+use App\Http\Resources\ShowFarmResource;
 use App\Models\Farm;
 use App\Models\FarmImage;
 use App\Models\FarmPricing;
@@ -43,7 +43,7 @@ class ApiFarmController extends Controller
             // Apply only has_offer filter for GET method
             $this->applyOfferFilter($query, $request);
             
-            $relationships = ['pricing', 'city', 'user', 'features', 'images', 'offers'];
+            $relationships = ['pricing', 'city', 'user', 'features', 'images', 'offers', 'ratings'];
 
             // Check for authenticated user using Sanctum guard
             $user = Auth::guard('sanctum')->user();
@@ -91,7 +91,7 @@ class ApiFarmController extends Controller
             // Apply all filters using the trait
             $this->applyFarmFilters($query, $request);
             
-            $farms = $query->with(['pricing', 'city', 'user', 'features', 'images', 'offers'])->paginate($request->per_page ?? 10);
+            $farms = $query->with(['pricing', 'city', 'user', 'features', 'images', 'offers', 'ratings'])->paginate($request->per_page ?? 10);
             
             // After pagination, load the images separately for each farm
             $farms->getCollection()->transform(function ($farm) {
@@ -120,13 +120,13 @@ class ApiFarmController extends Controller
     public function show($farm_id): JsonResponse
     {
         try {
-            $farm = Farm::with(['city', 'features', 'images', 'user', 'pricing', 'offers'])->find($farm_id);
+            $farm = Farm::with(['city', 'features', 'images', 'user', 'pricing', 'offers', 'ratings'])->find($farm_id);
 
             if (!$farm) {
                 return $this->errorResponse(__('farm.not_found', ['id' => $farm_id]), 404);
             }
             
-            return $this->successResponse(true, new IndexShowFarmResource($farm), null, 200);
+            return $this->successResponse(true, new ShowFarmResource($farm), null, 200);
 
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'show farm', 'id' => $farm_id]);

@@ -16,7 +16,7 @@ class FarmCollection extends ResourceCollection
     {
         return [
             'data' => $this->collection->map(function ($farm) {
-                return new IndexShowFarmResource($farm);
+                return new IndexFarmResource($farm);
             }),
             'meta' => [
                 'total' => $this->total(),

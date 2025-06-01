@@ -332,48 +332,23 @@ class Farm extends Model
     public function getLatestRatingsAttribute()
     {
         return $this->ratings()
-                    ->with('user:id,name')
+                    ->with('user:id,name,avatar')
                     ->latest()
                     ->limit(5)
                     ->get();
     }
 
     /**
-     * Check if a specific user has rated this farm.
+     * Get average rating for display: null if less than 3 ratings, actual average if 3+ ratings.
      */
-    public function isRatedByUser($userId): bool
+    public function getDisplayAverageRatingAttribute(): ?float
     {
-        if (!$userId) {
-            return false;
+        $ratingsCount = $this->total_ratings;
+        
+        if ($ratingsCount >= 3) {
+            return $this->average_rating;
         }
         
-        return $this->ratings()->where('user_id', $userId)->exists();
-    }
-
-    /**
-     * Get the rating given by a specific user.
-     */
-    public function getUserRating($userId)
-    {
-        if (!$userId) {
-            return null;
-        }
-        
-        return $this->ratings()->where('user_id', $userId)->first();
-    }
-
-    /**
-     * Get formatted average rating display.
-     */
-    public function getFormattedRatingAttribute(): string
-    {
-        $average = $this->average_rating;
-        $total = $this->total_ratings;
-        
-        if ($total === 0) {
-            return 'No ratings yet';
-        }
-        
-        return $average . ' (' . $total . ' rating' . ($total != 1 ? 's' : '') . ')';
+        return null;
     }
 }

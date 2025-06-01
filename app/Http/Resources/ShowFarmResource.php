@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Auth;
 
-class IndexShowFarmResource extends JsonResource
+class ShowFarmResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -34,17 +34,11 @@ class IndexShowFarmResource extends JsonResource
             'minimum_price' => $this->whenLoaded('pricing', function () {
                 return $this->minimum_price;
             }),
-            // 'maximum_price' => $this->whenLoaded('pricing', function () {
-            //     return $this->maximum_price;
-            // }),
             
             // Prices after offer discount
             'minimum_price_after_offer' => $this->whenLoaded('pricing', function () {
                 return $this->minimum_price_after_offer;
             }),
-            // 'maximum_price_after_offer' => $this->whenLoaded('pricing', function () {
-            //     return $this->maximum_price_after_offer;
-            // }),
             
             // Available price types (only when all days have pricing)
             'available_price_types' => $this->whenLoaded('pricing', function () {
@@ -59,6 +53,31 @@ class IndexShowFarmResource extends JsonResource
             // Favorite status (only when user is authenticated)
             'is_favorite' => $this->when($user !== null, function () use ($user) {
                 return $this->isFavoriteByUser($user->id);
+            }),
+
+            // Rating information
+            'total_ratings' => $this->whenLoaded('ratings', function () {
+                return $this->total_ratings;
+            }),
+            
+            'average_rating' => $this->whenLoaded('ratings', function () {
+                return $this->display_average_rating; // null if less than 3 ratings
+            }),
+            
+            'latest_ratings' => $this->whenLoaded('ratings', function () {
+                return $this->latest_ratings->take(3)->map(function ($rating) {
+                    return [
+                        'id' => $rating->id,
+                        'rating' => $rating->rating,
+                        'comment' => $rating->comment,
+                        'created_at' => $rating->created_at,
+                        'user' => [
+                            'id' => $rating->user->id,
+                            'name' => $rating->user->name,
+                            'avatar' => $rating->user->avatar,
+                        ]
+                    ];
+                });
             }),
 
             'current_offer_percentage' => $this->whenLoaded('offers', function () {

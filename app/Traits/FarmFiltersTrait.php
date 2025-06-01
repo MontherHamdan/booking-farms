@@ -291,25 +291,4 @@ trait FarmFiltersTrait
         return $dates;
     }
 
-    /**
-     * Get all available filter parameters
-     */
-    public function getAvailableFilters(): array
-    {
-        return [
-            'city_id' => 'integer - Filter by city ID',
-            'min_price' => 'numeric - Minimum price filter',
-            'max_price' => 'numeric - Maximum price filter',
-            'has_offer' => 'boolean - Filter by farms with/without offers',
-            'available_time' => 'string - Filter by time type (day_use, night, full_day)',
-            'date' => 'date - Single date availability filter (Y-m-d)',
-            'start_date' => 'date - Start date for range filter (Y-m-d)',
-            'end_date' => 'date - End date for range filter (Y-m-d)',
-            'passenger_count' => 'integer - Minimum passenger capacity',
-            'features' => 'array - Array of feature IDs (farm must have ALL)',
-            'sort_by' => 'string - Sort field (created_at, updated_at, name_ar, name_en, passengers_count)',
-            'sort_order' => 'string - Sort order (asc, desc)',
-            'per_page' => 'integer - Items per page for pagination'
-        ];
-    }
 }
