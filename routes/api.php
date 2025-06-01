@@ -30,6 +30,7 @@ Route::get('/cities', [ApiCityController::class, 'index']);
 // Public farm listing / detail / filter / calculate‐price
 Route::prefix('farms')->controller(ApiFarmController::class)->group(function () {
     Route::get('/',                    'index');
+    Route::get('/filter-fields', 'getFilterFields');
     Route::get('/{farm_id}',           'show');
     Route::post('/filter',            'filter');
     Route::post('/{farm}/calculate-price', 'calculatePrice');

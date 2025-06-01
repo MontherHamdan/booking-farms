@@ -41,6 +41,18 @@ return [
         'per_page.min' => 'Per page must be at least 1',
         'per_page.max' => 'Per page cannot exceed 100',
         
+        // Additional validation messages for features, ratings, etc.
+        'features.array' => 'Features must be an array of feature IDs',
+        'features.*.integer' => 'Each feature must be a valid integer',
+        'features.*.exists' => 'Selected feature does not exist',
+        'ratings.array' => 'Ratings must be an array of rating values',
+        'ratings.*.integer' => 'Each rating must be an integer',
+        'ratings.*.in' => 'Rating must be between 1 and 5',
+        'sort_by.in' => 'Invalid sorting field',
+        'sort_order.in' => 'Sort order must be either asc or desc',
+        'passenger_count.integer' => 'Passenger count must be an integer',
+        'passenger_count.min' => 'Passenger count must be at least 1',
+        
         // Calculate price validation messages
         'dates.required' => 'Dates are required',
         'dates.array' => 'Dates must be an array',
@@ -77,6 +89,39 @@ return [
             'star_filter.max'    => 'Star filter cannot exceed :max.',
         ],
     ],
+
+    'filter_placeholders' => [
+        'city_id' => 'Select cities',
+        'min_price' => 'Enter minimum price',
+        'max_price' => 'Enter maximum price',
+        'has_offer' => 'Select offer status',
+        'available_time' => 'Select available times',
+        'date' => 'Select date',
+        'start_date' => 'Start date',
+        'end_date' => 'End date',
+        'features' => 'Select features',
+        'ratings' => 'Select ratings',
+        'passenger_count' => 'Guests',
+        'sort_by' => 'Sort by',
+        'per_page' => 'Items per page',
+    ],
+
+    'filter_options' => [
+        'yes' => 'Yes',
+        'no' => 'No',
+        'rating_1' => '1',
+        'rating_2' => '2',
+        'rating_3' => '3',
+        'rating_4' => '4',
+        'rating_5' => '5',
+    ],
+
+    'sort_options' => [
+        'lowest_price' => 'Price: Low to High',
+        'highest_price' => 'Price: High to Low',
+        'highest_rating' => 'Rating: High to Low',
+        'lowest_rating' => 'Rating: Low to High',
+    ],
     
     'attributes' => [
         'city_id' => 'City',
@@ -90,6 +135,11 @@ return [
         'per_page' => 'Per Page',
         'dates' => 'Dates',
         'price_type' => 'Price Type',
+        'features' => 'Features',
+        'ratings' => 'Ratings',
+        'sort_by' => 'Sort By',
+        'sort_order' => 'Sort Order',
+        'passenger_count' => 'Passenger Count',
         'rating'  => 'Rating',
         'review'  => 'Review',
         'ratings' => [

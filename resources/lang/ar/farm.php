@@ -41,6 +41,18 @@ return [
         'per_page.min' => 'عدد العناصر في الصفحة يجب أن يكون على الأقل 1',
         'per_page.max' => 'عدد العناصر في الصفحة لا يمكن أن يتجاوز 100',
         
+        // Additional validation messages for features, ratings, etc.
+        'features.array' => 'الميزات يجب أن تكون قائمة من معرفات الميزات',
+        'features.*.integer' => 'كل ميزة يجب أن تكون رقمًا صحيحًا صالحًا',
+        'features.*.exists' => 'الميزة المحددة غير موجودة',
+        'ratings.array' => 'التقييمات يجب أن تكون قائمة من قيم التقييم',
+        'ratings.*.integer' => 'كل تقييم يجب أن يكون رقمًا صحيحًا',
+        'ratings.*.in' => 'التقييم يجب أن يكون بين 1 و 5',
+        'sort_by.in' => 'حقل الترتيب غير صالح',
+        'sort_order.in' => 'ترتيب الفرز يجب أن يكون تصاعدي أو تنازلي',
+        'passenger_count.integer' => 'عدد الزوار يجب أن يكون رقمًا صحيحًا',
+        'passenger_count.min' => 'عدد الزوار يجب أن يكون على الأقل 1',
+        
         // Calculate price validation messages
         'dates.required' => 'التواريخ مطلوبة',
         'dates.array' => 'التواريخ يجب أن تكون قائمة',
@@ -77,6 +89,39 @@ return [
             'star_filter.max'    => 'حقل تصفية النجوم لا يمكن أن يتجاوز :max.',
         ],
     ],
+
+    'filter_placeholders' => [
+        'city_id' => 'اختر المدن',
+        'min_price' => 'أدخل الحد الأدنى للسعر',
+        'max_price' => 'أدخل الحد الأعلى للسعر',
+        'has_offer' => 'اختر حالة العرض',
+        'available_time' => 'اختر الأوقات المتاحة',
+        'date' => 'اختر التاريخ',
+        'start_date' => 'تاريخ البداية',
+        'end_date' => 'تاريخ النهاية',
+        'features' => 'اختر الميزات',
+        'ratings' => 'اختر التقييمات',
+        'passenger_count' => 'عدد الزوار',
+        'sort_by' => 'ترتيب حسب',
+        'per_page' => 'عدد العناصر في الصفحة',
+    ],
+
+    'filter_options' => [
+        'yes' => 'نعم',
+        'no' => 'لا',
+        'rating_1' => '1',
+        'rating_2' => '2',
+        'rating_3' => '3',
+        'rating_4' => '4',
+        'rating_5' => '5',
+    ],
+
+    'sort_options' => [
+        'lowest_price' => 'السعر من الأقل للأعلى',
+        'highest_price' => 'السعر من الأعلى للأقل',
+        'highest_rating' => 'التقييم من الأعلى للأقل',
+        'lowest_rating' => 'التقييم من الأقل للأعلى',
+    ],
     
     'attributes' => [
         'city_id' => 'المدينة',
@@ -90,6 +135,11 @@ return [
         'per_page' => 'عدد العناصر في الصفحة',
         'dates' => 'التواريخ',
         'price_type' => 'نوع السعر',
+        'features' => 'الميزات',
+        'ratings' => 'التقييمات',
+        'sort_by' => 'ترتيب حسب',
+        'sort_order' => 'طريقة الترتيب',
+        'passenger_count' => 'عدد الزوار',
         'rating'  => 'التقييم',
         'review'  => 'المراجعة',
         'ratings' => [
@@ -100,7 +150,7 @@ return [
     ],
     
     'price_types' => [
-        'day_use' => 'اومي',
+        'day_use' => 'صباحي',
         'night' => 'ليلي',
         'full_day' => 'يوم كامل',
     ],

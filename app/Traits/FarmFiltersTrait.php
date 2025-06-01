@@ -17,6 +17,10 @@ trait FarmFiltersTrait
         $this->applyAvailableTimeFilter($query, $request);
         $this->applyDateAvailabilityFilter($query, $request);
         $this->applyOfferFilter($query, $request);
+        $this->applyFeatureFilter($query, $request);
+        $this->applyRatingFilter($query, $request);
+        $this->applyPassengerCountFilter($query, $request);
+        $this->applySorting($query, $request);
         return $query;
     }
 
@@ -250,22 +254,96 @@ trait FarmFiltersTrait
     }
 
     /**
+     * Apply rating filter - supports multiple rating levels
+     * Rating 1 = 1.0-1.9, Rating 2 = 2.0-2.9, etc.
+     */
+    private function applyRatingFilter($query, Request $request)
+    {
+        $ratings = $request->input('ratings'); // Array of rating levels (1, 2, 3, 4, 5)
+        
+        if ($ratings && is_array($ratings) && count($ratings) > 0) {
+            // Only include farms that have at least 3 ratings (as per your display logic)
+            $query->whereHas('ratings', function ($ratingQuery) {
+                // Ensure the farm has at least 3 ratings
+            }, '>=', 3);
+            
+            // Filter by rating ranges
+            $query->where(function ($ratingQuery) use ($ratings) {
+                foreach ($ratings as $rating) {
+                    if (in_array($rating, [1, 2, 3, 4, 5])) {
+                        $minRating = $rating;
+                        $maxRating = $rating + 0.9;
+                        
+                        $ratingQuery->orWhereRaw("
+                            (SELECT ROUND(AVG(rating), 1) FROM farm_ratings WHERE farm_id = farms.id) >= ? 
+                            AND (SELECT ROUND(AVG(rating), 1) FROM farm_ratings WHERE farm_id = farms.id) <= ?
+                        ", [$minRating, $maxRating]);
+                    }
+                }
+            });
+        }
+        
+        return $query;
+    }
+
+    /**
      * Apply sorting
      */
     private function applySorting($query, Request $request)
     {
-        $sortBy = $request->input('sort_by', 'created_at');
-        $sortOrder = $request->input('sort_order', 'desc');
+        $sortBy = $request->input('sort_by');
         
-        $allowedSortFields = ['created_at', 'updated_at', 'name_ar', 'name_en', 'passengers_count'];
-        $allowedSortOrders = ['asc', 'desc'];
+        $allowedSortFields = [
+            'lowest_price',
+            'highest_price',
+            'highest_rating',
+            'lowest_rating'
+        ];
         
-        if (in_array($sortBy, $allowedSortFields) && in_array($sortOrder, $allowedSortOrders)) {
-            $query->orderBy($sortBy, $sortOrder);
-        } else {
-            $query->orderBy('created_at', 'desc');
+        if ($sortBy && in_array($sortBy, $allowedSortFields)) {
+            switch ($sortBy) {
+                case 'lowest_price':
+                    // Sort by minimum price (lowest first)
+                    $query->orderByRaw("(
+                        SELECT MIN(LEAST(saturday_price, sunday_price, monday_price, tuesday_price, wednesday_price, thursday_price, friday_price)) 
+                        FROM farm_pricings 
+                        WHERE farm_pricings.farm_id = farms.id
+                    ) ASC");
+                    break;
+                    
+                case 'highest_price':
+                    // Sort by maximum price (highest first)
+                    $query->orderByRaw("(
+                        SELECT MAX(GREATEST(saturday_price, sunday_price, monday_price, tuesday_price, wednesday_price, thursday_price, friday_price)) 
+                        FROM farm_pricings 
+                        WHERE farm_pricings.farm_id = farms.id
+                    ) DESC");
+                    break;
+                    
+                case 'highest_rating':
+                    // Sort by average rating (highest first) - only farms with 3+ ratings
+                    $query->orderByRaw("(
+                        CASE 
+                            WHEN (SELECT COUNT(*) FROM farm_ratings WHERE farm_id = farms.id) >= 3 
+                            THEN (SELECT ROUND(AVG(rating), 1) FROM farm_ratings WHERE farm_id = farms.id)
+                            ELSE 0
+                        END
+                    ) DESC");
+                    break;
+                    
+                case 'lowest_rating':
+                    // Sort by average rating (lowest first) - only farms with 3+ ratings
+                    $query->orderByRaw("(
+                        CASE 
+                            WHEN (SELECT COUNT(*) FROM farm_ratings WHERE farm_id = farms.id) >= 3 
+                            THEN (SELECT ROUND(AVG(rating), 1) FROM farm_ratings WHERE farm_id = farms.id)
+                            ELSE 6
+                        END
+                    ) ASC");
+                    break;
+            }
         }
-        
+        // No default sorting - let the query return in natural order
         return $query;
     }
 
@@ -290,5 +368,4 @@ trait FarmFiltersTrait
         
         return $dates;
     }
-
 }
