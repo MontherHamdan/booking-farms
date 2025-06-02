@@ -69,7 +69,7 @@ class ShowFarmResource extends JsonResource
                     return [
                         'id' => $rating->id,
                         'rating' => $rating->rating,
-                        'comment' => $rating->comment,
+                        'review' => $rating->review,
                         'created_at' => $rating->created_at,
                         'user' => [
                             'id' => $rating->user->id,

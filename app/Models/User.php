@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
@@ -25,10 +26,12 @@ class User extends Authenticatable
         'city',
         'avatar',
         'password',
+        'status',
         'otp_code',
         'otp_expires_at',
         'security_token',
         'phone_verified_at',
+        'email_verified_at'
     ];
 
     /**
@@ -50,6 +53,26 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    public const STATUS_ACTIVE   = 'active';
+    public const STATUS_INACTIVE = 'inactive';
+
+
+    /**
+     * Scope a query to only include active users.
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_ACTIVE);
+    }
+
+    /**
+     * Scope a query to only include inactive users.
+     */
+    public function scopeInactive(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_INACTIVE);
+    }
 
     /**
      * Get the farms that the user has favorited.

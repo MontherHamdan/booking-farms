@@ -19,6 +19,8 @@ return new class extends Migration
             $table->string('city');
             $table->string('avatar')->nullable();
             $table->timestamp('phone_verified_at')->nullable();
+            $table->timestamp('email_verified_at')->nullable();
+            $table->enum('status', ['active', 'inactive'])->default('active')->index();
 
             // add columns to hold the OTP code and expiry
             $table->string('otp_code', 255)->nullable();

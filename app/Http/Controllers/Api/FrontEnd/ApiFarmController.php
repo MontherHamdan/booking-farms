@@ -11,6 +11,8 @@ use App\Http\Resources\FarmCollection;
 use App\Http\Resources\FarmResource;
 use App\Http\Resources\ShowFarmResource;
 use App\Models\Farm;
+use App\Models\City;
+use App\Models\Feature;
 use App\Models\FarmImage;
 use App\Models\FarmPricing;
 use App\Models\FarmOffer;
@@ -334,8 +336,8 @@ class ApiFarmController extends Controller
         // Determine which name field to use based on locale
         $nameField = $locale === 'ar' ? 'name_ar' : 'name_en';
         
-        return \App\Models\City::select('id as value', $nameField . ' as label')
-            ->where('status', \App\Models\City::STATUS_PUBLISHED)
+        return City::select('id as value', $nameField . ' as label')
+            ->where('status', City::STATUS_PUBLISHED)
             ->orderBy('order')
             ->get()
             ->toArray();
@@ -352,7 +354,7 @@ class ApiFarmController extends Controller
         // Determine which name field to use based on locale
         $nameField = $locale === 'ar' ? 'name_ar' : 'name_en';
         
-        return \App\Models\Feature::select('id as value', $nameField . ' as label')
+        return Feature::select('id as value', $nameField . ' as label')
             ->orderBy('order')
             ->get()
             ->toArray();

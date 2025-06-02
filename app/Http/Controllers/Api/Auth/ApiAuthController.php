@@ -249,6 +249,11 @@ class ApiAuthController extends Controller
                 return $this->errorResponse(__('auth.failed'), 422);
             }
 
+            // Prevent login if status != 'active'
+            if ($user->status !== 'active') {
+                return $this->errorResponse(__('auth.inactive_account'), 403);
+            }
+
             $token = $user->createToken('API Token')->plainTextToken;
 
             $responseData = [

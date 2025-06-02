@@ -54,9 +54,9 @@
                     <div class="card-body widget-user">
                         <div class="d-flex align-items-center">
                             <div class="flex-shrink-0 avatar-lg me-3">
-                                @if(asset($user->image))
+                                @if(asset($user->avatar))
                                     <!-- If user has an image, display it -->
-                                    <img src="{{ asset('storage/' . $user->image) }}" 
+                                    <img src="{{ $user->avatar }}" 
                                         class="img-fluid rounded-circle" 
                                         alt="User Image" 
                                         style="width: 64px; height: 64px; object-fit: cover;">

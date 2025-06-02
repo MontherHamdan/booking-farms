@@ -2,6 +2,7 @@
 
 return [
     'failed' => 'The provided credentials are incorrect.',
+    'inactive_account' => 'Your account is inactive. Please contact support.',
     'logged_out_successfully' => 'Logged out successfully',
     'unauthorized' => 'You are not authorized to access this resource.',
     

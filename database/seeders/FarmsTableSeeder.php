@@ -10,6 +10,8 @@ use Illuminate\Support\Carbon;
 use App\Models\Farm;
 use App\Models\Feature;
 use App\Models\City;
+use App\Models\User;
+use Faker\Factory as Faker;
 
 class FarmsTableSeeder extends Seeder
 {
@@ -18,6 +20,8 @@ class FarmsTableSeeder extends Seeder
      */
     public function run(): void
     {
+        $faker = Faker::create();
+
         // 1) Define your farms with slug for files and Arabic names
         $farms = [
             ['slug' => 'valancia',      'name_ar' => 'فالنسيا'],
@@ -36,6 +40,9 @@ class FarmsTableSeeder extends Seeder
         $cityIds = City::published()->ordered()->pluck('id')->all();
         $featureIds = Feature::orderBy('order')->pluck('id')->all();
 
+        // 3) Get all user IDs for rating assignment (excluding admin user with ID 1)
+        $userIds = User::where('id', '>', 1)->pluck('id')->all();
+
         foreach ($farms as $index => $info) {
             $slug = $info['slug'];
             $nameEn = Str::title(str_replace('-', ' ', $slug));
@@ -43,7 +50,7 @@ class FarmsTableSeeder extends Seeder
             $descriptionEn = "Enjoy a luxurious stay at {$nameEn}, featuring modern amenities, scenic views, and personalized service.";
             $descriptionAr = "استمتع بإقامة فاخرة في {$nameAr}، مع وسائل الراحة الحديثة والإطلالات الخلابة والخدمة المميزة.";
 
-            // 3) Create farm record
+            // 4) Create farm record
             $farm = Farm::create([
                 'user_id'             => 1,
                 'city_id'             => $cityIds[array_rand($cityIds)],
@@ -58,14 +65,14 @@ class FarmsTableSeeder extends Seeder
                 ],
             ]);
 
-            // 4) Attach a random subset of features
+            // 5) Attach a random subset of features
             shuffle($featureIds);
             $farm->features()->attach(array_slice($featureIds, 0, rand(3, 6)));
 
-            // 5) Create pricing entries
+            // 6) Create pricing entries
             $this->createPricing($farm);
 
-            // 6) Optionally create an offer for variety
+            // 7) Optionally create an offer for variety
             if ($index % 2 === 0) {
                 $start = Carbon::now();
                 $end   = (clone $start)->addDays(rand(50, 100));
@@ -77,8 +84,13 @@ class FarmsTableSeeder extends Seeder
                 ]);
             }
 
-            // 7) Upload and attach images: main + gallery (1–10)
+            // 8) Upload and attach images: main + gallery (1–10)
             $this->attachImages($farm, $slug);
+
+            // 9) Add ratings for the first 5 farms only
+            if ($index < 5) {
+                $this->createRatings($farm, $userIds, $faker);
+            }
 
             $this->command->info("Seeded farm: {$nameEn} ({$nameAr}) (ID: {$farm->id})");
         }
@@ -137,5 +149,80 @@ class FarmsTableSeeder extends Seeder
         $url  = Storage::disk('s3')->url($path);
 
         $farm->images()->create([ 'image_path' => $url, 'is_main' => $isMain ]);
+    }
+
+    /** Create ratings for a farm */
+    protected function createRatings(Farm $farm, array $userIds, $faker): void
+    {
+        // Number of ratings to create (5 to 10)
+        $numberOfRatings = rand(5, 10);
+        
+        // Shuffle user IDs to get random users
+        shuffle($userIds);
+        
+        // Take only the number of users we need (prevent duplicates)
+        $selectedUsers = array_slice($userIds, 0, min($numberOfRatings, count($userIds)));
+        
+        // Possible rating values (1 to 5 with 0.5 increments)
+        $possibleRatings = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+        
+        foreach ($selectedUsers as $userId) {
+            $rating = $possibleRatings[array_rand($possibleRatings)];
+            
+            // Generate a realistic review based on rating
+            $review = $this->generateReview($rating, $farm->name_en, $faker);
+            
+            $farm->ratings()->create([
+                'user_id' => $userId,
+                'rating' => $rating,
+                'review' => $review,
+                'created_at' => Carbon::now()->subDays(rand(1, 30)), // Random date in past 30 days
+                'updated_at' => Carbon::now()->subDays(rand(1, 30)),
+            ]);
+        }
+        
+        $this->command->info("Added {$numberOfRatings} ratings for farm: {$farm->name_en}");
+    }
+
+    /** Generate realistic review based on rating */
+    protected function generateReview(float $rating, string $farmName, $faker): string
+    {
+        $reviews = [];
+        
+        if ($rating >= 4.5) {
+            $reviews = [
+                "مكان رائع جداً! استمتعت بوقتي هناك وأنصح الجميع بزيارته.",
+                "تجربة ممتازة، الخدمة والمرافق من الدرجة الأولى.",
+                "أفضل مزرعة زرتها، كل شيء مثالي والمناظر خلابة.",
+                "Amazing place! Everything was perfect and the staff was very helpful.",
+                "Outstanding experience, will definitely come back again!",
+            ];
+        } elseif ($rating >= 3.5) {
+            $reviews = [
+                "مكان جميل ومريح، أعجبني التصميم والهدوء.",
+                "تجربة جيدة بشكل عام، المرافق نظيفة والموقع مميز.",
+                "استمتعت بالزيارة، المكان مناسب للعائلات.",
+                "Good place for relaxation, nice facilities and friendly staff.",
+                "Pleasant experience, comfortable and well-maintained.",
+            ];
+        } elseif ($rating >= 2.5) {
+            $reviews = [
+                "المكان عادي، يحتاج لبعض التحسينات.",
+                "تجربة مقبولة ولكن التوقعات كانت أعلى.",
+                "مكان جيد للأطفال ولكن الخدمة بطيئة قليلاً.",
+                "Average experience, some areas need improvement.",
+                "Decent place but could be better maintained.",
+            ];
+        } else {
+            $reviews = [
+                "لم تكن التجربة كما توقعت، يحتاج المكان لصيانة.",
+                "الخدمة لم تكن على المستوى المطلوب.",
+                "المكان يحتاج لتطوير أكثر.",
+                "Not what I expected, needs significant improvements.",
+                "Disappointing experience, poor maintenance.",
+            ];
+        }
+        
+        return $reviews[array_rand($reviews)];
     }
 }
