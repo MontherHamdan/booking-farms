@@ -25,8 +25,8 @@ class IndexFarmResource extends JsonResource
             'name_ar' => $this->name_ar,
             'name_en' => $this->name_en,
             'guests_count' => $this->passengers_count,
-            // 'description_ar' => $this->description_ar,
-            // 'description_en' => $this->description_en,
+            'description_ar' => $this->description_ar,
+            'description_en' => $this->description_en,
 
             // Original prices
             'minimum_price' => $this->whenLoaded('pricing', function () {
