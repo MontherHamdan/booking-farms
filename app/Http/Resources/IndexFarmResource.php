@@ -20,12 +20,13 @@ class IndexFarmResource extends JsonResource
         
         return [
             'id' => $this->id,
-            'user_id' => $this->user_id,
-            'city_id' => $this->city_id,
+            // 'user_id' => $this->user_id,
+            // 'city_id' => $this->city_id,
             'name_ar' => $this->name_ar,
             'name_en' => $this->name_en,
-            'description_ar' => $this->description_ar,
-            'description_en' => $this->description_en,
+            'guests_count' => $this->passengers_count,
+            // 'description_ar' => $this->description_ar,
+            // 'description_en' => $this->description_en,
 
             // Original prices
             'minimum_price' => $this->whenLoaded('pricing', function () {

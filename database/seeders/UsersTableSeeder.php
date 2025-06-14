@@ -75,9 +75,9 @@ class UsersTableSeeder extends Seeder
             ]);
 
             // Pick a local file: user2.jpg, user3.jpg, … wrapping at user10.jpg
-            $avatarIndex = ($i + 2); // i=0 → user2.jpg, …, i=8 → user10.jpg, i=9 → user11.jpg (wrap to 1)
+            $avatarIndex = ($i + 2); // i=0 → user2.jpg, …, i=8 → user10.jpg, i=9 
             if ($avatarIndex > 10) {
-                $avatarIndex = $avatarIndex % 10; // so user11.jpg → user1.jpg
+                $avatarIndex = $avatarIndex % 10; 
                 if ($avatarIndex === 0) {
                     $avatarIndex = 10;
                 }

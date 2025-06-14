@@ -126,6 +126,8 @@ class ApiFarmController extends Controller
     {
         // Get the current locale from Laravel's app locale (set by SetLocale middleware)
         $locale = app()->getLocale();
+
+        $today = now()->format('Y-m-d');
         
         $fields = [
             'city_id' => [
@@ -205,7 +207,7 @@ class ApiFarmController extends Controller
                 'rules' => [
                     'nullable' => true,
                     'date_format' => 'Y-m-d',
-                    'after_or_equal' => 'today'
+                    'after_or_equal' => "{$today}"
                 ]
             ],
             
@@ -216,7 +218,7 @@ class ApiFarmController extends Controller
                 'rules' => [
                     'nullable' => true,
                     'date_format' => 'Y-m-d',
-                    'after_or_equal' => 'today'
+                    'after_or_equal' => "{$today}"
                 ]
             ],
             
