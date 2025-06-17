@@ -21,6 +21,7 @@ class Farm extends Model
     protected $fillable = [
         'user_id',
         'city_id',
+        'area_id',
         'name_ar',
         'name_en',
         'description_ar',
@@ -52,6 +53,14 @@ class Farm extends Model
     public function city(): BelongsTo
     {
         return $this->belongsTo(City::class);
+    }
+
+    /**
+     * Get the area that the farm belongs to.
+    */
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
     }
 
     /**

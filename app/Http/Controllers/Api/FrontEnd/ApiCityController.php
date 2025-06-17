@@ -7,6 +7,10 @@ use App\Models\City;
 use App\Traits\JsonResponseTrait;
 use App\Traits\ExceptionLoggerTrait;
 use App\Http\Resources\CityResource;
+use App\Models\Area;
+use Illuminate\Http\Request;
+use App\Http\Resources\AreaResource;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class ApiCityController extends Controller
 {
@@ -27,6 +31,32 @@ class ApiCityController extends Controller
         } catch (\Exception $e) {
             $this->logException($e);
 
+            return $this->errorResponse(__('error.internal_error'), 500);
+        }
+    }
+
+
+    public function getAreasByCity(Request $request, $cityId)
+    {
+        /**
+         * Get published, ordered areas by city.
+         *
+         * @param  \Illuminate\Http\Request  $request
+         * @param  int  $cityId
+         * @return \Illuminate\Http\JsonResponse
+         */
+        try {
+            $city = City::published()->findOrFail($cityId);
+
+            $areas = $city->publishedAreas()->get();
+
+            return $this->successResponse(true, AreaResource::collection($areas), null, 200);
+
+        } catch (ModelNotFoundException $e) {
+            // City not found or not published
+            return $this->errorResponse(__('error.city_not_found'), 404);
+        } catch (\Exception $e) {
+            $this->logException($e);
             return $this->errorResponse(__('error.internal_error'), 500);
         }
     }

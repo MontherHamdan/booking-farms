@@ -13,6 +13,7 @@ trait FarmFiltersTrait
     public function applyFarmFilters($query, Request $request)
     {
         $this->applyCityFilter($query, $request);
+        $this->applyAreaFilter($query, $request); 
         $this->applyPriceRangeFilter($query, $request);
         $this->applyAvailableTimeFilter($query, $request);
         $this->applyDateAvailabilityFilter($query, $request);
@@ -38,6 +39,26 @@ trait FarmFiltersTrait
             } else {
                 // Single city (backward compatibility)
                 $query->where('city_id', $cityId);
+            }
+        }
+        
+        return $query;
+    }
+
+    /**
+     * Apply area filter - supports single area_id or array of area_ids
+    */
+    private function applyAreaFilter($query, Request $request)
+    {
+        $areaId = $request->input('area_id');
+        
+        if ($areaId) {
+            if (is_array($areaId)) {
+                // Multiple areas
+                $query->whereIn('area_id', $areaId);
+            } else {
+                // Single area (backward compatibility)
+                $query->where('area_id', $areaId);
             }
         }
         
@@ -367,5 +388,24 @@ trait FarmFiltersTrait
         }
         
         return $dates;
+    }
+
+    /**
+     * Apply search filter for farm name and description
+     */
+    private function applySearchFilter($query, Request $request)
+    {
+        $searchQuery = $request->input('query');
+        
+        if ($searchQuery) {
+            $query->where(function ($q) use ($searchQuery) {
+                $q->where('name_en', 'LIKE', "%{$searchQuery}%")
+                  ->orWhere('name_ar', 'LIKE', "%{$searchQuery}%")
+                  ->orWhere('description_en', 'LIKE', "%{$searchQuery}%")
+                  ->orWhere('description_ar', 'LIKE', "%{$searchQuery}%");
+            });
+        }
+        
+        return $query;
     }
 }

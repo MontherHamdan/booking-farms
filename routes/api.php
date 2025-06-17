@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Users\ApiRatingFarmController;
 use App\Http\Controllers\Api\FrontEnd\ApiFeatureController;
 use App\Http\Controllers\Api\Auth\ApiAuthController;
 use App\Http\Controllers\Api\FrontEnd\ApiCityController;
+use App\Http\Controllers\Api\FrontEnd\ApiAreaController;
 use App\Http\Controllers\Api\Users\ApiUserProfileController;
 
 /*
@@ -24,15 +25,19 @@ Route::controller(ApiAuthController::class)->group(function () {
     Route::post('/resend-otp',   'resendOtp');
 });
 
-// Public cities
-Route::get('/cities', [ApiCityController::class, 'index']);
+// public cities and areas 
+Route::prefix('cities')->controller(ApiCityController::class)->group(function () {
+    Route::get('/', 'index');
+    Route::get('/{cityId}/areas', 'getAreasByCity');
+});
 
-// Public farm listing / detail / filter / calculate‐price
+// Public farm listing / detail / filter / calculate‐price / search
 Route::prefix('farms')->controller(ApiFarmController::class)->group(function () {
     Route::get('/',                    'index');
-    Route::get('/filter-fields', 'getFilterFields');
+    Route::get('/filter-fields',       'getFilterFields');
     Route::get('/{farm_id}',           'show');
-    Route::post('/filter',            'filter');
+    Route::post('/filter',             'filter');
+    Route::post('/search',             'search');  
     Route::post('/{farm}/calculate-price', 'calculatePrice');
 });
 
@@ -54,6 +59,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/update-avatar', 'updateAvatar');
         Route::delete('/delete-avatar','deleteAvatar');
     });
+
+    // Search History - for authenticated users only
+    Route::get('/search-history', [ApiFarmController::class, 'getSearchHistory']);
 
     // Logout
     Route::post('/logout', [ApiAuthController::class, 'logout']);

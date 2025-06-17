@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class City extends Model
 {
@@ -24,9 +25,23 @@ class City extends Model
     const STATUS_UNPUBLISHED = 'unpublished';
 
     /**
+     * Get the areas for the city.
+     */
+    public function areas(): HasMany
+    {
+        return $this->hasMany(Area::class);
+    }
+
+    /**
+     * Get the farms for the city (through areas).
+     */
+    public function farms(): HasMany
+    {
+        return $this->hasMany(Farm::class);
+    }
+
+    /**
      * Get cities ordered by the order column
-     * 
-     * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeOrdered($query)
     {
@@ -35,12 +50,17 @@ class City extends Model
 
     /**
      * Scope a query to only include published cities
-     *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopePublished($query)
     {
         return $query->where('status', self::STATUS_PUBLISHED);
+    }
+
+    /**
+     * Get published areas for this city
+     */
+    public function publishedAreas()
+    {
+        return $this->areas()->published()->ordered();
     }
 }

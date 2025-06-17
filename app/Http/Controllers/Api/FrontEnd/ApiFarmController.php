@@ -6,16 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\FarmOwner\StoreFarmRequest;
 use App\Http\Requests\FarmOwner\UpdateFarmRequest;
 use App\Http\Requests\FrontEnd\FilterFarmRequest;
+use App\Http\Requests\FrontEnd\SearchFarmRequest;
 use App\Http\Requests\FrontEnd\CalculatePriceRequest;
 use App\Http\Resources\FarmCollection;
 use App\Http\Resources\FarmResource;
 use App\Http\Resources\ShowFarmResource;
 use App\Models\Farm;
-use App\Models\City;
-use App\Models\Feature;
-use App\Models\FarmImage;
-use App\Models\FarmPricing;
-use App\Models\FarmOffer;
+use App\Models\SearchHistory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,14 +22,22 @@ use App\Traits\JsonResponseTrait;
 use App\Traits\ExceptionLoggerTrait;
 use App\Traits\FarmPricingTrait;
 use App\Traits\FarmFiltersTrait;
+use App\Traits\FarmSearchTrait;
+use App\Traits\FarmImageTrait;
+use App\Traits\FarmHelperTrait;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 
 class ApiFarmController extends Controller
 {
-    use JsonResponseTrait, ExceptionLoggerTrait, FarmPricingTrait, FarmFiltersTrait;
+    use JsonResponseTrait, 
+        ExceptionLoggerTrait, 
+        FarmPricingTrait, 
+        FarmFiltersTrait,
+        FarmSearchTrait,
+        FarmImageTrait,
+        FarmHelperTrait;
 
     /**
      * Display a listing of farms.
@@ -45,33 +50,11 @@ class ApiFarmController extends Controller
             // Apply only has_offer filter for GET method
             $this->applyOfferFilter($query, $request);
             
-            $relationships = ['pricing', 'city', 'user', 'features', 'images', 'offers', 'ratings'];
-
-            // Check for authenticated user using Sanctum guard
-            $user = Auth::guard('sanctum')->user();
+            $relationships = $this->getFarmRelationships();
+            $farms = $query->with($relationships)->paginate($request->per_page ?? 10);
             
-            // Add user-specific favorites if authenticated
-            if ($user) {
-                $relationships['favoritedBy'] = function ($query) use ($user) {
-                    $query->where('user_id', $user->id);
-                };
-            }
-
-            $farms = $query->with($relationships)->paginate($request->per_page ?? 10);      
-
-            // After pagination, load the images separately for each farm
-            $farms->getCollection()->transform(function ($farm) {
-                // Get the main image
-                $mainImage = $farm->images()->where('is_main', true)->get();
-                
-                // Get up to 4 non-main images
-                $nonMainImages = $farm->images()->where('is_main', false)->limit(4)->get();
-                
-                // Combine the collections
-                $farm->setRelation('images', $mainImage->concat($nonMainImages));
-                
-                return $farm;
-            });
+            // Load farm images
+            $this->loadFarmImages($farms);
             
             return $this->successResponse(true, new FarmCollection($farms), null, 200);
         } catch (Exception $e) {
@@ -80,34 +63,24 @@ class ApiFarmController extends Controller
         }
     }
 
-    /**
-     * Filter farms with advanced criteria (POST method)
-     * Includes all available filters
-     */
+
     public function filter(FilterFarmRequest $request): JsonResponse
     {
+        /**
+         * Filter farms with advanced criteria (POST method)
+         * Includes all available filters
+        */
         try {
-
             $query = Farm::query();
             
             // Apply all filters using the trait
             $this->applyFarmFilters($query, $request);
             
-            $farms = $query->with(['pricing', 'city', 'user', 'features', 'images', 'offers', 'ratings'])->paginate($request->per_page ?? 10);
+            $relationships = $this->getFarmRelationships();
+            $farms = $query->with($relationships)->paginate($request->per_page ?? 10);
             
-            // After pagination, load the images separately for each farm
-            $farms->getCollection()->transform(function ($farm) {
-                // Get the main image
-                $mainImage = $farm->images()->where('is_main', true)->get();
-                
-                // Get up to 4 non-main images
-                $nonMainImages = $farm->images()->where('is_main', false)->limit(4)->get();
-                
-                // Combine the collections
-                $farm->setRelation('images', $mainImage->concat($nonMainImages));
-                
-                return $farm;
-            });
+            // Load farm images
+            $this->loadFarmImages($farms);
             
             return $this->successResponse(true, new FarmCollection($farms), null, 200);
         } catch (Exception $e) {
@@ -118,255 +91,82 @@ class ApiFarmController extends Controller
 
     /**
      * Get dynamic filter fields for farms based on Accept-Language header
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
      */
-    public function getFilterFields(Request $request)
+    public function getFilterFields(Request $request): JsonResponse
     {
-        // Get the current locale from Laravel's app locale (set by SetLocale middleware)
         $locale = app()->getLocale();
-
-        $today = now()->format('Y-m-d');
+        $fields = $this->getFilterFieldsConfig($locale);
         
-        $fields = [
-            'city_id' => [
-                'type' => 'multi_select',
-                'label' => __('farm.attributes.city_id'),
-                'placeholder' => __('farm.filter_placeholders.city_id'),
-                'rules' => [
-                    'nullable' => true,
-                    'array' => true,
-                    'items' => [
-                        'type' => 'integer',
-                        'exists' => 'cities,id'
-                    ]
-                ],
-                'options' => $this->getCityOptions($locale)
-            ],
-            
-            'min_price' => [
-                'type' => 'number',
-                'label' => __('farm.attributes.min_price'),
-                'placeholder' => __('farm.filter_placeholders.min_price'),
-                'rules' => [
-                    'nullable' => true,
-                    'type' => 'numeric',
-                    'min' => 0
-                ]
-            ],
-            
-            'max_price' => [
-                'type' => 'number',
-                'label' => __('farm.attributes.max_price'),
-                'placeholder' => __('farm.filter_placeholders.max_price'),
-                'rules' => [
-                    'nullable' => true,
-                    'type' => 'numeric',
-                    'min' => 0
-                ]
-            ],
-            
-            'has_offer' => [
-                'type' => 'select',
-                'label' => __('farm.attributes.has_offer'),
-                'placeholder' => __('farm.filter_placeholders.has_offer'),
-                'rules' => [
-                    'nullable' => true,
-                    'type' => 'boolean'
-                ],
-                'options' => [
-                    ['value' => true, 'label' => __('farm.filter_options.yes')],
-                    ['value' => false, 'label' => __('farm.filter_options.no')]
-                ]
-            ],
-            
-            'available_time' => [
-                'type' => 'multi_select',
-                'label' => __('farm.attributes.available_time'),
-                'placeholder' => __('farm.filter_placeholders.available_time'),
-                'rules' => [
-                    'nullable' => true,
-                    'array' => true,
-                    'items' => [
-                        'type' => 'string',
-                        'in' => ['day_use', 'night', 'full_day']
-                    ]
-                ],
-                'options' => [
-                    ['value' => 'day_use', 'label' => __('farm.price_types.day_use')],
-                    ['value' => 'night', 'label' => __('farm.price_types.night')],
-                    ['value' => 'full_day', 'label' => __('farm.price_types.full_day')]
-                ]
-            ],
-            
-            'date' => [
-                'type' => 'date',
-                'label' => __('farm.attributes.date'),
-                'placeholder' => __('farm.filter_placeholders.date'),
-                'rules' => [
-                    'nullable' => true,
-                    'date_format' => 'Y-m-d',
-                    'after_or_equal' => "{$today}"
-                ]
-            ],
-            
-            'start_date' => [
-                'type' => 'date',
-                'label' => __('farm.attributes.start_date'),
-                'placeholder' => __('farm.filter_placeholders.start_date'),
-                'rules' => [
-                    'nullable' => true,
-                    'date_format' => 'Y-m-d',
-                    'after_or_equal' => "{$today}"
-                ]
-            ],
-            
-            'end_date' => [
-                'type' => 'date',
-                'label' => __('farm.attributes.end_date'),
-                'placeholder' => __('farm.filter_placeholders.end_date'),
-                'rules' => [
-                    'nullable' => true,
-                    'date_format' => 'Y-m-d',
-                    'after_or_equal' => 'start_date'
-                ],
-                'conditions' => [
-                    'show_when' => [
-                        'start_date' => ['not_empty']
-                    ]
-                ]
-            ],
-            
-            'features' => [
-                'type' => 'multi_select',
-                'label' => __('farm.attributes.features'),
-                'placeholder' => __('farm.filter_placeholders.features'),
-                'rules' => [
-                    'nullable' => true,
-                    'array' => true,
-                    'items' => [
-                        'type' => 'integer',
-                        'exists' => 'features,id'
-                    ]
-                ],
-                'options' => $this->getFeatureOptions($locale)
-            ],
-            
-            'ratings' => [
-                'type' => 'multi_select',
-                'label' => __('farm.attributes.ratings'),
-                'placeholder' => __('farm.filter_placeholders.ratings'),
-                'rules' => [
-                    'nullable' => true,
-                    'array' => true,
-                    'items' => [
-                        'type' => 'integer',
-                        'in' => [1, 2, 3, 4, 5]
-                    ]
-                ],
-                'options' => [
-                    ['value' => 1, 'label' => __('farm.filter_options.rating_1')],
-                    ['value' => 2, 'label' => __('farm.filter_options.rating_2')],
-                    ['value' => 3, 'label' => __('farm.filter_options.rating_3')],
-                    ['value' => 4, 'label' => __('farm.filter_options.rating_4')],
-                    ['value' => 5, 'label' => __('farm.filter_options.rating_5')]
-                ]
-            ],
-            
-            'passenger_count' => [
-                'type' => 'number',
-                'label' => __('farm.attributes.passenger_count'),
-                'placeholder' => __('farm.filter_placeholders.passenger_count'),
-                'rules' => [
-                    'nullable' => true,
-                    'type' => 'integer',
-                    'min' => 1
-                ]
-            ],
-            
-            'sort_by' => [
-                'type' => 'select',
-                'label' => __('farm.attributes.sort_by'),
-                'placeholder' => __('farm.filter_placeholders.sort_by'),
-                'rules' => [
-                    'nullable' => true,
-                    'type' => 'string',
-                    'in' => ['lowest_price', 'highest_price', 'highest_rating', 'lowest_rating']
-                ],
-                'options' => [
-                    ['value' => 'lowest_price', 'label' => __('farm.sort_options.lowest_price')],
-                    ['value' => 'highest_price', 'label' => __('farm.sort_options.highest_price')],
-                    ['value' => 'highest_rating', 'label' => __('farm.sort_options.highest_rating')],
-                    ['value' => 'lowest_rating', 'label' => __('farm.sort_options.lowest_rating')]
-                ]
-            ],
-            
-            'per_page' => [
-                'type' => 'select',
-                'label' => __('farm.attributes.per_page'),
-                'placeholder' => __('farm.filter_placeholders.per_page'),
-                'rules' => [
-                    'nullable' => true,
-                    'type' => 'integer',
-                    'min' => 1,
-                    'max' => 100
-                ],
-                'options' => [
-                    ['value' => 10, 'label' => '10'],
-                    ['value' => 20, 'label' => '20'],
-                    ['value' => 50, 'label' => '50'],
-                    ['value' => 100, 'label' => '100']
-                ],
-                'default' => 10
-            ]
-        ];
-
         return $this->successResponse(true, $fields, null, 200);
     }
 
 
 
-    /**
-     * Get city options for dropdown based on locale
-     *
-     * @param string $locale
-     * @return array
-     */
-    private function getCityOptions($locale = 'en')
+    public function search(SearchFarmRequest $request): JsonResponse
     {
-        // Determine which name field to use based on locale
-        $nameField = $locale === 'ar' ? 'name_ar' : 'name_en';
-        
-        return City::select('id as value', $nameField . ' as label')
-            ->where('status', City::STATUS_PUBLISHED)
-            ->orderBy('order')
-            ->get()
-            ->toArray();
+        /**
+         * Search farms by name and description
+        */
+        try {
+            $searchQuery = $request->input('query');
+            $perPage = $request->input('per_page', 10);
+
+            $query = Farm::query();
+            
+            // Apply search filter
+            $this->applySearchFilter($query, $request);
+            
+            $relationships = $this->getFarmRelationships();
+            $farms = $query->with($relationships)->paginate($perPage);
+            
+            // Handle search history for authenticated users
+            $this->handleSearchHistory($searchQuery);
+            
+            // Load farm images
+            $this->loadFarmImages($farms);
+            
+            return $this->successResponse(true, new FarmCollection($farms), null, 200);
+        } catch (Exception $e) {
+            $this->logException($e, ['action' => 'search farms', 'query' => $request->input('query')]);
+            return $this->errorResponse(__('error.internal_error'), 500);
+        }
     }
 
-    /**
-     * Get feature options for dropdown based on locale
-     *
-     * @param string $locale
-     * @return array
-     */
-    private function getFeatureOptions($locale = 'en')
-    {
-        // Determine which name field to use based on locale
-        $nameField = $locale === 'ar' ? 'name_ar' : 'name_en';
-        
-        return Feature::select('id as value', $nameField . ' as label')
-            ->orderBy('order')
-            ->get()
-            ->toArray();
-    }
 
     /**
-     * Display the specified farm.
+     * Get search history for authenticated users
      */
+    public function getSearchHistory(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'per_page' => 'integer|min:1|max:50'
+            ]);
+
+            if ($validator->fails()) {
+                return $this->errorResponse($validator->errors()->first(), 422);
+            }
+
+            $user = auth('sanctum')->user();
+            $perPage = $request->input('per_page', 10);
+
+            $searchHistory = SearchHistory::where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+
+            return $this->successResponse(true, $searchHistory, null, 200);
+        } catch (Exception $e) {
+            $this->logException($e, ['action' => 'get search history', 'user_id' => auth('sanctum')->id()]);
+            return $this->errorResponse(__('error.internal_error'), 500);
+        }
+    }
+
+
     public function show($farm_id): JsonResponse
     {
+        /**
+         * Display the specified farm.
+        */
         try {
             $farm = Farm::with(['city', 'features', 'images', 'user', 'pricing', 'offers', 'ratings'])->find($farm_id);
 
@@ -382,11 +182,11 @@ class ApiFarmController extends Controller
         }    
     }
 
-    /**
-     * Calculate farm price based on selected dates and price type.
-     */
     public function calculatePrice(CalculatePriceRequest $request, $farmId): JsonResponse
     {
+        /**
+         * Calculate farm price based on selected dates and price type.
+        */
         try {
 
             // Fetch farm with pricing and offers
