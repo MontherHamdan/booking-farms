@@ -141,6 +141,9 @@ class ApiAuthController extends Controller
                 return $this->errorResponse(__('auth.invalid_verification'), 400);
             }
 
+            // Load city relationship for the response
+            $user->load('city');
+
             // Mark phone as verified
             $user->update([
                 'phone_verified_at' => Carbon::now(),
