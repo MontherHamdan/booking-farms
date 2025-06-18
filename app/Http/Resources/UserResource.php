@@ -19,7 +19,19 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
-            'city' => $this->city,
+            'city' => $this->when($this->relationLoaded('city'), function () {
+                // If city_id is null or city doesn't exist, return null
+                if (!$this->city) {
+                    return null;
+                }
+                
+                // Return city data if it exists
+                return [
+                    'id' => $this->city->id,
+                    'name_ar' => $this->city->name_ar,
+                    'name_en' => $this->city->name_en,
+                ];
+            }),
             'avatar' => $this->avatar,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

@@ -27,7 +27,8 @@ Route::controller(ApiAuthController::class)->group(function () {
 
 // public cities and areas 
 Route::prefix('cities')->controller(ApiCityController::class)->group(function () {
-    Route::get('/', 'index');
+    Route::get('/', 'index'); // Cities with images
+    Route::get('/basic', 'basic'); // Cities without images
     Route::get('/{cityId}/areas', 'getAreasByCity');
 });
 

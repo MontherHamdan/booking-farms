@@ -50,7 +50,7 @@ class ApiAuthController extends Controller
                 'required','string','max:20',
                 Rule::unique('users')->whereNotNull('phone_verified_at'),
             ],
-            'city'     => 'required|string|max:100',
+            'city_id'  => 'required|integer|exists:cities,id', 
             'password' => 'required|string|min:8|confirmed',
         ]);
 
@@ -68,7 +68,7 @@ class ApiAuthController extends Controller
                 'security_token' => $securityToken,
                 'otp_expires_at' => Carbon::now()->addMinutes($this->otpExpiryMinutes),
                 'name'           => $validated['name'],
-                'city'           => $validated['city'],
+                'city_id'        => $validated['city_id'],
                 'password'       => Hash::make($validated['password']),
             ];
 
@@ -243,6 +243,7 @@ class ApiAuthController extends Controller
             // Check if the user exists and is verified
             $user = User::where('phone', $request->phone)
                         ->whereNotNull('phone_verified_at')
+                        ->with('city')
                         ->first();
 
             if (!$user || !Hash::check($request->password, $user->password)) {

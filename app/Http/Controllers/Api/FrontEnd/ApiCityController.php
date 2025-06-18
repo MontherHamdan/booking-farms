@@ -38,6 +38,37 @@ class ApiCityController extends Controller
         }
     }
 
+    public function basic()
+    {
+        /**
+         * List all published cities without images for selection purposes.
+         * Perfect for dropdowns, forms, etc.
+         *
+         * @return \Illuminate\Http\JsonResponse
+         */
+        try {
+            // Cache basic cities for 1 hour 
+            $cities = Cache::remember('cities_basic_list', 3600, function () {
+                return City::published()
+                        ->ordered()
+                        ->select(['id', 'name_en', 'name_ar'])
+                        ->get()
+                        ->map(function ($city) {
+                            return [
+                                'id' => $city->id,
+                                'name_en' => $city->name_en,
+                                'name_ar' => $city->name_ar,
+                            ];
+                        });
+            });
+
+            return $this->successResponse(true, $cities, null, 200);
+        } catch (\Exception $e) {
+            $this->logException($e);
+            return $this->errorResponse(__('error.internal_error'), 500);
+        }
+    }
+
 
     public function getAreasByCity(Request $request, $cityId)
     {

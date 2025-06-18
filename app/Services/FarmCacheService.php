@@ -13,6 +13,7 @@ class FarmCacheService
     public static function clearCityCaches(): void
     {
         Cache::forget('cities_list');
+        Cache::forget('cities_basic_list');
         Cache::forget('cities_options_en'); //  needed for filter options
         Cache::forget('cities_options_ar'); //  needed for filter options
     }

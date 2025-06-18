@@ -29,9 +29,9 @@ return [
         'email.max'                 => 'Email cannot exceed :max characters.',
         'email.unique'              => 'This email is already taken.',
 
-        'city.required'             => 'City is required.',
-        'city.string'               => 'City must be a valid string.',
-        'city.max'                  => 'City cannot exceed :max characters.',
+        'city_id.required'          => 'City is required.',
+        'city_id.integer'           => 'City ID must be a valid integer.',
+        'city_id.exists'            => 'The selected city does not exist.',
 
         'phone.required'            => 'Phone number is required.',
         'phone.string'              => 'Phone must be a valid string of digits.',
@@ -54,7 +54,7 @@ return [
     'attributes' => [
         'name'             => 'Name',
         'email'            => 'Email Address',
-        'city'             => 'City',
+        'city_id'          => 'City',
         'phone'            => 'Phone Number',
         'password'         => 'Password',
         'password_confirmation' => 'Password Confirmation',

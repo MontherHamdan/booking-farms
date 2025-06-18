@@ -27,7 +27,7 @@ class ApiUserProfileController extends Controller
          * @return \Illuminate\Http\JsonResponse
          */
         try {
-            $user = $request->user();
+            $user = $request->user()->load('city'); 
             
             return $this->successResponse(true, [
                 'user' => new UserResource($user),
@@ -96,7 +96,7 @@ class ApiUserProfileController extends Controller
         
             return $this->successResponse(true, [
                 'message' => __('auth.profile_updated_successfully'),
-                'user'    => new UserResource($user->fresh()),
+                'user'    => new UserResource($user->fresh()->load('city')), 
             ], null, 200);
             
         } catch (\Illuminate\Validation\ValidationException $e) {

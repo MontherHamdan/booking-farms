@@ -20,7 +20,7 @@ class UpdateProfileRequest extends FormRequest
         return [
             'name'             => 'sometimes|required|string|min:3|max:255',
             'email'            => "sometimes|required|email|max:255|unique:users,email,{$userId}",
-            'city'             => 'sometimes|required|string|max:100',
+            'city_id'          => 'sometimes|required|integer|exists:cities,id', 
             'phone'            => "sometimes|required|string|min:10|max:10|unique:users,phone,{$userId}",
             'password'         => 'sometimes|required|string|min:8|confirmed',
             'current_password' => 'required_with:password|string',

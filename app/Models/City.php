@@ -25,6 +25,14 @@ class City extends Model
     const STATUS_UNPUBLISHED = 'unpublished';
 
     /**
+     * Get the users for the city.
+     */
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class);
+    }
+
+    /**
      * Get the areas for the city.
      */
     public function areas(): HasMany
