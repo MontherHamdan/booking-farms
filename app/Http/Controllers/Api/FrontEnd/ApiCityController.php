@@ -11,6 +11,7 @@ use App\Models\Area;
 use Illuminate\Http\Request;
 use App\Http\Resources\AreaResource;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Cache;
 
 class ApiCityController extends Controller
 {
@@ -25,12 +26,14 @@ class ApiCityController extends Controller
          * @return \Illuminate\Http\JsonResponse
          */
         try {
-            $cities = City::published()->ordered()->get();
+            // Cache cities for 1 hour 
+            $cities = Cache::remember('cities_list', 3600, function () {
+                return City::published()->ordered()->get();
+            });
 
             return $this->successResponse(true, CityResource::collection($cities), null, 200);
         } catch (\Exception $e) {
             $this->logException($e);
-
             return $this->errorResponse(__('error.internal_error'), 500);
         }
     }
@@ -46,16 +49,14 @@ class ApiCityController extends Controller
          * @return \Illuminate\Http\JsonResponse
          */
         try {
-            $city = City::published()->findOrFail($cityId);
-
-            $areas = $city->publishedAreas()->get();
+            // Cache areas by city for 1 hour 
+            $areas = Cache::remember("areas_by_city_{$cityId}", 3600, function () use ($cityId) {
+                $city = City::published()->findOrFail($cityId);
+                return $city->publishedAreas()->get();
+            });
 
             return $this->successResponse(true, AreaResource::collection($areas), null, 200);
-
-        } catch (ModelNotFoundException $e) {
-            // City not found or not published
-            return $this->errorResponse(__('error.city_not_found'), 404);
-        } catch (\Exception $e) {
+        }catch (\Exception $e) {
             $this->logException($e);
             return $this->errorResponse(__('error.internal_error'), 500);
         }

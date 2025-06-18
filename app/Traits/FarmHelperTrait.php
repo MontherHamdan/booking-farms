@@ -4,7 +4,7 @@ namespace App\Traits;
 
 use App\Models\City;
 use App\Models\Feature;
-use App\Models\Area;
+use Illuminate\Support\Facades\Cache;
 
 trait FarmHelperTrait
 {
@@ -230,29 +230,37 @@ trait FarmHelperTrait
     }
 
     /**
-     * Get city options for dropdown based on locale
-     */
+     * Get city options (cached for performance)
+    */
     private function getCityOptions($locale = 'en'): array
     {
-        $nameField = $locale === 'ar' ? 'name_ar' : 'name_en';
+        $cacheKey = "cities_options_{$locale}";
         
-        return City::select('id as value', $nameField . ' as label')
-            ->where('status', City::STATUS_PUBLISHED)
-            ->orderBy('order')
-            ->get()
-            ->toArray();
+        return Cache::remember($cacheKey, 3600, function () use ($locale) {
+            $nameField = $locale === 'ar' ? 'name_ar' : 'name_en';
+            
+            return City::select('id as value', $nameField . ' as label')
+                ->where('status', City::STATUS_PUBLISHED)
+                ->orderBy('order')
+                ->get()
+                ->toArray();
+        });
     }
-
+    
     /**
-     * Get feature options for dropdown based on locale
+     * Get feature options (cached)
      */
     private function getFeatureOptions($locale = 'en'): array
     {
-        $nameField = $locale === 'ar' ? 'name_ar' : 'name_en';
+        $cacheKey = "features_options_{$locale}";
         
-        return Feature::select('id as value', $nameField . ' as label')
-            ->orderBy('order')
-            ->get()
-            ->toArray();
+        return Cache::remember($cacheKey, 3600, function () use ($locale) {
+            $nameField = $locale === 'ar' ? 'name_ar' : 'name_en';
+            
+            return Feature::select('id as value', $nameField . ' as label')
+                ->orderBy('order')
+                ->get()
+                ->toArray();
+        });
     }
 }

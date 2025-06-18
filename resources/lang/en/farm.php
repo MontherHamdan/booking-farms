@@ -23,6 +23,12 @@ return [
         'city_id.array' => 'Cities must be an array',
         'city_id.*.integer' => 'City ID must be an integer',
         'city_id.*.exists' => 'The selected city does not exist',
+        
+        // Area validation messages
+        'area_id.array' => 'Areas must be an array',
+        'area_id.*.integer' => 'Area ID must be an integer',
+        'area_id.*.exists' => 'The selected area does not exist',
+        
         'min_price.numeric' => 'Minimum price must be a number',
         'min_price.min' => 'Minimum price cannot be less than zero',
         'max_price.numeric' => 'Maximum price must be a number',
@@ -92,6 +98,7 @@ return [
 
     'filter_placeholders' => [
         'city_id' => 'Select cities',
+        'area_id' => 'Select areas',  // NEW
         'min_price' => 'Enter minimum price',
         'max_price' => 'Enter maximum price',
         'has_offer' => 'Select offer status',
@@ -125,6 +132,7 @@ return [
     
     'attributes' => [
         'city_id' => 'City',
+        'area_id' => 'Area', 
         'min_price' => 'Minimum Price',
         'max_price' => 'Maximum Price',
         'has_offer' => 'Has Offer',

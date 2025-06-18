@@ -9,21 +9,28 @@ use Illuminate\Http\JsonResponse;
 use App\Traits\JsonResponseTrait;
 use App\Traits\ExceptionLoggerTrait;
 use Exception;
+use Illuminate\Support\Facades\Cache;
 
 class ApiFeatureController extends Controller
 {
     use JsonResponseTrait, ExceptionLoggerTrait;
 
-    public function index(): JsonResponse
+    public function index()
     {
+        /**
+         * List all features ordered by order column.
+         *
+         * @return \Illuminate\Http\JsonResponse
+         */
         try {
-            $features = Feature::orderBy('order', 'asc')->get();
-    
-            $resourceCollection = FeatureResource::collection($features);
-    
-            return $this->successResponse(true, $resourceCollection, null, 200);
-        } catch (Exception $e) {
-            $this->logException($e, ['action' => 'fetch features']);
+            // Cache features for 1 hour 
+            $features = Cache::remember('features_list', 3600, function () {
+                return Feature::orderBy('order')->get();
+            });
+
+            return $this->successResponse(true, FeatureResource::collection($features), null, 200);
+        } catch (\Exception $e) {
+            $this->logException($e);
             return $this->errorResponse(__('error.internal_error'), 500);
         }
     }
