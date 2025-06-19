@@ -193,8 +193,8 @@
               <li class="dropdown notification-list topbar-dropdown">
                     <a class="nav-link dropdown-toggle nav-user me-0 waves-effect waves-light" data-bs-toggle="dropdown"
                         href="#" role="button" aria-haspopup="false" aria-expanded="false">
-                        {{-- @if(Auth::user()->image)
-                            <img src="{{ asset('storage/' . Auth::user()->image) }}" alt="user-image"
+                        @if(Auth::user()->avatar)
+                            <img src="{{  Auth::user()->avatar }}" alt="user-avatar"
                                 class="rounded-circle" style="width:40px; height:40px; object-fit: cover;">
                         @else
                             @php
@@ -210,9 +210,9 @@
                                 style="width:40px; height:40px; background-color:#6c757d; color:#fff; font-weight:bold; font-size:16px;">
                                 {{ $initials ?: 'U' }}
                             </span>
-                        @endif --}}
+                        @endif
                         <span class="pro-user-name ms-1">
-                            {{-- {{ Auth::user()->name }} <i class="mdi mdi-chevron-down"></i> --}}Admin
+                            {{ Auth::user()->name }} <i class="mdi mdi-chevron-down"></i>
                         </span>
                     </a>
                   <div class="dropdown-menu dropdown-menu-end profile-dropdown ">
@@ -236,13 +236,13 @@
                       {{-- <div class="dropdown-divider"></div> --}}
 
                       <!-- item-->
-                      {{-- <form action="{{ route('auth.logout') }}" method="POST">
+                      <form action="{{ route('dashboard.logout') }}" method="POST">
                           @csrf
                           <button type="submit" class="dropdown-item notify-item">
                               <i class="fe-log-out me-1"></i>
                               <span>Logout</span>
                           </button>
-                      </form> --}}
+                      </form>
 
                   </div>
               </li>
@@ -257,7 +257,7 @@
 
           <!-- LOGO -->
           <div class="logo-box">
-              <a href="{{ route('admin.dashboard') }}" class="logo logo-light text-center">
+              <a href="{{ route('dashboard.home') }}" class="logo logo-light text-center">
                   <span class="logo-sm">
                       <img src="{{ asset('assets/images/Asset 3@4x.png') }}" alt="" height="22">
                   </span>
@@ -265,7 +265,7 @@
                       <img src="{{ asset('assets/images/Asset 2.svg') }}" alt="" height="16">
                   </span>
               </a>
-              <a href="{{ route('admin.dashboard') }}" class="logo logo-dark text-center">
+              <a href="{{ route('dashboard.home') }}" class="logo logo-dark text-center">
                   <span class="logo-sm">
                       <img src="{{ asset('assets/images/Asset 3@4x.png') }}" alt="" height="22">
                   </span>

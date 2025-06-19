@@ -8,10 +8,10 @@
                 <div class="card-header bg-white">
                     <div class="d-flex justify-content-between align-items-center">
                         <h3 class="card-title m-0 font-weight-bold text-primary">
-                            Create New City
+                            Create New Area
                         </h3>
-                        <a href="{{ route('dashboard.cities.index') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-arrow-left mr-1"></i> Back to Cities
+                        <a href="{{ route('dashboard.areas.index') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left mr-1"></i> Back to Areas
                         </a>
                     </div>
                 </div>
@@ -23,15 +23,24 @@
                         </div>
                     @endif
                     
-                    <form action="{{ route('dashboard.cities.store') }}" method="POST" enctype="multipart/form-data" id="cityForm">
+                    <form action="{{ route('dashboard.areas.store') }}" method="POST" id="areaForm">
                         @csrf
                         
                         <div class="form-group mb-4">
-                            <label for="image" class="form-label fw-bold">City Image</label>
-                            <input type="file" data-plugins="dropify" data-height="200"
-                                class="form-control @error('image') is-invalid @enderror" name="image" id="image"
-                                required>
-                            @error('image')
+                            <label for="city_id" class="font-weight-bold">
+                                City <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-control @error('city_id') is-invalid @enderror" 
+                                    id="city_id" name="city_id" required>
+                                <option value="">Select a City</option>
+                                @foreach($cities as $city)
+                                    <option value="{{ $city->id }}" 
+                                            {{ old('city_id') == $city->id ? 'selected' : '' }}>
+                                        {{ $city->name_en }} ({{ $city->name_ar }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('city_id')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
@@ -43,7 +52,7 @@
                                         Arabic Name <span class="text-danger">*</span>
                                     </label>
                                     <input type="text" class="form-control @error('name_ar') is-invalid @enderror" 
-                                           id="name_ar" name="name_ar" value="{{ old('name_ar') }}" dir="rtl">
+                                           id="name_ar" name="name_ar" value="{{ old('name_ar') }}" dir="rtl" required>
                                     @error('name_ar')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -55,7 +64,7 @@
                                         English Name <span class="text-danger">*</span>
                                     </label>
                                     <input type="text" class="form-control @error('name_en') is-invalid @enderror" 
-                                           id="name_en" name="name_en" value="{{ old('name_en') }}">
+                                           id="name_en" name="name_en" value="{{ old('name_en') }}" required>
                                     @error('name_en')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -70,13 +79,13 @@
                                         Status <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-control @error('status') is-invalid @enderror" 
-                                            id="statuss" name="status">
-                                        <option value="{{ \App\Models\City::STATUS_PUBLISHED }}" 
-                                                {{ old('status') == \App\Models\City::STATUS_PUBLISHED ? 'selected' : '' }}>
+                                            id="statuss" name="status" required>
+                                        <option value="{{ \App\Models\Area::STATUS_PUBLISHED }}" 
+                                                {{ old('status') == \App\Models\Area::STATUS_PUBLISHED ? 'selected' : '' }}>
                                             Published
                                         </option>
-                                        <option value="{{ \App\Models\City::STATUS_UNPUBLISHED }}" 
-                                                {{ old('status') == \App\Models\City::STATUS_UNPUBLISHED ? 'selected' : '' }}>
+                                        <option value="{{ \App\Models\Area::STATUS_UNPUBLISHED }}" 
+                                                {{ old('status') == \App\Models\Area::STATUS_UNPUBLISHED ? 'selected' : '' }}>
                                             Unpublished
                                         </option>
                                     </select>
@@ -92,7 +101,7 @@
                                            id="order" name="order" value="{{ old('order') }}" 
                                            placeholder="Leave empty for automatic ordering">
                                     <small class="form-text text-muted">
-                                        City display order (lower numbers appear first)
+                                        Area display order within the city (lower numbers appear first)
                                     </small>
                                     @error('order')
                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -103,7 +112,7 @@
                         
                         <div class="mt-4 text-center">
                             <button type="submit" class="btn btn-primary btn-lg px-5">
-                                <i class="fas fa-save mr-2"></i> Create City
+                                <i class="fas fa-save mr-2"></i> Create Area
                             </button>
                         </div>
                     </form>

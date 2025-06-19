@@ -77,7 +77,7 @@ class CityController extends Controller
 
             City::create($validated);
 
-            return redirect()->route('cities.index')
+            return redirect()->route('dashboard.cities.index')
                              ->with('success', 'City created successfully.');
         } catch (\Exception $e) {
             $this->logErrorAndRedirect($e, 'Error storing city: ');
@@ -103,7 +103,7 @@ class CityController extends Controller
         } catch (\Exception $e) {
             $this->logErrorAndRedirect($e, 'Error in city edit page: ');
             
-            return redirect()->route('cities.index')
+            return redirect()->route('dashboard.cities.index')
                 ->with('error', 'Internal server error. Please try again later.');
         }
     }
@@ -143,7 +143,7 @@ class CityController extends Controller
 
             $city->update($validated);
 
-            return redirect()->route('cities.index')
+            return redirect()->route('dashboard.cities.index')
                              ->with('success', 'City updated successfully.');
         } catch (\Exception $e) {
             $this->logErrorAndRedirect($e, 'Error updating city: ');
@@ -176,7 +176,7 @@ class CityController extends Controller
             
             $city->delete();
             
-            return redirect()->route('cities.index')
+            return redirect()->route('dashboard.cities.index')
                 ->with('success', 'City deleted successfully.');
         } catch (\Exception $e) {
             $this->logErrorAndRedirect($e, 'Error deleting city: ');

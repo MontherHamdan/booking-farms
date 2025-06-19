@@ -7,7 +7,7 @@
       <h4 class="font-weight-bold text-primary">Cities Management</h4>
     </div>
     <div class="col-auto">
-      <a href="{{ route('cities.create') }}" class="btn btn-sm btn-primary">
+      <a href="{{ route('dashboard.cities.create') }}" class="btn btn-sm btn-primary">
         <i class="fas fa-plus-circle mr-1"></i> Add City
       </a>
     </div>
@@ -57,7 +57,7 @@
             <div class="card-footer bg-white border-top-0 p-2">
               <div class="btn-group btn-block" role="group">
                 <a 
-                  href="{{ route('cities.edit', $city->id) }}" 
+                  href="{{ route('dashboard.cities.edit', $city->id) }}" 
                   class="btn btn-sm btn-outline-info"
                 >
                   <i class="fas fa-edit"></i>
@@ -72,7 +72,7 @@
               </div>
               <form 
                 id="delete-form-{{ $city->id }}" 
-                action="{{ route('cities.destroy', $city->id) }}" 
+                action="{{ route('dashboard.cities.destroy', $city->id) }}" 
                 method="POST" 
                 style="display: none;"
               >

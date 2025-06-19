@@ -8,7 +8,7 @@
                 <div class="card-header bg-white">
                     <div class="d-flex justify-content-between align-items-center">
                         <h3 class="card-title m-0 font-weight-bold text-primary">Create New Feature</h3>
-                        <a href="{{ route('features.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('dashboard.features.index') }}" class="btn btn-outline-secondary">
                             <i class="fas fa-arrow-left mr-1"></i> Back to Features
                         </a>
                     </div>
@@ -21,7 +21,7 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('features.store') }}" method="POST" enctype="multipart/form-data" id="featureForm">
+                    <form action="{{ route('dashboard.features.store') }}" method="POST" enctype="multipart/form-data" id="featureForm">
                         @csrf
 
                         <div class="form-group mb-4">

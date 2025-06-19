@@ -10,7 +10,7 @@
                         <h3 class="card-title m-0 font-weight-bold text-primary">
                             <i class="fas fa-edit mr-2"></i>Edit Feature
                         </h3>
-                        <a href="{{ route('features.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('dashboard.features.index') }}" class="btn btn-outline-secondary">
                             <i class="fas fa-arrow-left mr-1"></i> Back to Features
                         </a>
                     </div>
@@ -23,7 +23,7 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('features.update', $feature->id) }}" method="POST" enctype="multipart/form-data" id="featureForm">
+                    <form action="{{ route('dashboard.features.update', $feature->id) }}" method="POST" enctype="multipart/form-data" id="featureForm">
                         @csrf
                         @method('PUT')
 

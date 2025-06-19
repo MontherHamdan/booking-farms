@@ -7,7 +7,7 @@
       <h4 class="font-weight-bold text-primary">Features Management</h4>
     </div>
     <div class="col-auto">
-      <a href="{{ route('features.create') }}" class="btn btn-sm btn-primary">
+      <a href="{{ route('dashboard.features.create') }}" class="btn btn-sm btn-primary">
         <i class="fas fa-plus-circle mr-1"></i> Add New Feature
       </a>
     </div>
@@ -56,7 +56,7 @@
                       </a>
                       <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton{{ $feature->id }}">
                         <li>
-                          <a href="{{ route('features.edit', $feature->id) }}" class="dropdown-item" title="Edit Feature">
+                          <a href="{{ route('dashboard.features.edit', $feature->id) }}" class="dropdown-item" title="Edit Feature">
                             <i class="fas fa-edit me-2"></i>Edit
                           </a>
                         </li>
@@ -67,7 +67,7 @@
                         </li>
                       </ul>
                     </div>
-                    <form id="delete-feature-{{ $feature->id }}" action="{{ route('features.destroy', $feature->id) }}" method="POST" style="display: none;">
+                    <form id="delete-feature-{{ $feature->id }}" action="{{ route('dashboard.features.destroy', $feature->id) }}" method="POST" style="display: none;">
                       @csrf
                       @method('DELETE')
                     </form>

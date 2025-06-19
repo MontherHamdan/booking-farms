@@ -79,7 +79,7 @@ class FeatureController extends Controller
             
             Feature::create($validated);
             
-            return redirect()->route('features.index')
+            return redirect()->route('dashboard.features.index')
                 ->with('success', 'Feature created successfully.');
         } catch (\Exception $e) {
             $this->logErrorAndRedirect($e, 'Error storing feature: ');
@@ -105,7 +105,7 @@ class FeatureController extends Controller
         } catch (\Exception $e) {
             $this->logErrorAndRedirect($e, 'Error in feature edit page: ');
             
-            return redirect()->route('features.index')
+            return redirect()->route('dashboard.features.index')
                 ->with('error', 'Internal server error. Please try again later.');
         }
     }
@@ -150,7 +150,7 @@ class FeatureController extends Controller
             
             $feature->update($validated);
             
-            return redirect()->route('features.index')
+            return redirect()->route('dashboard.features.index')
                 ->with('success', 'Feature updated successfully.');
         } catch (\Exception $e) {
             $this->logErrorAndRedirect($e, 'Error updating feature: ');
@@ -183,7 +183,7 @@ class FeatureController extends Controller
             
             $feature->delete();
             
-            return redirect()->route('features.index')
+            return redirect()->route('dashboard.features.index')
                 ->with('success', 'Feature deleted successfully.');
         } catch (\Exception $e) {
             $this->logErrorAndRedirect($e, 'Error deleting feature: ');

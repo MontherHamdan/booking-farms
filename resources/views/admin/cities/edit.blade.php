@@ -10,7 +10,7 @@
                         <h3 class="card-title m-0 font-weight-bold text-primary">
                             <i class="fas fa-edit mr-2"></i>Edit City
                         </h3>
-                        <a href="{{ route('cities.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('dashboard.cities.index') }}" class="btn btn-outline-secondary">
                             <i class="fas fa-arrow-left mr-1"></i> Back to Cities
                         </a>
                     </div>
@@ -23,7 +23,7 @@
                         </div>
                     @endif
                     
-                    <form action="{{ route('cities.update', $city->id) }}" method="POST" enctype="multipart/form-data">
+                    <form action="{{ route('dashboard.cities.update', $city->id) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         @method('PUT')
                         
