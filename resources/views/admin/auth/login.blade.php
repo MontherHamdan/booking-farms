@@ -307,7 +307,7 @@
                 <i class="fas fa-chart-line"></i>
             </div>
             <div class="brand-name">مزرعتي - Mazra3ty</div>
-            <div class="brand-subtitle">Admin Panel Design by Coderthemes</div>
+            <div class="brand-subtitle">Admin Panel Design by Kings Team</div>
         </div>
         
         <!-- Login Card -->
