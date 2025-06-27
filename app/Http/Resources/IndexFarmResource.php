@@ -69,7 +69,7 @@ class IndexFarmResource extends JsonResource
                     'name_en' => $this->area->name_en ?? '',
                 ];
             }),
-            'farm owner' => $this->whenLoaded('user', function () {
+            'farm_owner' => $this->whenLoaded('user', function () {
                 return [
                     'id' => $this->user->id,
                     'name' => $this->user->name,

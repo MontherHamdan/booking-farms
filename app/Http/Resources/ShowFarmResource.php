@@ -93,11 +93,13 @@ class ShowFarmResource extends JsonResource
                     'name_en' => $this->city->name_en ?? '',
                 ];
             }),
-            'farm owner' => $this->whenLoaded('user', function () {
+            'farm_owner' => $this->whenLoaded('user', function () {
                 return [
                     'id' => $this->user->id,
                     'name' => $this->user->name,
                     'phone' => $this->user->phone,
+                    'email' => $this->user->email,
+                    'avatar' => $this->user->avatar,
                 ];
             }),
             'features' => $this->whenLoaded('features', function () {
@@ -133,6 +135,8 @@ class ShowFarmResource extends JsonResource
             if ($this->isPriceTypeComplete($pricing)) {
                 $availableTypes[] = [
                     'type' => $pricing->price_type,
+                    'name_ar' => $this->getPriceTypeName($pricing->price_type, 'ar'),
+                    'name_en' => $this->getPriceTypeName($pricing->price_type, 'en'),
                     'start_time' => $pricing->formatted_start_time,
                     'end_time' => $pricing->formatted_end_time,
                     'time_range' => $pricing->time_range,
@@ -169,5 +173,14 @@ class ShowFarmResource extends JsonResource
         }
 
         return true;
+    }
+
+    /**
+     * Get localized name for price type
+     */
+    private function getPriceTypeName(string $priceType, string $locale): string
+    {
+        // Use the language files to get localized names
+        return __("farm.price_types.{$priceType}", [], $locale);
     }
 }
