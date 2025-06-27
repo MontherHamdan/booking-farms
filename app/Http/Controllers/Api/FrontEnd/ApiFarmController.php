@@ -168,14 +168,15 @@ class ApiFarmController extends Controller
          * Display the specified farm.
         */
         try {
-            $farm = Farm::with(['city', 'features', 'images', 'user', 'pricing', 'offers', 'ratings'])->find($farm_id);
-
+            $relationships = $this->getFarmRelationships();
+            $farm = Farm::with($relationships)->find($farm_id);
+    
             if (!$farm) {
                 return $this->errorResponse(__('farm.not_found', ['id' => $farm_id]), 404);
             }
             
             return $this->successResponse(true, new ShowFarmResource($farm), null, 200);
-
+    
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'show farm', 'id' => $farm_id]);
             return $this->errorResponse(__('error.internal_error'), 500);

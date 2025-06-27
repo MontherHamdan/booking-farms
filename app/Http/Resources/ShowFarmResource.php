@@ -22,6 +22,7 @@ class ShowFarmResource extends JsonResource
             'id' => $this->id,
             'user_id' => $this->user_id,
             'city_id' => $this->city_id,
+            'area_id' => $this->area_id,
             'name_ar' => $this->name_ar,
             'name_en' => $this->name_en,
             'description_ar' => $this->description_ar,
@@ -91,6 +92,13 @@ class ShowFarmResource extends JsonResource
                     'id' => $this->city->id,
                     'name_ar' => $this->city->name_ar ?? '',
                     'name_en' => $this->city->name_en ?? '',
+                ];
+            }),
+            'area' => $this->whenLoaded('area', function () {
+                return [
+                    'id' => $this->area->id,
+                    'name_ar' => $this->area->name_ar ?? '',
+                    'name_en' => $this->area->name_en ?? '',
                 ];
             }),
             'farm_owner' => $this->whenLoaded('user', function () {
