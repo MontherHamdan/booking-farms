@@ -70,6 +70,16 @@ return [
         'price_type.string' => 'Price type must be a string',
         'price_type.in' => 'The selected price type is invalid. Allowed values: day_use, night, full_day',
 
+        // Additional date validation messages
+        'dates' => [
+            'size' => 'Invalid number of dates for the selected price type',
+            'max' => 'Full day price type can have maximum 2 dates for date range',
+            'date_range_invalid' => 'Start date must be before or equal to end date',
+            'day_use_single' => 'Day use price type must have exactly 1 date',
+            'night_single' => 'Night price type must have exactly 1 date',
+            'full_day_range' => 'Full day price type can have 1 date (single day) or 2 dates (date range)',
+        ],
+
         'rating' => [
             'required'     => 'Please provide a rating.',
             'numeric'      => 'Rating must be a valid number.',

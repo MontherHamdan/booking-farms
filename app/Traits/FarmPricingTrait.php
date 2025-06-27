@@ -4,6 +4,7 @@ namespace App\Traits;
 
 use App\Models\Farm;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 trait FarmPricingTrait
 {
@@ -168,5 +169,51 @@ trait FarmPricingTrait
         }
         
         return $start1->lt($end2) && $start2->lt($end1);
+    }
+
+    /**
+     * Process dates based on price type
+     * 
+     * @param array $dates
+     * @param string $priceType
+     * @return array
+     */
+    private function processDatesByPriceType(array $dates, string $priceType): array
+    {
+        // For day_use and night, always use the provided dates as-is (should be single date)
+        if (in_array($priceType, ['day_use', 'night'])) {
+            return $dates;
+        }
+    
+        // For full_day, handle both single date and date range
+        if ($priceType === 'full_day') {
+            // If only one date provided, return as-is
+            if (count($dates) === 1) {
+                return $dates;
+            }
+    
+            // If two dates provided, expand the range
+            if (count($dates) === 2) {
+                $startDate = Carbon::parse($dates[0]);
+                $endDate = Carbon::parse($dates[1]);
+    
+                // Ensure start date is before or equal to end date
+                if ($startDate->gt($endDate)) {
+                    throw new Exception('Start date must be before or equal to end date');
+                }
+    
+                $dateRange = [];
+                $currentDate = $startDate->copy();
+    
+                while ($currentDate->lte($endDate)) {
+                    $dateRange[] = $currentDate->format('Y-m-d');
+                    $currentDate->addDay();
+                }
+    
+                return $dateRange;
+            }
+        }
+    
+        return $dates;
     }
 }

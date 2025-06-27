@@ -186,56 +186,58 @@ class ApiFarmController extends Controller
     {
         /**
          * Calculate farm price based on selected dates and price type.
-        */
+         */
         try {
-
             // Fetch farm with pricing and offers
             $farm = Farm::with(['pricing', 'offers'])->find($farmId);
-            
+    
             if (!$farm) {
                 return $this->errorResponse(__('farm.not_found', ['id' => $farmId]), 404);
             }
-
+    
             $dates = $request->dates;
             $priceType = $request->price_type;
-
+    
             // Get pricing for selected type
             $pricing = $farm->pricing()->where('price_type', $priceType)->first();
             if (!$pricing) {
                 return $this->errorResponse(__('farm.pricing_not_available', ['price_type' => __('farm.price_types.' . $priceType)]), 400);
             }
-
-            // Ensure none of the dates are blocked
-            $unavailable = array_intersect($dates, $farm->not_available_dates ?? []);
+    
+            // Process dates based on price type
+            $processedDates = $this->processDatesByPriceType($dates, $priceType);
+    
+            // Ensure none of the processed dates are blocked
+            $unavailable = array_intersect($processedDates, $farm->not_available_dates ?? []);
             if ($unavailable) {
                 return $this->errorResponse(__('farm.unavailable_dates', ['dates' => implode(', ', $unavailable)]), 400);
             }
-
+    
             // Calculate subtotal before discount
-            $subtotal = collect($dates)->sum(function ($date) use ($pricing) {
+            $subtotal = collect($processedDates)->sum(function ($date) use ($pricing) {
                 $day = strtolower(Carbon::parse($date)->format('l'));
                 return $pricing->{"{$day}_price"} ?? 0;
             });
-
-            // Determine current offer percentage
+    
+            // Determine current offer percentage - always as float
             $offer = $farm->currentOffer;
-            $percentage = $offer->percentage ?? 0;
-
+            $percentage = $offer ? (float) $offer->percentage : 0.0;
+    
             // Compute discount and final total
             $discountAmount = ($subtotal * $percentage) / 100;
             $total = $subtotal - $discountAmount;
-
+    
             // Simplified response with offer details
             $data = [
                 'price_before_offer' => $subtotal,
-                'offer_percentage'   => $percentage,
+                'offer_percentage'   => $percentage, // Now always float
                 'is_offer'           => $percentage > 0,
                 'discount_amount'    => $discountAmount,
                 'price_after_offer'  => $total,
             ];
-            
+    
             return $this->successResponse(true, $data, null, 200);
-
+    
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'calculate farm price', 'farm_id' => $farmId]);
             return $this->errorResponse(__('error.internal_error'), 500);
