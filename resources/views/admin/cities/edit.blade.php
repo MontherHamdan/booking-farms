@@ -66,6 +66,33 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="description_ar" class="font-weight-bold">Arabic Description</label>
+                                    <textarea class="form-control @error('description_ar') is-invalid @enderror" 
+                                              id="description_ar" name="description_ar" rows="4" dir="rtl" 
+                                              placeholder="Enter city description in Arabic...">{{ old('description_ar', $city->description_ar) }}</textarea>
+                                    <small class="form-text text-muted">Maximum 1000 characters</small>
+                                    @error('description_ar')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="description_en" class="font-weight-bold">English Description</label>
+                                    <textarea class="form-control @error('description_en') is-invalid @enderror" 
+                                              id="description_en" name="description_en" rows="4" 
+                                              placeholder="Enter city description in English...">{{ old('description_en', $city->description_en) }}</textarea>
+                                    <small class="form-text text-muted">Maximum 1000 characters</small>
+                                    @error('description_en')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
                         
                         <div class="row">
                             <div class="col-md-6">
@@ -74,7 +101,7 @@
                                         Status <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-control @error('status') is-invalid @enderror" 
-                                            id="statuss" name="status" required>
+                                            id="status" name="status" required>
                                         <option value="{{ \App\Models\City::STATUS_PUBLISHED }}" 
                                                 {{ old('status', $city->status) == \App\Models\City::STATUS_PUBLISHED ? 'selected' : '' }}>
                                             Published

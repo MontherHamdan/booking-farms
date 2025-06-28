@@ -63,7 +63,6 @@ class ApiFarmController extends Controller
         }
     }
 
-
     public function filter(FilterFarmRequest $request): JsonResponse
     {
         /**
@@ -100,8 +99,6 @@ class ApiFarmController extends Controller
         return $this->successResponse(true, $fields, null, 200);
     }
 
-
-
     public function search(SearchFarmRequest $request): JsonResponse
     {
         /**
@@ -133,11 +130,11 @@ class ApiFarmController extends Controller
     }
 
 
-    /**
-     * Get search history for authenticated users
-     */
     public function getSearchHistory(Request $request): JsonResponse
     {
+        /**
+         * Get search history for authenticated users
+        */
         try {
             $validator = Validator::make($request->all(), [
                 'per_page' => 'integer|min:1|max:50'
@@ -163,7 +160,7 @@ class ApiFarmController extends Controller
 
     /**
      * Delete specific search history item by ID
-     */
+    */
     public function deleteSearchHistoryItem($historyId): JsonResponse
     {
         try {
@@ -194,7 +191,7 @@ class ApiFarmController extends Controller
 
     /**
      * Clear all search history for authenticated user
-     */
+    */
     public function clearSearchHistory(): JsonResponse
     {
         try {

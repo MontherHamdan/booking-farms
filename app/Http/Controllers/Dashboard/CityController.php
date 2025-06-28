@@ -22,7 +22,9 @@ class CityController extends Controller
     public function index()
     {
         try {
-            $cities = City::orderBy('order', 'asc')->paginate(12);
+            $cities = City::withCount(['farms', 'areas'])
+                ->orderBy('order', 'asc')
+                ->paginate(12);
             
             return view('admin.cities.index', compact('cities'));
         } catch (\Exception $e) {
@@ -164,6 +166,12 @@ class CityController extends Controller
     {
         try {
             $city = City::findOrFail($city_id);
+            
+            // Check if city has farms or areas
+            if ($city->farms()->count() > 0 || $city->areas()->count() > 0) {
+                return redirect()->back()
+                    ->with('error', 'Cannot delete city that contains farms or areas.');
+            }
             
             // Delete image from S3 if exists
             if ($city->image) {

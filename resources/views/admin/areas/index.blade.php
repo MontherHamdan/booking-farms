@@ -34,7 +34,7 @@
                             @foreach($cities as $city)
                                 <option value="{{ $city->id }}" 
                                         {{ request('city_filter') == $city->id ? 'selected' : '' }}>
-                                    {{ $city->name_en }} ({{ $city->name_ar }})
+                                    {{ $city->name_en }} ({{ $city->name_ar }}) - {{ $city->areas_count }} areas
                                 </option>
                             @endforeach
                         </select>
@@ -94,6 +94,13 @@
                                 <th class="text-center">City (AR)</th>
                                 <th class="text-center">Status</th>
                                 <th class="text-center">Order</th>
+                                <th class="text-center">
+                                    <i class="fas fa-seedling mr-1"></i>Farms
+                                    <a href="{{ request()->fullUrlWithQuery(['sort' => 'farms_count', 'direction' => request('direction') === 'asc' ? 'desc' : 'asc']) }}" 
+                                       class="text-muted ml-1" title="Sort by farm count">
+                                        <i class="fas fa-sort"></i>
+                                    </a>
+                                </th>
                                 <th class="text-center">Actions</th>
                             </tr>
                         </thead>
@@ -112,6 +119,17 @@
                                 </td>
                                 <td class="text-center align-middle">{{ $area->order }}</td>
                                 <td class="text-center align-middle">
+                                    @if($area->farms_count > 0)
+                                        <span class="badge bg-info text-white">
+                                            <i class="fas fa-seedling mr-1"></i>{{ $area->farms_count }}
+                                        </span>
+                                    @else
+                                        <span class="text-muted small">
+                                            <i class="fas fa-minus"></i> No farms
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="text-center align-middle">
                                     <!-- Actions Dropdown -->
                                     <div class="dropdown d-inline-block">
                                         <a class="dropdown-toggle text-dark" id="dropdownMenuButton{{ $area->id }}"
@@ -125,16 +143,25 @@
                                                 </a>
                                             </li>
                                             <li>
-                                                <button type="button" class="dropdown-item text-danger" onclick="confirmDelete('delete-area-{{ $area->id }}')">
+                                                <button type="button" 
+                                                        class="dropdown-item {{ $area->farms_count > 0 ? 'text-muted' : 'text-danger' }}" 
+                                                        onclick="{{ $area->farms_count > 0 ? 'alert(\'Cannot delete area that contains farms!\')' : 'confirmDelete(\'delete-area-' . $area->id . '\')' }}"
+                                                        {{ $area->farms_count > 0 ? 'disabled' : '' }}
+                                                        title="{{ $area->farms_count > 0 ? 'Cannot delete: contains ' . $area->farms_count . ' farm(s)' : 'Delete area' }}">
                                                     <i class="fas fa-trash-alt me-2"></i>Delete
+                                                    @if($area->farms_count > 0)
+                                                        <small class="text-muted">({{ $area->farms_count }} farms)</small>
+                                                    @endif
                                                 </button>
                                             </li>
                                         </ul>
                                     </div>
-                                    <form id="delete-area-{{ $area->id }}" action="{{ route('dashboard.areas.destroy', $area->id) }}" method="POST" style="display: none;">
-                                        @csrf
-                                        @method('DELETE')
-                                    </form>
+                                    @if($area->farms_count == 0)
+                                        <form id="delete-area-{{ $area->id }}" action="{{ route('dashboard.areas.destroy', $area->id) }}" method="POST" style="display: none;">
+                                            @csrf
+                                            @method('DELETE')
+                                        </form>
+                                    @endif
                                 </td>
                             </tr>
                             @endforeach
@@ -143,8 +170,16 @@
                 </div>
             </div>
             <div class="card-footer bg-white border-top-0">
-                <div class="d-flex justify-content-end mb-0">
-                    {{ $areas->appends(request()->query())->links() }}
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="text-muted small">
+                        Showing {{ $areas->firstItem() }} to {{ $areas->lastItem() }} of {{ $areas->total() }} areas
+                        @if($areas->sum('farms_count') > 0)
+                            | Total farms: {{ $areas->sum('farms_count') }}
+                        @endif
+                    </div>
+                    <div>
+                        {{ $areas->appends(request()->query())->links() }}
+                    </div>
                 </div>
             </div>
         </div>
@@ -152,32 +187,32 @@
 </div>
 
 @push('scripts')
-<script>
-// Auto-submit form on filter change
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('search');
-    const cityFilter = document.getElementById('city_filter');
-    const statusFilter = document.getElementById('status_filter');
-    
-    let debounceTimer;
-    
-    // Debounced search for text input
-    searchInput.addEventListener('input', function() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(function() {
+    <script>
+    // Auto-submit form on filter change
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('search');
+        const cityFilter = document.getElementById('city_filter');
+        const statusFilter = document.getElementById('status_filter');
+        
+        let debounceTimer;
+        
+        // Debounced search for text input
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                document.getElementById('filterForm').submit();
+            }, 500);
+        });
+        
+        // Immediate submit for dropdowns
+        cityFilter.addEventListener('change', function() {
             document.getElementById('filterForm').submit();
-        }, 500);
+        });
+        
+        statusFilter.addEventListener('change', function() {
+            document.getElementById('filterForm').submit();
+        });
     });
-    
-    // Immediate submit for dropdowns
-    cityFilter.addEventListener('change', function() {
-        document.getElementById('filterForm').submit();
-    });
-    
-    statusFilter.addEventListener('change', function() {
-        document.getElementById('filterForm').submit();
-    });
-});
-</script>
+    </script>
 @endpush
 @endsection

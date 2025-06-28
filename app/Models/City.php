@@ -13,6 +13,8 @@ class City extends Model
     protected $fillable = [
         'name_ar',
         'name_en',
+        'description_ar',
+        'description_en',
         'status',
         'image',
         'order',
@@ -70,5 +72,21 @@ class City extends Model
     public function publishedAreas()
     {
         return $this->areas()->published()->ordered();
+    }
+
+    /**
+     * Get farms count attribute
+     */
+    public function getFarmsCountAttribute()
+    {
+        return $this->farms()->count();
+    }
+
+    /**
+     * Get areas count attribute
+     */
+    public function getAreasCountAttribute()
+    {
+        return $this->areas()->count();
     }
 }

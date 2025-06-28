@@ -16,7 +16,7 @@
   @if($cities->isEmpty())
     <div class="text-center py-4 text-muted">
       <i class="fas fa-info-circle fa-2x mb-2"></i>
-      <p>No cities yet. Click “Add City” to create one.</p>
+      <p>No cities yet. Click "Add City" to create one.</p>
     </div>
   @else
     <div class="row">
@@ -40,14 +40,31 @@
             @endif
 
             <div class="card-body p-2 d-flex flex-column">
-              <h6 class="card-title mb-1 text-dark text-truncate">{{ $city->name_en }}</h6>
+              <h6 class="card-title mb-1 text-dark text-truncate" title="{{ $city->name_en }}">
+                {{ $city->name_en }}
+              </h6>
+
+              <!-- Statistics -->
+              <div class="mb-2">
+                <div class="d-flex justify-content-between text-muted small">
+                  <span><i class="fas fa-seedling mr-1"></i>{{ $city->farms_count }} Farms</span>
+                  <span><i class="fas fa-map-marker-alt mr-1"></i>{{ $city->areas_count }} Areas</span>
+                </div>
+              </div>
+
+              <!-- Description Preview -->
+              @if($city->description_en)
+                <p class="card-text small text-muted mb-2" style="font-size: 0.75rem; line-height: 1.2;">
+                  {{ Str::limit($city->description_en, 50) }}
+                </p>
+              @endif
 
               <div class="mt-auto d-flex justify-content-between align-items-center">
                 <span class="badge rounded-pill
                   {{ $city->status == \App\Models\City::STATUS_PUBLISHED 
                       ? 'bg-success' 
                       : 'bg-secondary' 
-                  }} py-1 px-2">
+                  }} py-1 px-2" style="font-size: 0.7rem;">
                   {{ $city->status == \App\Models\City::STATUS_PUBLISHED ? 'Published' : 'Unpublished' }}
                 </span>
                 <small class="text-muted">#{{ $city->order }}</small>
@@ -59,6 +76,7 @@
                 <a 
                   href="{{ route('dashboard.cities.edit', $city->id) }}" 
                   class="btn btn-sm btn-outline-info"
+                  title="Edit City"
                 >
                   <i class="fas fa-edit"></i>
                 </a>
@@ -66,10 +84,19 @@
                   type="button" 
                   class="btn btn-sm btn-outline-danger" 
                   onclick="confirmDelete('delete-form-{{ $city->id }}')"
+                  title="Delete City"
+                  {{ ($city->farms_count > 0 || $city->areas_count > 0) ? 'disabled' : '' }}
                 >
                   <i class="fas fa-trash"></i>
                 </button>
               </div>
+              
+              @if($city->farms_count > 0 || $city->areas_count > 0)
+                <small class="text-muted d-block text-center mt-1" style="font-size: 0.7rem;">
+                  Cannot delete: contains data
+                </small>
+              @endif
+              
               <form 
                 id="delete-form-{{ $city->id }}" 
                 action="{{ route('dashboard.cities.destroy', $city->id) }}" 

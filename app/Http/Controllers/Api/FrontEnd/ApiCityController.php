@@ -21,14 +21,17 @@ class ApiCityController extends Controller
     public function index()
     {
         /**
-         * List all published cities ordered by order column.
+         * List all published cities ordered by order column with farm counts.
          *
          * @return \Illuminate\Http\JsonResponse
          */
         try {
-            // Cache cities for 1 hour 
-            $cities = Cache::remember('cities_list', 3600, function () {
-                return City::published()->ordered()->get();
+            // Cache cities with farm counts for 1 hour 
+            $cities = Cache::remember('cities_list_with_counts', 3600, function () {
+                return City::published()
+                    ->ordered()
+                    ->withCount(['farms', 'areas']) // Count both farms and areas
+                    ->get();
             });
 
             return $this->successResponse(true, CityResource::collection($cities), null, 200);

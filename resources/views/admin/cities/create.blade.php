@@ -27,10 +27,13 @@
                         @csrf
                         
                         <div class="form-group mb-4">
-                            <label for="image" class="form-label fw-bold">City Image</label>
+                            <label for="image" class="form-label fw-bold">City Image <span class="text-danger">*</span></label>
                             <input type="file" data-plugins="dropify" data-height="200"
                                 class="form-control @error('image') is-invalid @enderror" name="image" id="image"
                                 required>
+                            <small class="form-text text-muted">
+                                Recommended size: 800x600 pixels, max size: 2MB
+                            </small>
                             @error('image')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -43,7 +46,7 @@
                                         Arabic Name <span class="text-danger">*</span>
                                     </label>
                                     <input type="text" class="form-control @error('name_ar') is-invalid @enderror" 
-                                           id="name_ar" name="name_ar" value="{{ old('name_ar') }}" dir="rtl">
+                                           id="name_ar" name="name_ar" value="{{ old('name_ar') }}" dir="rtl" required>
                                     @error('name_ar')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -55,8 +58,35 @@
                                         English Name <span class="text-danger">*</span>
                                     </label>
                                     <input type="text" class="form-control @error('name_en') is-invalid @enderror" 
-                                           id="name_en" name="name_en" value="{{ old('name_en') }}">
+                                           id="name_en" name="name_en" value="{{ old('name_en') }}" required>
                                     @error('name_en')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="description_ar" class="font-weight-bold">Arabic Description</label>
+                                    <textarea class="form-control @error('description_ar') is-invalid @enderror" 
+                                              id="description_ar" name="description_ar" rows="4" dir="rtl" 
+                                              placeholder="Enter city description in Arabic...">{{ old('description_ar') }}</textarea>
+                                    <small class="form-text text-muted">Maximum 1000 characters</small>
+                                    @error('description_ar')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="description_en" class="font-weight-bold">English Description</label>
+                                    <textarea class="form-control @error('description_en') is-invalid @enderror" 
+                                              id="description_en" name="description_en" rows="4" 
+                                              placeholder="Enter city description in English...">{{ old('description_en') }}</textarea>
+                                    <small class="form-text text-muted">Maximum 1000 characters</small>
+                                    @error('description_en')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -70,7 +100,7 @@
                                         Status <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-control @error('status') is-invalid @enderror" 
-                                            id="statuss" name="status">
+                                            id="status" name="status" required>
                                         <option value="{{ \App\Models\City::STATUS_PUBLISHED }}" 
                                                 {{ old('status') == \App\Models\City::STATUS_PUBLISHED ? 'selected' : '' }}>
                                             Published

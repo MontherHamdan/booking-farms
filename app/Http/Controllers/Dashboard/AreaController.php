@@ -21,7 +21,7 @@ class AreaController extends Controller
     public function index()
     {
         try {
-            $query = Area::with('city');
+            $query = Area::with('city')->withCount('farms'); // Add farm count
             
             // Search functionality
             if (request('search')) {
@@ -52,6 +52,9 @@ class AreaController extends Controller
                           ->orderBy('cities.name_en', $direction)
                           ->select('areas.*');
                     break;
+                case 'farms_count':
+                    $query->orderBy('farms_count', $direction);
+                    break;
                 case 'name_en':
                 case 'status':
                 case 'order':
@@ -69,8 +72,8 @@ class AreaController extends Controller
             
             $areas = $query->paginate(7);
             
-            // Get cities for filter dropdown
-            $cities = City::published()->ordered()->get();
+            // Get cities for filter dropdown with their area counts
+            $cities = City::published()->ordered()->withCount('areas')->get();
             
             return view('admin.areas.index', compact('areas', 'cities'));
         } catch (\Exception $e) {
@@ -88,7 +91,6 @@ class AreaController extends Controller
     {
         try {
             $cities = City::published()->ordered()->get();
-            
             return view('admin.areas.create', compact('cities'));
         } catch (\Exception $e) {
             $this->logErrorAndRedirect($e, 'Error in area create page: ');
@@ -107,7 +109,7 @@ class AreaController extends Controller
         try {
             $validated = $request->validated();
 
-            // Default ordering per city
+            // Default ordering
             if (empty($validated['order'])) {
                 $validated['order'] = (Area::where('city_id', $validated['city_id'])->max('order') ?? 0) + 1;
             }
@@ -181,7 +183,14 @@ class AreaController extends Controller
     public function destroy($area_id)
     {
         try {
-            $area = Area::findOrFail($area_id);
+            $area = Area::withCount('farms')->findOrFail($area_id);
+            
+            // Check if area has farms
+            if ($area->farms_count > 0) {
+                return redirect()->back()
+                    ->with('error', "Cannot delete area '{$area->name_en}' because it contains {$area->farms_count} farm(s).");
+            }
+            
             $area->delete();
             
             return redirect()->route('dashboard.areas.index')

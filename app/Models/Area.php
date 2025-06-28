@@ -64,4 +64,16 @@ class Area extends Model
     {
         return $query->where('city_id', $cityId);
     }
+
+    /**
+     * Get farms count attribute (for when not using withCount)
+     */
+    public function getFarmsCountAttribute()
+    {
+        // This will be used when farms_count is not loaded via withCount
+        if (!array_key_exists('farms_count', $this->attributes)) {
+            return $this->farms()->count();
+        }
+        return $this->attributes['farms_count'];
+    }
 }
