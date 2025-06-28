@@ -17,6 +17,11 @@ return [
     'rating_deleted_success'  => 'Rating deleted successfully.',
     'rating_created_success' => 'Rating created successfully.',
     'rating_updated_success' => 'Rating updated successfully.',
+
+    // search history
+    'history_not_found' => 'عنصر تاريخ البحث غير موجود.',
+    'history_item_deleted' => 'تم حذف عنصر تاريخ البحث بنجاح.',
+    'history_cleared' => 'تم مسح جميع تاريخ البحث بنجاح.',
     
     'validation' => [
         // Filter validation messages

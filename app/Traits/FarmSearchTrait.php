@@ -17,37 +17,38 @@ trait FarmSearchTrait
     {
         $user = Auth::guard('sanctum')->user();
         
-        if ($user) {
-            $this->storeSearchHistory($user->id, $searchQuery);
+        if ($user && !empty(trim($searchQuery))) {
+            $this->storeSearchHistory($user->id, trim($searchQuery));
         }
     }
 
     /**
-     * Store search history for authenticated users
-     * Prevents duplicate consecutive searches
+     * Store search history - ensures each search term appears only once
+     * Most recent usage always appears at the top
      */
     private function storeSearchHistory($userId, $searchQuery): void
     {
         try {
-            // Check if the last search by this user was the same query
-            $lastSearch = SearchHistory::where('user_id', $userId)
-                ->orderBy('created_at', 'desc')
+            // First, check if this exact search term already exists for this user
+            $existingSearch = SearchHistory::where('user_id', $userId)
+                ->where('search_term', $searchQuery)
                 ->first();
 
-            // Only store if it's different from the last search or if no previous search exists
-            if (!$lastSearch || $lastSearch->search_term !== $searchQuery) {
-                SearchHistory::create([
-                    'user_id' => $userId,
-                    'search_term' => $searchQuery,
-                    'created_at' => now()
-                ]);
-
-                // Keep only the last 50 searches per user to prevent unlimited growth
-                $this->cleanupOldSearchHistory($userId);
-            } else {
-                // Update the timestamp of the existing search to bring it to the top
-                $lastSearch->touch();
+            if ($existingSearch) {
+                // Delete the existing entry so we can create a fresh one at the top
+                $existingSearch->delete();
             }
+
+            // Create new entry (will be the most recent)
+            SearchHistory::create([
+                'user_id' => $userId,
+                'search_term' => $searchQuery,
+                'created_at' => now()
+            ]);
+
+            // Clean up old entries
+            $this->cleanupOldSearchHistory($userId);
+
         } catch (Exception $e) {
             // Log the error but don't fail the search if history storage fails
             $this->logException($e, ['action' => 'store search history', 'user_id' => $userId]);
@@ -63,12 +64,14 @@ trait FarmSearchTrait
             // Count total search history entries for this user
             $totalCount = SearchHistory::where('user_id', $userId)->count();
             
-            if ($totalCount > 20) {
-                // Get IDs of records to delete (all except the newest 20)
+            $maxEntries = 20; // Keep only 20 unique searches
+            
+            if ($totalCount > $maxEntries) {
+                // Get IDs of records to delete (all except the newest ones)
                 $searchHistoryIds = SearchHistory::where('user_id', $userId)
                     ->orderBy('created_at', 'desc')
-                    ->skip(20)
-                    ->take($totalCount - 20)
+                    ->skip($maxEntries)
+                    ->take($totalCount - $maxEntries)
                     ->pluck('id');
 
                 if ($searchHistoryIds->isNotEmpty()) {
@@ -79,6 +82,4 @@ trait FarmSearchTrait
             $this->logException($e, ['action' => 'cleanup search history', 'user_id' => $userId]);
         }
     }
-
-
 }

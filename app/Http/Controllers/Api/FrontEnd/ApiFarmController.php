@@ -161,6 +161,59 @@ class ApiFarmController extends Controller
         }
     }
 
+    /**
+     * Delete specific search history item by ID
+     */
+    public function deleteSearchHistoryItem($historyId): JsonResponse
+    {
+        try {
+            $user = auth('sanctum')->user();
+            
+            // Find the search history item that belongs to the authenticated user
+            $searchHistory = SearchHistory::where('user_id', $user->id)
+                ->where('id', $historyId)
+                ->first();
+                
+            if (!$searchHistory) {
+                return $this->errorResponse(__('farm.history_not_found'), 404);
+            }
+            
+            $searchHistory->delete();
+            
+            return $this->successResponse(true, __('farm.history_item_deleted'), null, 200);
+            
+        } catch (Exception $e) {
+            $this->logException($e, [
+                'action' => 'delete search history item', 
+                'user_id' => auth('sanctum')->id(),
+                'history_id' => $historyId
+            ]);
+            return $this->errorResponse(__('error.internal_error'), 500);
+        }
+    }
+
+    /**
+     * Clear all search history for authenticated user
+     */
+    public function clearSearchHistory(): JsonResponse
+    {
+        try {
+            $user = auth('sanctum')->user();
+            
+            // Delete all search history for this user
+            SearchHistory::where('user_id', $user->id)->delete();
+            
+            return $this->successResponse(true, __('farm.history_cleared'), null, 200);
+            
+        } catch (Exception $e) {
+            $this->logException($e, [
+                'action' => 'clear all search history', 
+                'user_id' => auth('sanctum')->id()
+            ]);
+            return $this->errorResponse(__('error.internal_error'), 500);
+        }
+    }
+
 
     public function show($farm_id): JsonResponse
     {

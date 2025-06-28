@@ -63,6 +63,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Search History - for authenticated users only
     Route::get('/search-history', [ApiFarmController::class, 'getSearchHistory']);
+    Route::delete('search-history/{historyId}', [ApiFarmController::class, 'deleteSearchHistoryItem']);
+    Route::delete('search-history', [ApiFarmController::class, 'clearSearchHistory']);
 
     // Logout
     Route::post('/logout', [ApiAuthController::class, 'logout']);
