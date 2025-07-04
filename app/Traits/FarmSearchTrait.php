@@ -9,24 +9,25 @@ use Exception;
 
 trait FarmSearchTrait
 {
-
     /**
-     * Handle search history for authenticated users
+     * Handle search history for authenticated users and return the stored record
      */
-    private function handleSearchHistory($searchQuery): void
+    private function handleSearchHistory($searchQuery): ?array
     {
         $user = Auth::guard('sanctum')->user();
         
         if ($user && !empty(trim($searchQuery))) {
-            $this->storeSearchHistory($user->id, trim($searchQuery));
+            return $this->storeSearchHistory($user->id, trim($searchQuery));
         }
+        
+        return null;
     }
 
     /**
-     * Store search history - ensures each search term appears only once
+     * Store search history and return the created record
      * Most recent usage always appears at the top
      */
-    private function storeSearchHistory($userId, $searchQuery): void
+    private function storeSearchHistory($userId, $searchQuery): ?array
     {
         try {
             // First, check if this exact search term already exists for this user
@@ -40,7 +41,7 @@ trait FarmSearchTrait
             }
 
             // Create new entry (will be the most recent)
-            SearchHistory::create([
+            $newSearchHistory = SearchHistory::create([
                 'user_id' => $userId,
                 'search_term' => $searchQuery,
                 'created_at' => now()
@@ -49,9 +50,17 @@ trait FarmSearchTrait
             // Clean up old entries
             $this->cleanupOldSearchHistory($userId);
 
+            // Return the created record
+            return [
+                'id' => $newSearchHistory->id,
+                'search_term' => $newSearchHistory->search_term,
+                'created_at' => $newSearchHistory->created_at
+            ];
+
         } catch (Exception $e) {
             // Log the error but don't fail the search if history storage fails
             $this->logException($e, ['action' => 'store search history', 'user_id' => $userId]);
+            return null;
         }
     }
 

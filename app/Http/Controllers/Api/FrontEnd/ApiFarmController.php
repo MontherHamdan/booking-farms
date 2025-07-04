@@ -99,15 +99,15 @@ class ApiFarmController extends Controller
         return $this->successResponse(true, $fields, null, 200);
     }
 
-    public function search(SearchFarmRequest $request): JsonResponse
+    public function search(SearchFarmRequest $request): JsonResponse 
     {
         /**
          * Search farms by name and description
-        */
+         */
         try {
             $searchQuery = $request->input('query');
             $perPage = $request->input('per_page', 10);
-
+    
             $query = Farm::query();
             
             // Apply search filter
@@ -116,13 +116,24 @@ class ApiFarmController extends Controller
             $relationships = $this->getFarmRelationships();
             $farms = $query->with($relationships)->paginate($perPage);
             
-            // Handle search history for authenticated users
-            $this->handleSearchHistory($searchQuery);
+            // Handle search history for authenticated users and get the record
+            $searchHistory = $this->handleSearchHistory($searchQuery);
             
             // Load farm images
             $this->loadFarmImages($farms);
             
-            return $this->successResponse(true, new FarmCollection($farms), null, 200);
+            // Create combined response object
+            $farmCollection = new FarmCollection($farms);
+            $farmData = $farmCollection->toArray($request);
+            
+            // Build the response object
+            $responseObj = [
+                'farms' => $farmData,
+                'search_history' => $searchHistory
+            ];
+            
+            return $this->successResponse(true, $responseObj, null, 200);
+
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'search farms', 'query' => $request->input('query')]);
             return $this->errorResponse(__('error.internal_error'), 500);
