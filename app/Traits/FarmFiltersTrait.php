@@ -252,7 +252,7 @@ trait FarmFiltersTrait
         $passengerCount = $request->input('passenger_count');
         
         if ($passengerCount !== null) {
-            $query->where('passengers_count', '>=', $passengerCount);
+            $query->where('guest_count', '>=', $passengerCount);
         }
         
         return $query;

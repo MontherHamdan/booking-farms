@@ -10,6 +10,39 @@ return [
     'fields_retrieved_successfully' => 'Farm form fields retrieved successfully',
     'farms_filtered_successfully' => 'Farms filtered successfully',
 
+    // ──────────────────────────────────Farm Owner Messages────────────────────────────────────────
+    
+    // Step-based creation messages
+    'step_saved' => 'Step saved successfully',
+    'unauthorized' => 'Unauthorized to access this farm',
+    'invalid_step' => 'Invalid step number',
+    
+    // Image management messages
+    'images_uploaded' => 'Images uploaded successfully',
+    'image_deleted' => 'Image deleted successfully',
+    'image_not_found' => 'Image not found',
+    'main_image_uploaded' => 'Main image uploaded successfully',
+    'gallery_images_uploaded' => 'Gallery images uploaded successfully',
+    
+    // Farm management messages
+    'incomplete_not_found' => 'Incomplete farm not found',
+    'incomplete_deleted' => 'Incomplete farm deleted successfully',
+    'deleted' => 'Farm deleted successfully',
+    'location_updated' => 'Location updated successfully',
+    'updated' => 'Farm updated successfully',
+    
+    // Farm status messages
+    'pending_review' => 'Farm is pending review',
+    'approved' => 'Farm has been approved',
+    'rejected' => 'Farm has been rejected',
+    'disabled' => 'Farm has been disabled',
+    
+    // Validation messages specific to farm owner
+    'at_least_one_name_required' => 'At least one name (Arabic or English) is required',
+    'image_ownership_error' => 'The selected image does not belong to your farm',
+    'main_image_ownership_error' => 'The selected main image does not belong to your farm',
+    'gallery_images_ownership_error' => 'One or more gallery images do not belong to your farm',
+
     // keys for rating-related errors/successes:
     'already_rated'           => 'You have already rated this farm.',
     'no_existing_rating'      => 'No existing rating found for this farm.',
@@ -19,9 +52,9 @@ return [
     'rating_updated_success' => 'Rating updated successfully.',
 
     // search history
-    'history_not_found' => 'عنصر تاريخ البحث غير موجود.',
-    'history_item_deleted' => 'تم حذف عنصر تاريخ البحث بنجاح.',
-    'history_cleared' => 'تم مسح جميع تاريخ البحث بنجاح.',
+    'history_not_found' => 'Search history item not found.',
+    'history_item_deleted' => 'Search history item deleted successfully.',
+    'history_cleared' => 'All search history cleared successfully.',
     
     'validation' => [
         // Filter validation messages
@@ -51,6 +84,53 @@ return [
         'per_page.integer' => 'Per page must be an integer',
         'per_page.min' => 'Per page must be at least 1',
         'per_page.max' => 'Per page cannot exceed 100',
+        
+        // Farm Owner Step Validation Messages
+        'name_ar.string' => 'Arabic name must be a string',
+        'name_ar.max' => 'Arabic name cannot exceed 255 characters',
+        'name_en.string' => 'English name must be a string',
+        'name_en.max' => 'English name cannot exceed 255 characters',
+        'description_ar.string' => 'Arabic description must be a string',
+        'description_en.string' => 'English description must be a string',
+        'deposit_rate.numeric' => 'Deposit rate must be a number',
+        'deposit_rate.min' => 'Deposit rate cannot be negative',
+        'guest_count.integer' => 'Guest count must be an integer',
+        'guest_count.min' => 'Guest count must be at least 1',
+        
+        // Image validation messages
+        'main_image_id.integer' => 'Main image ID must be an integer',
+        'main_image_id.exists' => 'The selected main image does not exist',
+        'gallery_image_ids.array' => 'Gallery image IDs must be an array',
+        'gallery_image_ids.*.integer' => 'Gallery image ID must be an integer',
+        'gallery_image_ids.*.exists' => 'The selected gallery image does not exist',
+        
+        // Pricing validation messages
+        'day_use_pricing.array' => 'Day use pricing must be an object',
+        'night_pricing.array' => 'Night pricing must be an object',
+        'full_day_pricing.array' => 'Full day pricing must be an object',
+        'start_time.date_format' => 'Start time must be in HH:MM format',
+        'end_time.date_format' => 'End time must be in HH:MM format',
+        'saturday_price.numeric' => 'Saturday price must be a number',
+        'sunday_price.numeric' => 'Sunday price must be a number',
+        'monday_price.numeric' => 'Monday price must be a number',
+        'tuesday_price.numeric' => 'Tuesday price must be a number',
+        'wednesday_price.numeric' => 'Wednesday price must be a number',
+        'thursday_price.numeric' => 'Thursday price must be a number',
+        'friday_price.numeric' => 'Friday price must be a number',
+        
+        // Offer validation messages
+        'offer.array' => 'Offer must be an object',
+        'offer.percentage.required_with' => 'Offer percentage is required when providing an offer',
+        'offer.percentage.numeric' => 'Offer percentage must be a number',
+        'offer.percentage.min' => 'Offer percentage cannot be negative',
+        'offer.percentage.max' => 'Offer percentage cannot exceed 100%',
+        'offer.start_date.required_with' => 'Offer start date is required when providing an offer',
+        'offer.start_date.date' => 'Offer start date must be a valid date',
+        'offer.start_date.after_or_equal' => 'Offer start date must be today or in the future',
+        'offer.end_date.required_with' => 'Offer end date is required when providing an offer',
+        'offer.end_date.date' => 'Offer end date must be a valid date',
+        'offer.end_date.after' => 'Offer end date must be after start date',
+        'offer.is_active.boolean' => 'Offer active status must be true or false',
         
         // Additional validation messages for features, ratings, etc.
         'features.array' => 'Features must be an array of feature IDs',
@@ -83,6 +163,14 @@ return [
             'day_use_single' => 'Day use price type must have exactly 1 date',
             'night_single' => 'Night price type must have exactly 1 date',
             'full_day_range' => 'Full day price type can have 1 date (single day) or 2 dates (date range)',
+            'duplicates_not_allowed' => 'Duplicate dates are not allowed in not available dates',
+            'cannot_be_past' => 'Date :date cannot be in the past',
+            'invalid_format' => 'Date :date is not a valid date format',
+        ],
+        
+        'offer' => [
+            'end_date_after_start' => 'Offer end date must be after start date',
+            'invalid_date_format' => 'Invalid offer date format',
         ],
 
         'rating' => [
@@ -113,7 +201,7 @@ return [
 
     'filter_placeholders' => [
         'city_id' => 'Select cities',
-        'area_id' => 'Select areas',  // NEW
+        'area_id' => 'Select areas',
         'min_price' => 'Enter minimum price',
         'max_price' => 'Enter maximum price',
         'has_offer' => 'Select offer status',
@@ -165,6 +253,17 @@ return [
         'passenger_count' => 'Passenger Count',
         'rating'  => 'Rating',
         'review'  => 'Review',
+        
+        // Farm Owner Attributes
+        'name_ar' => 'Arabic Name',
+        'name_en' => 'English Name',
+        'description_ar' => 'Arabic Description',
+        'description_en' => 'English Description',
+        'deposit_rate' => 'Deposit Rate',
+        'guest_count' => 'Guest Count',
+        'main_image_id' => 'Main Image',
+        'gallery_image_ids' => 'Gallery Images',
+        
         'ratings' => [
             'per_page'   => 'Per Page',
             'sort_by'    => 'Sort By',

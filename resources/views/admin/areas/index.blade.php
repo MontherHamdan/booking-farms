@@ -92,6 +92,7 @@
                                 <th class="text-center">Area Name (AR)</th>
                                 <th class="text-center">City (EN)</th>
                                 <th class="text-center">City (AR)</th>
+                                <th class="text-center">Coordinates</th>
                                 <th class="text-center">Status</th>
                                 <th class="text-center">Order</th>
                                 <th class="text-center">
@@ -112,6 +113,28 @@
                                 <td class="text-center align-middle" dir="rtl">{{ $area->name_ar }}</td>
                                 <td class="text-center align-middle">{{ $area->city->name_en ?? 'N/A' }}</td>
                                 <td class="text-center align-middle" dir="rtl">{{ $area->city->name_ar ?? 'N/A' }}</td>
+                                <td class="text-center align-middle">
+                                    @if($area->hasCoordinates())
+                                        <div>
+                                            <small class="text-muted d-block" title="Coordinates: {{ $area->coordinates }}">
+                                                <i class="fas fa-map-pin mr-1"></i>
+                                                {{ $area->coordinates }}
+                                            </small>
+                                            <a href="https://www.google.com/maps?q={{ $area->latitude }},{{ $area->longitude }}" 
+                                               target="_blank" 
+                                               class="btn btn-outline-secondary btn-sm py-0 px-1 mt-1"
+                                               style="font-size: 0.7rem;"
+                                               title="View on Google Maps">
+                                                <i class="fas fa-external-link-alt"></i> Maps
+                                            </a>
+                                        </div>
+                                    @else
+                                        <small class="text-muted">
+                                            <i class="fas fa-map-pin mr-1"></i>
+                                            <em>No coordinates</em>
+                                        </small>
+                                    @endif
+                                </td>
                                 <td class="text-center align-middle">
                                     <span class="badge rounded-pill {{ $area->status == \App\Models\Area::STATUS_PUBLISHED ? 'bg-success' : 'bg-secondary' }}">
                                         {{ $area->status == \App\Models\Area::STATUS_PUBLISHED ? 'Published' : 'Unpublished' }}
@@ -142,6 +165,15 @@
                                                     <i class="fas fa-edit me-2"></i>Edit
                                                 </a>
                                             </li>
+                                            @if($area->hasCoordinates())
+                                            <li>
+                                                <a href="https://www.google.com/maps?q={{ $area->latitude }},{{ $area->longitude }}" 
+                                                   target="_blank" class="dropdown-item text-info">
+                                                    <i class="fas fa-map-marker-alt me-2"></i>View on Maps
+                                                </a>
+                                            </li>
+                                            @endif
+                                            <li><hr class="dropdown-divider"></li>
                                             <li>
                                                 <button type="button" 
                                                         class="dropdown-item {{ $area->farms_count > 0 ? 'text-muted' : 'text-danger' }}" 
@@ -175,6 +207,9 @@
                         Showing {{ $areas->firstItem() }} to {{ $areas->lastItem() }} of {{ $areas->total() }} areas
                         @if($areas->sum('farms_count') > 0)
                             | Total farms: {{ $areas->sum('farms_count') }}
+                        @endif
+                        @if($areas->where('latitude', '!=', null)->count() > 0)
+                            | {{ $areas->where('latitude', '!=', null)->count() }} have coordinates
                         @endif
                     </div>
                     <div>

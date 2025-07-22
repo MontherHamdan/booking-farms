@@ -7,12 +7,11 @@ use App\Http\Controllers\Api\Users\ApiRatingFarmController;
 use App\Http\Controllers\Api\FrontEnd\ApiFeatureController;
 use App\Http\Controllers\Api\Auth\ApiAuthController;
 use App\Http\Controllers\Api\FrontEnd\ApiCityController;
-use App\Http\Controllers\Api\FrontEnd\ApiAreaController;
 use App\Http\Controllers\Api\Users\ApiUserProfileController;
 
 /*
 |--------------------------------------------------------------------------
-| API Routes
+| User API Routes
 |--------------------------------------------------------------------------
 */
 Route::post('/ratings/farms/{farmId}', [ApiRatingFarmController::class, 'getRatings']);
@@ -70,12 +69,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [ApiAuthController::class, 'logout']);
 
     // ──────────────────────────────────Farms────────────────────────────────────────
-    // Farm management (CRUD) 
-    Route::prefix('farms')->controller(ApiFarmController::class)->group(function () {
-        Route::post('/', 'store');
-        Route::put('/{farm}', 'update');
-        Route::delete('/{farm}', 'destroy');
-    });
 
     // ★ Favorite Farms
     Route::prefix('favorites')->controller(ApiFavoriteFarmController::class)->group(function () {

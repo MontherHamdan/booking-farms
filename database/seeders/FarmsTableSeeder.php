@@ -58,7 +58,7 @@ class FarmsTableSeeder extends Seeder
                 'name_ar'             => $nameAr,
                 'description_en'      => $descriptionEn,
                 'description_ar'      => $descriptionAr,
-                'passengers_count'    => rand(4, 20),
+                'guest_count'    => rand(4, 20),
                 'not_available_dates' => [
                     Carbon::now()->addDays(rand(5, 15))->toDateString(),
                     Carbon::now()->addDays(rand(16, 30))->toDateString(),

@@ -35,8 +35,16 @@
                                 <option value="">Select a City</option>
                                 @foreach($cities as $city)
                                     <option value="{{ $city->id }}" 
-                                            {{ old('city_id') == $city->id ? 'selected' : '' }}>
+                                            {{ old('city_id') == $city->id ? 'selected' : '' }}
+                                            @if($city->hasCoordinates())
+                                                data-city-lat="{{ $city->latitude }}" 
+                                                data-city-lng="{{ $city->longitude }}"
+                                            @endif
+                                            >
                                         {{ $city->name_en }} ({{ $city->name_ar }})
+                                        {{-- @if($city->hasCoordinates())
+                                            - <small class="text-muted">{{ $city->coordinates }}</small>
+                                        @endif --}}
                                     </option>
                                 @endforeach
                             </select>
@@ -68,6 +76,62 @@
                                     @error('name_en')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Coordinates Section -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="latitude" class="font-weight-bold">
+                                        Latitude
+                                        <i class="fas fa-info-circle text-muted" 
+                                           title="Decimal degrees format (e.g., 31.9500)" 
+                                           data-toggle="tooltip"></i>
+                                    </label>
+                                    <input type="number" step="any" 
+                                           class="form-control @error('latitude') is-invalid @enderror" 
+                                           id="latitude" name="latitude" value="{{ old('latitude') }}" 
+                                           placeholder="31.9500">
+                                    <small class="form-text text-muted">
+                                        Decimal degrees format (e.g., 31.9500 for Amman)
+                                    </small>
+                                    @error('latitude')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="longitude" class="font-weight-bold">
+                                        Longitude
+                                        <i class="fas fa-info-circle text-muted" 
+                                           title="Decimal degrees format (e.g., 35.9333)" 
+                                           data-toggle="tooltip"></i>
+                                    </label>
+                                    <input type="number" step="any" 
+                                           class="form-control @error('longitude') is-invalid @enderror" 
+                                           id="longitude" name="longitude" value="{{ old('longitude') }}" 
+                                           placeholder="35.9333">
+                                    <small class="form-text text-muted">
+                                        Decimal degrees format (e.g., 35.9333 for Amman)
+                                    </small>
+                                    @error('longitude')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3 mt-3">
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-lightbulb mr-2"></i>
+                                    <strong>Tip:</strong> Select a city first to see its coordinates as reference. You can use these as a starting point for the area coordinates.
+                                    <button type="button" class="btn btn-sm btn-outline-primary ml-2" id="useCityCoordinates" disabled>
+                                        <i class="fas fa-copy mr-1"></i> Use City Coordinates
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -121,4 +185,60 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+$(document).ready(function() {
+    // Initialize tooltips
+    $('[data-toggle="tooltip"]').tooltip();
+    
+    // Handle city selection to enable "Use City Coordinates" button
+    $('#city_id').on('change', function() {
+        const selectedOption = $(this).find('option:selected');
+        const cityLat = selectedOption.data('city-lat');
+        const cityLng = selectedOption.data('city-lng');
+        
+        if (cityLat && cityLng) {
+            $('#useCityCoordinates').prop('disabled', false);
+            $('#useCityCoordinates').data('lat', cityLat);
+            $('#useCityCoordinates').data('lng', cityLng);
+        } else {
+            $('#useCityCoordinates').prop('disabled', true);
+        }
+    });
+    
+    // Use city coordinates button
+    $('#useCityCoordinates').on('click', function() {
+        const lat = $(this).data('lat');
+        const lng = $(this).data('lng');
+        
+        if (lat && lng) {
+            $('#latitude').val(lat);
+            $('#longitude').val(lng);
+        }
+    });
+    
+    // Coordinate validation
+    $('#latitude').on('input', function() {
+        var lat = parseFloat($(this).val());
+        if (lat < -90 || lat > 90) {
+            $(this).addClass('is-invalid');
+            $(this).siblings('.invalid-feedback').text('Latitude must be between -90 and 90 degrees');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+    
+    $('#longitude').on('input', function() {
+        var lng = parseFloat($(this).val());
+        if (lng < -180 || lng > 180) {
+            $(this).addClass('is-invalid');
+            $(this).siblings('.invalid-feedback').text('Longitude must be between -180 and 180 degrees');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+});
+</script>
+@endpush
 @endsection

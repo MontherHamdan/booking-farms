@@ -52,6 +52,30 @@
                 </div>
               </div>
 
+              <!-- Coordinates Info -->
+              @if($city->hasCoordinates())
+                <div class="mb-2">
+                  <small class="text-muted d-block" title="Coordinates: {{ $city->coordinates }}">
+                    <i class="fas fa-map-pin mr-1"></i>
+                    <span class="text-truncate">{{ $city->coordinates }}</span>
+                  </small>
+                  <a href="https://www.google.com/maps?q={{ $city->latitude }},{{ $city->longitude }}" 
+                     target="_blank" 
+                     class="btn btn-outline-secondary btn-sm py-0 px-2 mt-1"
+                     style="font-size: 0.7rem;"
+                     title="View on Google Maps">
+                    <i class="fas fa-external-link-alt"></i> Maps
+                  </a>
+                </div>
+              @else
+                <div class="mb-2">
+                  <small class="text-muted">
+                    <i class="fas fa-map-pin mr-1"></i>
+                    <em>No coordinates</em>
+                  </small>
+                </div>
+              @endif
+
               <!-- Description Preview -->
               @if($city->description_en)
                 <p class="card-text small text-muted mb-2" style="font-size: 0.75rem; line-height: 1.2;">

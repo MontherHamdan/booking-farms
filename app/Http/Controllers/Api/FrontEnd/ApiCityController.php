@@ -44,27 +44,31 @@ class ApiCityController extends Controller
     public function basic()
     {
         /**
-         * List all published cities without images for selection purposes.
+         * List all published cities with basic info including coordinates for selection purposes.
          * Perfect for dropdowns, forms, etc.
          *
          * @return \Illuminate\Http\JsonResponse
          */
         try {
             // Cache basic cities for 1 hour 
-            $cities = Cache::remember('cities_basic_list', 3600, function () {
+            $cities = Cache::remember('cities_basic_list_with_coordinates', 3600, function () {
                 return City::published()
                         ->ordered()
-                        ->select(['id', 'name_en', 'name_ar'])
+                        ->select(['id', 'name_en', 'name_ar', 'latitude', 'longitude'])
                         ->get()
                         ->map(function ($city) {
                             return [
                                 'id' => $city->id,
                                 'name_en' => $city->name_en,
                                 'name_ar' => $city->name_ar,
+                                'latitude' => $city->latitude,
+                                'longitude' => $city->longitude,
+                                'coordinates' => $city->coordinates, 
+                                'has_coordinates' => $city->hasCoordinates(),
                             ];
                         });
             });
-
+    
             return $this->successResponse(true, $cities, null, 200);
         } catch (\Exception $e) {
             $this->logException($e);

@@ -47,9 +47,6 @@ class ApiFarmController extends Controller
         try {
             $query = Farm::query();
             
-            // Apply only has_offer filter for GET method
-            $this->applyOfferFilter($query, $request);
-            
             $relationships = $this->getFarmRelationships();
             $farms = $query->with($relationships)->paginate($request->per_page ?? 10);
             
@@ -335,8 +332,8 @@ class ApiFarmController extends Controller
             if ($request->filled('description_en')) {
                 $farmData['description_en'] = $request->description_en;
             }
-            if ($request->filled('passengers_count')) {
-                $farmData['passengers_count'] = $request->passengers_count;
+            if ($request->filled('guest_count')) {
+                $farmData['guest_count'] = $request->guest_count;
             }
             if ($request->filled('not_available_dates')) {
                 $farmData['not_available_dates'] = $request->not_available_dates;

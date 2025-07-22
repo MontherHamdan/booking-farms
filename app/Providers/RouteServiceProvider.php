@@ -32,6 +32,11 @@ class RouteServiceProvider extends ServiceProvider
                 ->middleware('throttle:api')
                 ->group(base_path('routes/api.php'));
 
+            Route::middleware('api')
+                ->prefix('api/v1/farm-owner')
+                ->middleware('throttle:api')
+                ->group(base_path('routes/farmOwner.php'));
+
             Route::middleware('web')
                 ->group(base_path('routes/web.php'));
         });

@@ -93,6 +93,67 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Coordinates Section -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="latitude" class="font-weight-bold">
+                                        Latitude
+                                        <i class="fas fa-info-circle text-muted" 
+                                           title="Decimal degrees format (e.g., 31.9500)" 
+                                           data-toggle="tooltip"></i>
+                                    </label>
+                                    <input type="number" step="any" 
+                                           class="form-control @error('latitude') is-invalid @enderror" 
+                                           id="latitude" name="latitude" 
+                                           value="{{ old('latitude', $city->latitude) }}" 
+                                           placeholder="31.9500">
+                                    <small class="form-text text-muted">
+                                        Decimal degrees format (e.g., 31.9500 for Amman)
+                                    </small>
+                                    @error('latitude')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="longitude" class="font-weight-bold">
+                                        Longitude
+                                        <i class="fas fa-info-circle text-muted" 
+                                           title="Decimal degrees format (e.g., 35.9333)" 
+                                           data-toggle="tooltip"></i>
+                                    </label>
+                                    <input type="number" step="any" 
+                                           class="form-control @error('longitude') is-invalid @enderror" 
+                                           id="longitude" name="longitude" 
+                                           value="{{ old('longitude', $city->longitude) }}" 
+                                           placeholder="35.9333">
+                                    <small class="form-text text-muted">
+                                        Decimal degrees format (e.g., 35.9333 for Amman)
+                                    </small>
+                                    @error('longitude')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        @if($city->hasCoordinates())
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-map-marker-alt mr-2"></i>
+                                    <strong>Current Coordinates:</strong> {{ $city->coordinates }}
+                                    <a href="https://www.google.com/maps?q={{ $city->latitude }},{{ $city->longitude }}" 
+                                       target="_blank" class="btn btn-sm btn-outline-primary ml-2">
+                                        <i class="fas fa-external-link-alt mr-1"></i> View on Maps
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
                         
                         <div class="row">
                             <div class="col-md-6">
@@ -101,7 +162,7 @@
                                         Status <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-control @error('status') is-invalid @enderror" 
-                                            id="status" name="status" required>
+                                            id="statuss" name="status" required>
                                         <option value="{{ \App\Models\City::STATUS_PUBLISHED }}" 
                                                 {{ old('status', $city->status) == \App\Models\City::STATUS_PUBLISHED ? 'selected' : '' }}>
                                             Published
@@ -142,4 +203,34 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+$(document).ready(function() {
+    // Initialize tooltips
+    $('[data-toggle="tooltip"]').tooltip();
+    
+    // Optional: Add coordinate validation
+    $('#latitude').on('input', function() {
+        var lat = parseFloat($(this).val());
+        if (lat < -90 || lat > 90) {
+            $(this).addClass('is-invalid');
+            $(this).siblings('.invalid-feedback').text('Latitude must be between -90 and 90 degrees');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+    
+    $('#longitude').on('input', function() {
+        var lng = parseFloat($(this).val());
+        if (lng < -180 || lng > 180) {
+            $(this).addClass('is-invalid');
+            $(this).siblings('.invalid-feedback').text('Longitude must be between -180 and 180 degrees');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+});
+</script>
+@endpush
 @endsection

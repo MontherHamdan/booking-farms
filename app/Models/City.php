@@ -18,6 +18,16 @@ class City extends Model
         'status',
         'image',
         'order',
+        'latitude',
+        'longitude',
+    ];
+
+    /**
+     * The attributes that should be cast to native types.
+     */
+    protected $casts = [
+        'latitude' => 'decimal:8',
+        'longitude' => 'decimal:8',
     ];
 
     /**
@@ -88,5 +98,24 @@ class City extends Model
     public function getAreasCountAttribute()
     {
         return $this->areas()->count();
+    }
+
+    /**
+     * Get the coordinates as a formatted string
+     */
+    public function getCoordinatesAttribute()
+    {
+        if ($this->latitude && $this->longitude) {
+            return $this->latitude . ', ' . $this->longitude;
+        }
+        return null;
+    }
+
+    /**
+     * Check if city has coordinates
+     */
+    public function hasCoordinates()
+    {
+        return !is_null($this->latitude) && !is_null($this->longitude);
     }
 }

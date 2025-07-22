@@ -17,6 +17,16 @@ class Area extends Model
         'name_en',
         'status',
         'order',
+        'latitude',
+        'longitude',
+    ];
+
+    /**
+     * The attributes that should be cast to native types.
+     */
+    protected $casts = [
+        'latitude' => 'decimal:8',
+        'longitude' => 'decimal:8',
     ];
 
     /**
@@ -75,5 +85,24 @@ class Area extends Model
             return $this->farms()->count();
         }
         return $this->attributes['farms_count'];
+    }
+
+    /**
+     * Get the coordinates as a formatted string
+     */
+    public function getCoordinatesAttribute()
+    {
+        if ($this->latitude && $this->longitude) {
+            return $this->latitude . ', ' . $this->longitude;
+        }
+        return null;
+    }
+
+    /**
+     * Check if area has coordinates
+     */
+    public function hasCoordinates()
+    {
+        return !is_null($this->latitude) && !is_null($this->longitude);
     }
 }

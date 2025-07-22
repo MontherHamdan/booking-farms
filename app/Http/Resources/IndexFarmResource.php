@@ -24,7 +24,7 @@ class IndexFarmResource extends JsonResource
             'city_id' => $this->city_id,
             'name_ar' => $this->name_ar,
             'name_en' => $this->name_en,
-            'guests_count' => $this->passengers_count,
+            'guests_count' => $this->guest_count,
             'description_ar' => $this->description_ar,
             'description_en' => $this->description_en,
 

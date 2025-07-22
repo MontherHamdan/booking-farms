@@ -92,6 +92,50 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Coordinates Section -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="latitude" class="font-weight-bold">
+                                        Latitude
+                                        <i class="fas fa-info-circle text-muted" 
+                                           title="Decimal degrees format (e.g., 31.9500)" 
+                                           data-toggle="tooltip"></i>
+                                    </label>
+                                    <input type="number" step="any" 
+                                           class="form-control @error('latitude') is-invalid @enderror" 
+                                           id="latitude" name="latitude" value="{{ old('latitude') }}" 
+                                           placeholder="31.9500">
+                                    <small class="form-text text-muted">
+                                        Decimal degrees format (e.g., 31.9500 for Amman)
+                                    </small>
+                                    @error('latitude')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="longitude" class="font-weight-bold">
+                                        Longitude
+                                        <i class="fas fa-info-circle text-muted" 
+                                           title="Decimal degrees format (e.g., 35.9333)" 
+                                           data-toggle="tooltip"></i>
+                                    </label>
+                                    <input type="number" step="any" 
+                                           class="form-control @error('longitude') is-invalid @enderror" 
+                                           id="longitude" name="longitude" value="{{ old('longitude') }}" 
+                                           placeholder="35.9333">
+                                    <small class="form-text text-muted">
+                                        Decimal degrees format (e.g., 35.9333 for Amman)
+                                    </small>
+                                    @error('longitude')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
                         
                         <div class="row">
                             <div class="col-md-6">
@@ -100,7 +144,7 @@
                                         Status <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-control @error('status') is-invalid @enderror" 
-                                            id="status" name="status" required>
+                                            id="statuss" name="status" required>
                                         <option value="{{ \App\Models\City::STATUS_PUBLISHED }}" 
                                                 {{ old('status') == \App\Models\City::STATUS_PUBLISHED ? 'selected' : '' }}>
                                             Published
@@ -142,4 +186,34 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+$(document).ready(function() {
+    // Initialize tooltips
+    $('[data-toggle="tooltip"]').tooltip();
+    
+    // Optional: Add coordinate validation
+    $('#latitude').on('input', function() {
+        var lat = parseFloat($(this).val());
+        if (lat < -90 || lat > 90) {
+            $(this).addClass('is-invalid');
+            $(this).siblings('.invalid-feedback').text('Latitude must be between -90 and 90 degrees');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+    
+    $('#longitude').on('input', function() {
+        var lng = parseFloat($(this).val());
+        if (lng < -180 || lng > 180) {
+            $(this).addClass('is-invalid');
+            $(this).siblings('.invalid-feedback').text('Longitude must be between -180 and 180 degrees');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+});
+</script>
+@endpush
 @endsection

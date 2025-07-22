@@ -26,9 +26,17 @@ class Farm extends Model
         'name_en',
         'description_ar',
         'description_en',
-        'passengers_count',
+        'guest_count',
         'not_available_dates',
+        'deposit_rate',
+        'status',
+        'current_step',
     ];
+
+    const Pending  = 'pending';
+    const Active   = 'active';
+    const Rejected = 'rejected';
+    const Disabled = 'disabled';
 
     /**
      * The attributes that should be cast.

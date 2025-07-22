@@ -34,6 +34,8 @@ class StoreCityRequest extends FormRequest
             'status' => ['required', Rule::in([City::STATUS_PUBLISHED, City::STATUS_UNPUBLISHED])],
             'image' => 'required|image|max:2048',
             'order' => 'nullable|integer|unique:cities,order',
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ];
     }
 
@@ -52,6 +54,8 @@ class StoreCityRequest extends FormRequest
             'image.required' => 'City image is required.',
             'image.image' => 'The file must be an image.',
             'image.max' => 'Image size cannot exceed 2MB.',
+            'latitude.between' => 'The latitude must be between -90 and 90 degrees.',
+            'longitude.between' => 'The longitude must be between -180 and 180 degrees.',
         ];
     }
 }

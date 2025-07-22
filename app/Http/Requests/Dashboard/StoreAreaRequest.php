@@ -30,6 +30,8 @@ class StoreAreaRequest extends FormRequest
             'name_en' => ['required', 'string', 'max:255'],
             'status' => ['required', 'string', 'in:' . Area::STATUS_PUBLISHED . ',' . Area::STATUS_UNPUBLISHED],
             'order' => ['nullable', 'integer', 'min:1'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ];
     }
 
@@ -46,6 +48,8 @@ class StoreAreaRequest extends FormRequest
             'name_en' => 'English name',
             'status' => 'status',
             'order' => 'order',
+            'latitude' => 'latitude',
+            'longitude' => 'longitude',
         ];
     }
 
@@ -63,6 +67,8 @@ class StoreAreaRequest extends FormRequest
             'name_en.required' => 'English name is required.',
             'status.required' => 'Status is required.',
             'status.in' => 'Status must be either published or unpublished.',
+            'latitude.between' => 'The latitude must be between -90 and 90 degrees.',
+            'longitude.between' => 'The longitude must be between -180 and 180 degrees.',
         ];
     }
 }

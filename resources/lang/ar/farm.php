@@ -10,6 +10,39 @@ return [
     'fields_retrieved_successfully' => 'تم استرداد حقول نموذج المزرعة بنجاح',
     'farms_filtered_successfully' => 'تم تصفية المزارع بنجاح',
 
+    // ──────────────────────────────────Farm Owner Messages────────────────────────────────────────
+    
+    // Step-based creation messages
+    'step_saved' => 'تم حفظ الخطوة بنجاح',
+    'unauthorized' => 'غير مخول للوصول لهذه المزرعة',
+    'invalid_step' => 'رقم الخطوة غير صالح',
+    
+    // Image management messages
+    'images_uploaded' => 'تم رفع الصور بنجاح',
+    'image_deleted' => 'تم حذف الصورة بنجاح',
+    'image_not_found' => 'الصورة غير موجودة',
+    'main_image_uploaded' => 'تم رفع الصورة الرئيسية بنجاح',
+    'gallery_images_uploaded' => 'تم رفع صور المعرض بنجاح',
+    
+    // Farm management messages
+    'incomplete_not_found' => 'المزرعة غير المكتملة غير موجودة',
+    'incomplete_deleted' => 'تم حذف المزرعة غير المكتملة بنجاح',
+    'deleted' => 'تم حذف المزرعة بنجاح',
+    'location_updated' => 'تم تحديث الموقع بنجاح',
+    'updated' => 'تم تحديث المزرعة بنجاح',
+    
+    // Farm status messages
+    'pending_review' => 'المزرعة في انتظار المراجعة',
+    'approved' => 'تم قبول المزرعة',
+    'rejected' => 'تم رفض المزرعة',
+    'disabled' => 'تم تعطيل المزرعة',
+    
+    // Validation messages specific to farm owner
+    'at_least_one_name_required' => 'يجب تقديم اسم واحد على الأقل (عربي أو إنجليزي)',
+    'image_ownership_error' => 'الصورة المحددة لا تنتمي لمزرعتك',
+    'main_image_ownership_error' => 'الصورة الرئيسية المحددة لا تنتمي لمزرعتك',
+    'gallery_images_ownership_error' => 'إحدى صور المعرض أو أكثر لا تنتمي لمزرعتك',
+
     // keys for rating-related errors/successes:
     'already_rated'           => 'لقد قمت بتقييم هذه المزرعة بالفعل.',
     'no_existing_rating'      => 'لا يوجد تقييم حالي لهذه المزرعة.',
@@ -52,6 +85,53 @@ return [
         'per_page.min' => 'عدد العناصر في الصفحة يجب أن يكون على الأقل 1',
         'per_page.max' => 'عدد العناصر في الصفحة لا يمكن أن يتجاوز 100',
         
+        // Farm Owner Step Validation Messages
+        'name_ar.string' => 'الاسم العربي يجب أن يكون نصًا',
+        'name_ar.max' => 'الاسم العربي لا يمكن أن يتجاوز 255 حرفًا',
+        'name_en.string' => 'الاسم الإنجليزي يجب أن يكون نصًا',
+        'name_en.max' => 'الاسم الإنجليزي لا يمكن أن يتجاوز 255 حرفًا',
+        'description_ar.string' => 'الوصف العربي يجب أن يكون نصًا',
+        'description_en.string' => 'الوصف الإنجليزي يجب أن يكون نصًا',
+        'deposit_rate.numeric' => 'مبلغ العربون يجب أن يكون رقمًا',
+        'deposit_rate.min' => 'مبلغ العربون لا يمكن أن يكون أقل من صفر',
+        'guest_count.integer' => 'عدد الضيوف يجب أن يكون رقمًا صحيحًا',
+        'guest_count.min' => 'عدد الضيوف يجب أن يكون على الأقل 1',
+        
+        // Image validation messages
+        'main_image_id.integer' => 'معرف الصورة الرئيسية يجب أن يكون رقمًا صحيحًا',
+        'main_image_id.exists' => 'الصورة الرئيسية المحددة غير موجودة',
+        'gallery_image_ids.array' => 'معرفات صور المعرض يجب أن تكون قائمة',
+        'gallery_image_ids.*.integer' => 'معرف صورة المعرض يجب أن يكون رقمًا صحيحًا',
+        'gallery_image_ids.*.exists' => 'إحدى صور المعرض المحددة غير موجودة',
+        
+        // Pricing validation messages
+        'day_use_pricing.array' => 'تسعير الاستخدام النهاري يجب أن يكون كائنًا',
+        'night_pricing.array' => 'تسعير الاستخدام الليلي يجب أن يكون كائنًا',
+        'full_day_pricing.array' => 'تسعير اليوم الكامل يجب أن يكون كائنًا',
+        'start_time.date_format' => 'وقت البداية يجب أن يكون بتنسيق HH:MM',
+        'end_time.date_format' => 'وقت النهاية يجب أن يكون بتنسيق HH:MM',
+        'saturday_price.numeric' => 'سعر السبت يجب أن يكون رقمًا',
+        'sunday_price.numeric' => 'سعر الأحد يجب أن يكون رقمًا',
+        'monday_price.numeric' => 'سعر الاثنين يجب أن يكون رقمًا',
+        'tuesday_price.numeric' => 'سعر الثلاثاء يجب أن يكون رقمًا',
+        'wednesday_price.numeric' => 'سعر الأربعاء يجب أن يكون رقمًا',
+        'thursday_price.numeric' => 'سعر الخميس يجب أن يكون رقمًا',
+        'friday_price.numeric' => 'سعر الجمعة يجب أن يكون رقمًا',
+        
+        // Offer validation messages
+        'offer.array' => 'العرض يجب أن يكون كائنًا',
+        'offer.percentage.required_with' => 'نسبة العرض مطلوبة عند تقديم عرض',
+        'offer.percentage.numeric' => 'نسبة العرض يجب أن تكون رقمًا',
+        'offer.percentage.min' => 'نسبة العرض لا يمكن أن تكون سالبة',
+        'offer.percentage.max' => 'نسبة العرض لا يمكن أن تتجاوز 100%',
+        'offer.start_date.required_with' => 'تاريخ بداية العرض مطلوب عند تقديم عرض',
+        'offer.start_date.date' => 'تاريخ بداية العرض يجب أن يكون تاريخًا صالحًا',
+        'offer.start_date.after_or_equal' => 'تاريخ بداية العرض يجب أن يكون اليوم أو في المستقبل',
+        'offer.end_date.required_with' => 'تاريخ نهاية العرض مطلوب عند تقديم عرض',
+        'offer.end_date.date' => 'تاريخ نهاية العرض يجب أن يكون تاريخًا صالحًا',
+        'offer.end_date.after' => 'تاريخ نهاية العرض يجب أن يكون بعد تاريخ البداية',
+        'offer.is_active.boolean' => 'حالة تفعيل العرض يجب أن تكون صحيح أو خطأ',
+        
         // Additional validation messages for features, ratings, etc.
         'features.array' => 'الميزات يجب أن تكون قائمة من معرفات الميزات',
         'features.*.integer' => 'كل ميزة يجب أن تكون رقمًا صحيحًا صالحًا',
@@ -83,6 +163,14 @@ return [
             'day_use_single' => 'نوع الاستخدام النهاري يجب أن يحتوي على تاريخ واحد فقط',
             'night_single' => 'النوع الليلي يجب أن يحتوي على تاريخ واحد فقط',
             'full_day_range' => 'نوع اليوم الكامل يمكن أن يحتوي على تاريخ واحد (يوم واحد) أو تاريخين (فترة زمنية)',
+            'duplicates_not_allowed' => 'التواريخ المكررة غير مسموحة في التواريخ غير المتاحة',
+            'cannot_be_past' => 'التاريخ :date لا يمكن أن يكون في الماضي',
+            'invalid_format' => 'التاريخ :date ليس بتنسيق صالح',
+        ],
+        
+        'offer' => [
+            'end_date_after_start' => 'تاريخ نهاية العرض يجب أن يكون بعد تاريخ البداية',
+            'invalid_date_format' => 'تنسيق تواريخ العرض غير صالح',
         ],
 
         'rating' => [
@@ -165,6 +253,17 @@ return [
         'passenger_count' => 'عدد الزوار',
         'rating'  => 'التقييم',
         'review'  => 'المراجعة',
+        
+        // Farm Owner Attributes
+        'name_ar' => 'الاسم العربي',
+        'name_en' => 'الاسم الإنجليزي',
+        'description_ar' => 'الوصف العربي',
+        'description_en' => 'الوصف الإنجليزي',
+        'deposit_rate' => 'مبلغ العربون',
+        'guest_count' => 'عدد الضيوف',
+        'main_image_id' => 'الصورة الرئيسية',
+        'gallery_image_ids' => 'صور المعرض',
+        
         'ratings' => [
             'per_page'   => 'عدد العناصر في الصفحة',
             'sort_by'    => 'طريقة الفرز',
