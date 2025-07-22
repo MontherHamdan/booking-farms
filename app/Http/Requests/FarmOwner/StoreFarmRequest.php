@@ -54,6 +54,8 @@ class StoreFarmRequest extends FormRequest
                 return [
                     'city_id' => 'nullable|exists:cities,id',
                     'area_id' => 'nullable|exists:areas,id',
+                    'latitude' => 'nullable|numeric|between:-90,90',
+                    'longitude' => 'nullable|numeric|between:-180,180',
                     'main_image_id' => 'nullable|integer|exists:farm_images,id',
                     'gallery_image_ids' => 'nullable|array',
                     'gallery_image_ids.*' => 'integer|exists:farm_images,id',
@@ -128,13 +130,14 @@ class StoreFarmRequest extends FormRequest
             if ($step === 1) {
                 // Ensure at least one name is provided
                 if (empty($this->name_ar) && empty($this->name_en)) {
-                    $validator->errors()->add('name', __('farm.validation.at_least_one_name_required'));
+                    $validator->errors()->add('name', __('farm.at_least_one_name_required'));
                 }
             }
             
             // Step 3 specific validation
             if ($step === 3) {
                 $this->validateImageOwnership($validator);
+                $this->validateCoordinates($validator);
             }
 
             // Step 5 specific validation
@@ -184,6 +187,63 @@ class StoreFarmRequest extends FormRequest
             if ($validGalleryCount !== count($galleryIds)) {
                 $validator->errors()->add('gallery_image_ids', __('farm.gallery_images_ownership_error'));
             }
+        }
+    }
+
+    /**
+     * Validate coordinates - both should be provided together
+     */
+    private function validateCoordinates($validator): void
+    {
+        $hasLatitude = $this->filled('latitude');
+        $hasLongitude = $this->filled('longitude');
+        
+        // If one coordinate is provided, both should be provided
+        if ($hasLatitude && !$hasLongitude) {
+            $validator->errors()->add('longitude', __('farm.validation.longitude.required_with_latitude'));
+        }
+        
+        if ($hasLongitude && !$hasLatitude) {
+            $validator->errors()->add('latitude', __('farm.validation.latitude.required_with_longitude'));
+        }
+        
+        // Optional: Validate against city/area coordinates if available
+        if ($hasLatitude && $hasLongitude && $this->filled('city_id')) {
+            $this->validateCoordinatesAgainstLocation($validator);
+        }
+    }
+
+    /**
+     * Optional: Validate coordinates are reasonable for the selected city/area
+     */
+    private function validateCoordinatesAgainstLocation($validator): void
+    {
+        try {
+            $city = \App\Models\City::find($this->city_id);
+            
+            if ($city && $city->hasCoordinates()) {
+                $farmLat = (float)$this->latitude;
+                $farmLng = (float)$this->longitude;
+                $cityLat = (float)$city->latitude;
+                $cityLng = (float)$city->longitude;
+                
+                // Calculate rough distance (simple approximation)
+                $latDiff = abs($farmLat - $cityLat);
+                $lngDiff = abs($farmLng - $cityLng);
+                
+                // If farm coordinates are more than ~50km from city center (roughly 0.45 degrees)
+                if ($latDiff > 0.45 || $lngDiff > 0.45) {
+                    $validator->errors()->add('coordinates', __('farm.validation.coordinates.too_far_from_city'));
+                }
+            }
+        } catch (\Exception $e) {
+            // Skip validation if there's any error - don't block the user
+            \Log::warning('Coordinate validation against city failed', [
+                'error' => $e->getMessage(),
+                'city_id' => $this->city_id,
+                'latitude' => $this->latitude,
+                'longitude' => $this->longitude
+            ]);
         }
     }
 
@@ -248,9 +308,7 @@ class StoreFarmRequest extends FormRequest
     public function messages(): array
     {
         return [
-            // Use localized messages from language files
-            'city_id.exists' => __('farm.validation.city_id.*.exists'),
-            'area_id.exists' => __('farm.validation.area_id.*.exists'),
+            // Step 1 - Basic Information
             'name_ar.string' => __('farm.validation.name_ar.string'),
             'name_ar.max' => __('farm.validation.name_ar.max'),
             'name_en.string' => __('farm.validation.name_en.string'),
@@ -261,22 +319,43 @@ class StoreFarmRequest extends FormRequest
             'deposit_rate.min' => __('farm.validation.deposit_rate.min'),
             'guest_count.integer' => __('farm.validation.guest_count.integer'),
             'guest_count.min' => __('farm.validation.guest_count.min'),
+            
+            // Step 2 - Features
+            'features.array' => __('farm.validation.features.array'),
             'features.*.exists' => __('farm.validation.features.*.exists'),
             
-            // Image validation messages
+            // Step 3 - Location & Images
+            'city_id.exists' => __('farm.validation.city_id.*.exists'),
+            'area_id.exists' => __('farm.validation.area_id.*.exists'),
+            'latitude.numeric' => __('farm.validation.latitude.numeric'),
+            'latitude.between' => __('farm.validation.latitude.between'),
+            'longitude.numeric' => __('farm.validation.longitude.numeric'),
+            'longitude.between' => __('farm.validation.longitude.between'),
             'main_image_id.integer' => __('farm.validation.main_image_id.integer'),
             'main_image_id.exists' => __('farm.validation.main_image_id.exists'),
             'gallery_image_ids.array' => __('farm.validation.gallery_image_ids.array'),
             'gallery_image_ids.*.integer' => __('farm.validation.gallery_image_ids.*.integer'),
             'gallery_image_ids.*.exists' => __('farm.validation.gallery_image_ids.*.exists'),
             
-            // Pricing validation messages
-            '*.*.numeric' => __('farm.validation.*.*.numeric'),
-            '*.*.min' => __('farm.validation.*.*.min'),
-            'start_time.date_format' => __('farm.validation.start_time.date_format'),
-            'end_time.date_format' => __('farm.validation.end_time.date_format'),
+            // Step 4 - Pricing (consolidated patterns)
+            '*.start_time.date_format' => __('farm.validation.start_time.date_format'),
+            '*.end_time.date_format' => __('farm.validation.end_time.date_format'),
+            '*.saturday_price.numeric' => __('farm.validation.saturday_price.numeric'),
+            '*.saturday_price.min' => __('farm.validation.*.*.min'),
+            '*.sunday_price.numeric' => __('farm.validation.sunday_price.numeric'),
+            '*.sunday_price.min' => __('farm.validation.*.*.min'),
+            '*.monday_price.numeric' => __('farm.validation.monday_price.numeric'),
+            '*.monday_price.min' => __('farm.validation.*.*.min'),
+            '*.tuesday_price.numeric' => __('farm.validation.tuesday_price.numeric'),
+            '*.tuesday_price.min' => __('farm.validation.*.*.min'),
+            '*.wednesday_price.numeric' => __('farm.validation.wednesday_price.numeric'),
+            '*.wednesday_price.min' => __('farm.validation.*.*.min'),
+            '*.thursday_price.numeric' => __('farm.validation.thursday_price.numeric'),
+            '*.thursday_price.min' => __('farm.validation.*.*.min'),
+            '*.friday_price.numeric' => __('farm.validation.friday_price.numeric'),
+            '*.friday_price.min' => __('farm.validation.*.*.min'),
             
-            // Offer validation messages
+            // Step 5 - Offers & Dates
             'offer.array' => __('farm.validation.offer.array'),
             'offer.percentage.required_with' => __('farm.validation.offer.percentage.required_with'),
             'offer.percentage.numeric' => __('farm.validation.offer.percentage.numeric'),
@@ -289,11 +368,33 @@ class StoreFarmRequest extends FormRequest
             'offer.end_date.date' => __('farm.validation.offer.end_date.date'),
             'offer.end_date.after' => __('farm.validation.offer.end_date.after'),
             'offer.is_active.boolean' => __('farm.validation.offer.is_active.boolean'),
-            
-            // Not available dates validation messages
             'not_available_dates.array' => __('farm.validation.not_available_dates.array'),
             'not_available_dates.*.date' => __('farm.validation.not_available_dates.*.date'),
             'not_available_dates.*.after_or_equal' => __('farm.validation.not_available_dates.*.after_or_equal'),
+        ];
+    }
+
+    /**
+     * Get custom attribute names for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'name_ar' => __('farm.attributes.name_ar'),
+            'name_en' => __('farm.attributes.name_en'),
+            'description_ar' => __('farm.attributes.description_ar'),
+            'description_en' => __('farm.attributes.description_en'),
+            'deposit_rate' => __('farm.attributes.deposit_rate'),
+            'guest_count' => __('farm.attributes.guest_count'),
+            'city_id' => __('farm.attributes.city_id'),
+            'area_id' => __('farm.attributes.area_id'),
+            'latitude' => __('farm.attributes.latitude'),
+            'longitude' => __('farm.attributes.longitude'),
+            'main_image_id' => __('farm.attributes.main_image_id'),
+            'gallery_image_ids' => __('farm.attributes.gallery_image_ids'),
+            'features' => __('farm.attributes.features'),
         ];
     }
 }

@@ -31,6 +31,8 @@ class Farm extends Model
         'deposit_rate',
         'status',
         'current_step',
+        'latitude',
+        'longitude',
     ];
 
     const Pending  = 'pending';
@@ -45,6 +47,8 @@ class Farm extends Model
      */
     protected $casts = [
         'not_available_dates' => 'array',
+        'latitude' => 'decimal:8',
+        'longitude' => 'decimal:8',
     ];
 
     /**
@@ -53,6 +57,12 @@ class Farm extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    // In Farm model
+    public function scopeActive($query)
+    {
+        return $query->where('status', self::Active);
     }
 
     /**
@@ -367,5 +377,24 @@ class Farm extends Model
         }
         
         return null;
+    }
+
+    /**
+     * Get the coordinates as a formatted string
+     */
+    public function getCoordinatesAttribute()
+    {
+        if ($this->latitude && $this->longitude) {
+            return $this->latitude . ', ' . $this->longitude;
+        }
+        return null;
+    }
+
+    /**
+     * Check if farm has coordinates
+     */
+    public function hasCoordinates()
+    {
+        return !is_null($this->latitude) && !is_null($this->longitude);
     }
 }

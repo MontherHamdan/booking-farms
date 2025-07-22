@@ -45,7 +45,8 @@ class ApiFarmController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Farm::query();
+            // active scope to get only active farms
+            $query = Farm::active();
             
             $relationships = $this->getFarmRelationships();
             $farms = $query->with($relationships)->paginate($request->per_page ?? 10);
@@ -67,7 +68,7 @@ class ApiFarmController extends Controller
          * Includes all available filters
         */
         try {
-            $query = Farm::query();
+            $query = Farm::active();
             
             // Apply all filters using the trait
             $this->applyFarmFilters($query, $request);
@@ -105,7 +106,7 @@ class ApiFarmController extends Controller
             $searchQuery = $request->input('query');
             $perPage = $request->input('per_page', 10);
     
-            $query = Farm::query();
+            $query = Farm::active();
             
             // Apply search filter
             $this->applySearchFilter($query, $request);

@@ -119,8 +119,15 @@ class ApiFarmController extends Controller
             $step = $request->input('step', 1);
             $farmId = $request->input('farm_id'); // For updating existing draft
             
-            // Get or create farm
-            $farm = $farmId ? Farm::findOrFail($farmId) : new Farm(['user_id' => Auth::id()]);
+            // Get or create farm with proper error handling
+            if ($farmId) {
+                $farm = Farm::find($farmId);
+                if (!$farm) {
+                    return $this->errorResponse(__('farm.not_found', ['id' => $farmId]), 404);
+                }
+            } else {
+                $farm = new Farm(['user_id' => Auth::id()]);
+            }
             
             // Ensure user owns the farm (for updates)
             if ($farm->exists && $farm->user_id !== Auth::id()) {

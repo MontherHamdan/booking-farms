@@ -28,6 +28,15 @@ class ShowFarmResource extends JsonResource
             'description_ar' => $this->description_ar,
             'description_en' => $this->description_en,
             'guests_count' => $this->guest_count,
+            'deposit_rate' => $this->deposit_rate,
+            'status' => $this->status,
+            
+            // Coordinates
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
+            'coordinates' => $this->coordinates, 
+            'has_coordinates' => $this->hasCoordinates(),
+            
             'not_available_dates' => $this->not_available_dates,
             'formatted_not_available_dates' => $this->formatted_not_available_dates,
 
@@ -85,13 +94,15 @@ class ShowFarmResource extends JsonResource
                 return $this->getCurrentOfferPercentage();
             }),
 
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
             'city' => $this->whenLoaded('city', function () {
                 return [
                     'id' => $this->city->id,
                     'name_ar' => $this->city->name_ar ?? '',
                     'name_en' => $this->city->name_en ?? '',
+                    'latitude' => $this->city->latitude,
+                    'longitude' => $this->city->longitude,
+                    'coordinates' => $this->city->coordinates,
+                    'has_coordinates' => $this->city->hasCoordinates(),
                 ];
             }),
             'area' => $this->whenLoaded('area', function () {
@@ -99,6 +110,10 @@ class ShowFarmResource extends JsonResource
                     'id' => $this->area->id,
                     'name_ar' => $this->area->name_ar ?? '',
                     'name_en' => $this->area->name_en ?? '',
+                    'latitude' => $this->area->latitude,
+                    'longitude' => $this->area->longitude,
+                    'coordinates' => $this->area->coordinates,
+                    'has_coordinates' => $this->area->hasCoordinates(),
                 ];
             }),
             'farm_owner' => $this->whenLoaded('user', function () {
@@ -129,6 +144,8 @@ class ShowFarmResource extends JsonResource
                     ];
                 });
             }),
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
         ];
     }
 

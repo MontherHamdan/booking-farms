@@ -41,14 +41,16 @@ trait FarmStoreTrait
     }
 
     /**
-     * Handle Step 3: Location and Image Association
+     * Handle Step 3: Location, Coordinates, and Image Association
      */
     private function handleStep3(Farm $farm, Request $request): void
     {
-        // Update location
+        // Update location and coordinates
         $farm->fill([
             'city_id' => $request->city_id,
             'area_id' => $request->area_id,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
         ]);
         
         $farm->save();
