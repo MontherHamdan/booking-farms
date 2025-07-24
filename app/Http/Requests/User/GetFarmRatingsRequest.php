@@ -22,11 +22,11 @@ class GetFarmRatingsRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('farm.validation.ratings');
+        return __('farm.validation');
     }
 
     public function attributes(): array
     {
-        return __('farm.attributes.ratings');
+        return __('farm.attributes');
     }
 }

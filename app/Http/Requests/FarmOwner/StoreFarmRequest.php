@@ -307,71 +307,7 @@ class StoreFarmRequest extends FormRequest
      */
     public function messages(): array
     {
-        return [
-            // Step 1 - Basic Information
-            'name_ar.string' => __('farm.validation.name_ar.string'),
-            'name_ar.max' => __('farm.validation.name_ar.max'),
-            'name_en.string' => __('farm.validation.name_en.string'),
-            'name_en.max' => __('farm.validation.name_en.max'),
-            'description_ar.string' => __('farm.validation.description_ar.string'),
-            'description_en.string' => __('farm.validation.description_en.string'),
-            'deposit_rate.numeric' => __('farm.validation.deposit_rate.numeric'),
-            'deposit_rate.min' => __('farm.validation.deposit_rate.min'),
-            'guest_count.integer' => __('farm.validation.guest_count.integer'),
-            'guest_count.min' => __('farm.validation.guest_count.min'),
-            
-            // Step 2 - Features
-            'features.array' => __('farm.validation.features.array'),
-            'features.*.exists' => __('farm.validation.features.*.exists'),
-            
-            // Step 3 - Location & Images
-            'city_id.exists' => __('farm.validation.city_id.*.exists'),
-            'area_id.exists' => __('farm.validation.area_id.*.exists'),
-            'latitude.numeric' => __('farm.validation.latitude.numeric'),
-            'latitude.between' => __('farm.validation.latitude.between'),
-            'longitude.numeric' => __('farm.validation.longitude.numeric'),
-            'longitude.between' => __('farm.validation.longitude.between'),
-            'main_image_id.integer' => __('farm.validation.main_image_id.integer'),
-            'main_image_id.exists' => __('farm.validation.main_image_id.exists'),
-            'gallery_image_ids.array' => __('farm.validation.gallery_image_ids.array'),
-            'gallery_image_ids.*.integer' => __('farm.validation.gallery_image_ids.*.integer'),
-            'gallery_image_ids.*.exists' => __('farm.validation.gallery_image_ids.*.exists'),
-            
-            // Step 4 - Pricing (consolidated patterns)
-            '*.start_time.date_format' => __('farm.validation.start_time.date_format'),
-            '*.end_time.date_format' => __('farm.validation.end_time.date_format'),
-            '*.saturday_price.numeric' => __('farm.validation.saturday_price.numeric'),
-            '*.saturday_price.min' => __('farm.validation.*.*.min'),
-            '*.sunday_price.numeric' => __('farm.validation.sunday_price.numeric'),
-            '*.sunday_price.min' => __('farm.validation.*.*.min'),
-            '*.monday_price.numeric' => __('farm.validation.monday_price.numeric'),
-            '*.monday_price.min' => __('farm.validation.*.*.min'),
-            '*.tuesday_price.numeric' => __('farm.validation.tuesday_price.numeric'),
-            '*.tuesday_price.min' => __('farm.validation.*.*.min'),
-            '*.wednesday_price.numeric' => __('farm.validation.wednesday_price.numeric'),
-            '*.wednesday_price.min' => __('farm.validation.*.*.min'),
-            '*.thursday_price.numeric' => __('farm.validation.thursday_price.numeric'),
-            '*.thursday_price.min' => __('farm.validation.*.*.min'),
-            '*.friday_price.numeric' => __('farm.validation.friday_price.numeric'),
-            '*.friday_price.min' => __('farm.validation.*.*.min'),
-            
-            // Step 5 - Offers & Dates
-            'offer.array' => __('farm.validation.offer.array'),
-            'offer.percentage.required_with' => __('farm.validation.offer.percentage.required_with'),
-            'offer.percentage.numeric' => __('farm.validation.offer.percentage.numeric'),
-            'offer.percentage.min' => __('farm.validation.offer.percentage.min'),
-            'offer.percentage.max' => __('farm.validation.offer.percentage.max'),
-            'offer.start_date.required_with' => __('farm.validation.offer.start_date.required_with'),
-            'offer.start_date.date' => __('farm.validation.offer.start_date.date'),
-            'offer.start_date.after_or_equal' => __('farm.validation.offer.start_date.after_or_equal'),
-            'offer.end_date.required_with' => __('farm.validation.offer.end_date.required_with'),
-            'offer.end_date.date' => __('farm.validation.offer.end_date.date'),
-            'offer.end_date.after' => __('farm.validation.offer.end_date.after'),
-            'offer.is_active.boolean' => __('farm.validation.offer.is_active.boolean'),
-            'not_available_dates.array' => __('farm.validation.not_available_dates.array'),
-            'not_available_dates.*.date' => __('farm.validation.not_available_dates.*.date'),
-            'not_available_dates.*.after_or_equal' => __('farm.validation.not_available_dates.*.after_or_equal'),
-        ];
+        return __('farm.validation');
     }
 
     /**
@@ -381,20 +317,6 @@ class StoreFarmRequest extends FormRequest
      */
     public function attributes(): array
     {
-        return [
-            'name_ar' => __('farm.attributes.name_ar'),
-            'name_en' => __('farm.attributes.name_en'),
-            'description_ar' => __('farm.attributes.description_ar'),
-            'description_en' => __('farm.attributes.description_en'),
-            'deposit_rate' => __('farm.attributes.deposit_rate'),
-            'guest_count' => __('farm.attributes.guest_count'),
-            'city_id' => __('farm.attributes.city_id'),
-            'area_id' => __('farm.attributes.area_id'),
-            'latitude' => __('farm.attributes.latitude'),
-            'longitude' => __('farm.attributes.longitude'),
-            'main_image_id' => __('farm.attributes.main_image_id'),
-            'gallery_image_ids' => __('farm.attributes.gallery_image_ids'),
-            'features' => __('farm.attributes.features'),
-        ];
+        return __('farm.attributes');
     }
 }

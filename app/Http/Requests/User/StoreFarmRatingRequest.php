@@ -30,7 +30,8 @@ class StoreFarmRatingRequest extends FormRequest
                 'max:5',
                 function ($attribute, $value, $fail) {
                     if (!FarmRating::isValidRating($value)) {
-                        $fail(__('farm.validation.rating.increments'));
+                        $validationMessages = __('farm.validation');
+                        $fail($validationMessages['rating.increments']);
                     }
                 },
             ],
@@ -47,14 +48,14 @@ class StoreFarmRatingRequest extends FormRequest
      */
     public function messages(): array
     {
-        return __('farm.validation.rating');
+        return __('farm.validation');
     }
 
+    /**
+     * Get custom attribute names.
+     */
     public function attributes(): array
     {
-        return [
-            'rating' => __('farm.attributes.rating'),
-            'review' => __('farm.attributes.review'),
-        ];
+        return __('farm.attributes');
     }
 }
