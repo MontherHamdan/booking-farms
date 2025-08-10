@@ -153,58 +153,178 @@ class ShowFarmResource extends JsonResource
 
     /**
      * Get unavailable dates filtered to only include today and future dates
+     * INCLUDES: Manual unavailable dates + Booked dates (by price type)
      */
     private function getFutureUnavailableDates(): ?array
     {
         $notAvailableDates = $this->not_available_dates;
-        
-        if (!$notAvailableDates) {
-            return null;
-        }
-
         $today = Carbon::today()->format('Y-m-d');
 
         // Handle old format (simple array)
         if ($this->isOldFormatUnavailableDates($notAvailableDates)) {
-            $futureDates = array_filter($notAvailableDates, function ($date) use ($today) {
+            $manualDates = array_filter($notAvailableDates ?? [], function ($date) use ($today) {
                 return $date >= $today;
             });
             
-            return array_values($futureDates); // Re-index array
+            // Add booked dates (all price types for old format)
+            $bookedDates = $this->getBookedDatesAllPriceTypes($today);
+            
+            $allUnavailable = array_unique(array_merge($manualDates, $bookedDates));
+            sort($allUnavailable);
+            
+            return $allUnavailable;
         }
 
         // Handle new format (price-type specific)
         $filteredDates = [];
         foreach (['day_use', 'night', 'full_day'] as $priceType) {
-            if (isset($notAvailableDates[$priceType])) {
-                $futureDates = array_filter($notAvailableDates[$priceType], function ($date) use ($today) {
-                    return $date >= $today;
-                });
-                $filteredDates[$priceType] = array_values($futureDates); // Re-index array
-            } else {
-                $filteredDates[$priceType] = [];
-            }
+            // Get manual unavailable dates for this price type
+            $manualDates = $this->getUnavailableDatesForPriceType($priceType);
+            $futureManualDates = array_filter($manualDates, function ($date) use ($today) {
+                return $date >= $today;
+            });
+            
+            // Get booked dates for this price type
+            $bookedDates = $this->getBookedDatesForPriceType($priceType, $today);
+            
+            // Merge manual + booked dates
+            $allUnavailable = array_unique(array_merge($futureManualDates, $bookedDates));
+            sort($allUnavailable);
+            
+            $filteredDates[$priceType] = $allUnavailable;
         }
 
         return $filteredDates;
     }
 
     /**
-     * Get formatted unavailable dates filtered to only include today and future dates
+     * Get booked dates for a specific price type (same logic as calculatePrice)
+     */
+    private function getBookedDatesForPriceType(string $priceType, string $today): array
+    {
+        $bookedDates = [];
+
+        // Get confirmed bookings for same price type
+        $existingBookings = \App\Models\FarmBooking::where('farm_id', $this->id)
+            ->where('price_type', $priceType)
+            ->where('booking_status', \App\Models\FarmBooking::BOOKING_STATUS_CONFIRMED)
+            ->get();
+
+        foreach ($existingBookings as $booking) {
+            $bookedDates = array_merge($bookedDates, $booking->booking_dates ?? []);
+        }
+
+        // Cross-price-type conflicts
+        if (in_array($priceType, ['day_use', 'night'])) {
+            // full_day bookings conflict with day_use/night
+            $fullDayBookings = \App\Models\FarmBooking::where('farm_id', $this->id)
+                ->where('price_type', 'full_day')
+                ->where('booking_status', \App\Models\FarmBooking::BOOKING_STATUS_CONFIRMED)
+                ->get();
+                
+            foreach ($fullDayBookings as $booking) {
+                $bookedDates = array_merge($bookedDates, $booking->booking_dates ?? []);
+            }
+        }
+
+        if ($priceType === 'full_day') {
+            // day_use + night bookings conflict with full_day
+            $dayUseBookings = \App\Models\FarmBooking::where('farm_id', $this->id)
+                ->whereIn('price_type', ['day_use', 'night'])
+                ->where('booking_status', \App\Models\FarmBooking::BOOKING_STATUS_CONFIRMED)
+                ->get();
+                
+            foreach ($dayUseBookings as $booking) {
+                $bookedDates = array_merge($bookedDates, $booking->booking_dates ?? []);
+            }
+        }
+
+        // Filter for future dates only
+        $bookedDates = array_filter(array_unique($bookedDates), function ($date) use ($today) {
+            return $date >= $today;
+        });
+
+        return array_values($bookedDates);
+    }
+
+    /**
+     * Get all booked dates for old format (all price types combined)
+     */
+    private function getBookedDatesAllPriceTypes(string $today): array
+    {
+        $bookedDates = [];
+
+        $existingBookings = \App\Models\FarmBooking::where('farm_id', $this->id)
+            ->where('booking_status', \App\Models\FarmBooking::BOOKING_STATUS_CONFIRMED)
+            ->get();
+
+        foreach ($existingBookings as $booking) {
+            $bookedDates = array_merge($bookedDates, $booking->booking_dates ?? []);
+        }
+
+        // Filter for future dates only
+        $bookedDates = array_filter(array_unique($bookedDates), function ($date) use ($today) {
+            return $date >= $today;
+        });
+
+        return array_values($bookedDates);
+    }
+
+    /**
+     * Get formatted unavailable dates (includes manual + booked dates)
      */
     private function getFutureFormattedUnavailableDates(): array
     {
-        $formattedDates = $this->formatted_not_available_dates;
+        $unavailableDates = $this->getFutureUnavailableDates();
         
-        if (!$formattedDates) {
+        if (!$unavailableDates) {
             return [];
         }
 
         $today = Carbon::today()->format('Y-m-d');
 
-        return array_filter($formattedDates, function ($dateInfo) use ($today) {
-            return $dateInfo['date'] >= $today;
+        // Handle old format (simple array)
+        if (!isset($unavailableDates['day_use'])) {
+            return array_map(function ($date) {
+                return [
+                    'date' => $date,
+                    'formatted' => Carbon::parse($date)->format('Y-m-d'),
+                    'human_readable' => Carbon::parse($date)->format('M d, Y'),
+                    'price_types' => ['day_use', 'night', 'full_day'], // All types for old format
+                ];
+            }, $unavailableDates);
+        }
+
+        // Handle new format - create consolidated view with price types
+        $allDates = [];
+        foreach (['day_use', 'night', 'full_day'] as $priceType) {
+            $dates = $unavailableDates[$priceType] ?? [];
+            foreach ($dates as $date) {
+                if (!isset($allDates[$date])) {
+                    $allDates[$date] = [];
+                }
+                $allDates[$date][] = $priceType;
+            }
+        }
+
+        $formatted = [];
+        foreach ($allDates as $date => $priceTypes) {
+            if ($date >= $today) {
+                $formatted[] = [
+                    'date' => $date,
+                    'formatted' => Carbon::parse($date)->format('Y-m-d'),
+                    'human_readable' => Carbon::parse($date)->format('M d, Y'),
+                    'price_types' => array_unique($priceTypes),
+                ];
+            }
+        }
+
+        // Sort by date
+        usort($formatted, function ($a, $b) {
+            return strcmp($a['date'], $b['date']);
         });
+
+        return $formatted;
     }
 
     /**

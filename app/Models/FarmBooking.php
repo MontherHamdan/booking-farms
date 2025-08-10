@@ -7,6 +7,32 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Carbon\Carbon;
 
+/**
+ * BOOKING STATUS FLOW:
+ * 
+ * 1. PENDING → User calls createPaymentIntent()
+ *    - booking_status = 'pending'
+ *    - payment_status = 'pending' 
+ *    - expires_at = now() + 30 minutes
+ *    - ❌ NOT shown in getUserBookings() (incomplete payment)
+ * 
+ * 2a. CONFIRMED → User completes payment successfully
+ *     - markAsPaid() called
+ *     - booking_status = 'confirmed'
+ *     - payment_status = 'paid' OR 'partially_paid' (if deposit)
+ *     - ✅ SHOWN in getUserBookings() (real booking)
+ * 
+ * 2b. CANCELLED → Payment fails or user abandons
+ *     - markAsFailed() called  
+ *     - booking_status = 'cancelled'
+ *     - payment_status = 'failed'
+ *     - ✅ SHOWN in getUserBookings() (for history)
+ * 
+ * 3. COMPLETED → Booking dates pass, service delivered
+ *    - booking_status = 'completed' (probably set by cron job)
+ *    - ✅ SHOWN in getUserBookings() (completed service)
+ */
+
 class FarmBooking extends Model
 {
     use HasFactory;

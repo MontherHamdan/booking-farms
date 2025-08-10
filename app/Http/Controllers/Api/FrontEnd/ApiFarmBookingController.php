@@ -66,7 +66,7 @@ class ApiFarmBookingController extends Controller
             // Check for existing bookings on these dates with the same price type
             $existingBookings = FarmBooking::where('farm_id', $farmId)
                 ->where('price_type', $priceType)
-                ->whereIn('booking_status', [FarmBooking::BOOKING_STATUS_CONFIRMED, FarmBooking::BOOKING_STATUS_PENDING])
+                ->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
                 ->get();
 
             $bookedDates = [];
@@ -78,7 +78,7 @@ class ApiFarmBookingController extends Controller
             if (in_array($priceType, ['day_use', 'night'])) {
                 $fullDayBookings = FarmBooking::where('farm_id', $farmId)
                     ->where('price_type', 'full_day')
-                    ->whereIn('booking_status', [FarmBooking::BOOKING_STATUS_CONFIRMED, FarmBooking::BOOKING_STATUS_PENDING])
+                    ->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
                     ->get();
                     
                 foreach ($fullDayBookings as $booking) {
@@ -90,7 +90,7 @@ class ApiFarmBookingController extends Controller
             if ($priceType === 'full_day') {
                 $dayUseBookings = FarmBooking::where('farm_id', $farmId)
                     ->whereIn('price_type', ['day_use', 'night'])
-                    ->whereIn('booking_status', [FarmBooking::BOOKING_STATUS_CONFIRMED, FarmBooking::BOOKING_STATUS_PENDING])
+                    ->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
                     ->get();
                     
                 foreach ($dayUseBookings as $booking) {
@@ -278,7 +278,7 @@ class ApiFarmBookingController extends Controller
                 // Check for conflicts with existing bookings (same logic as calculatePrice)
                 $existingBookings = FarmBooking::where('farm_id', $farmId)
                     ->where('price_type', $priceType)
-                    ->whereIn('booking_status', [FarmBooking::BOOKING_STATUS_CONFIRMED, FarmBooking::BOOKING_STATUS_PENDING])
+                    ->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
                     ->get();
 
                 $bookedDates = [];
@@ -290,7 +290,7 @@ class ApiFarmBookingController extends Controller
                 if (in_array($priceType, ['day_use', 'night'])) {
                     $fullDayBookings = FarmBooking::where('farm_id', $farmId)
                         ->where('price_type', 'full_day')
-                        ->whereIn('booking_status', [FarmBooking::BOOKING_STATUS_CONFIRMED, FarmBooking::BOOKING_STATUS_PENDING])
+                        ->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
                         ->get();
                         
                     foreach ($fullDayBookings as $booking) {
@@ -301,7 +301,7 @@ class ApiFarmBookingController extends Controller
                 if ($priceType === 'full_day') {
                     $dayUseBookings = FarmBooking::where('farm_id', $farmId)
                         ->whereIn('price_type', ['day_use', 'night'])
-                        ->whereIn('booking_status', [FarmBooking::BOOKING_STATUS_CONFIRMED, FarmBooking::BOOKING_STATUS_PENDING])
+                        ->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
                         ->get();
                         
                     foreach ($dayUseBookings as $booking) {
@@ -388,15 +388,18 @@ class ApiFarmBookingController extends Controller
 
                 // Return payment intent details for frontend
                 return $this->successResponse(true, [
-                    'booking_id' => $booking->id,
-                    'booking_reference' => $booking->booking_reference,
-                    'client_secret' => $paymentIntent->client_secret,
-                    'payment_intent_id' => $paymentIntent->id,
-                    'amount' => $paymentAmount,
-                    'currency' => 'aed',
-                    'payment_type' => $isDepositPayment ? 'deposit' : 'full',
-                    'expires_at' => $booking->expires_at,
-                ], __('booking.payment_intent_created'), 200);
+                    'message'    => __('booking.payment_intent_created'),
+                    'data'       =>[
+                        'booking_id' => $booking->id,
+                        'booking_reference' => $booking->booking_reference,
+                        'client_secret' => $paymentIntent->client_secret,
+                        'payment_intent_id' => $paymentIntent->id,
+                        'amount' => $paymentAmount,
+                        'currency' => 'aed',
+                        'payment_type' => $isDepositPayment ? 'deposit' : 'full',
+                        'expires_at' => $booking->expires_at,
+                    ]
+                ], null, 200);
             });
 
         } catch (Exception $e) {
@@ -495,108 +498,6 @@ class ApiFarmBookingController extends Controller
         } catch (Exception $e) {
             Log::error('Error processing Stripe webhook: ' . $e->getMessage());
             return response()->json(['error' => 'Webhook processing failed'], 500);
-        }
-    }
-
-    /**
-     * Get booking details
-     */
-    public function getBooking($bookingId): JsonResponse
-    {
-        try {
-            $booking = FarmBooking::with(['farm', 'user'])
-                ->where('id', $bookingId)
-                ->where('user_id', auth('sanctum')->id())
-                ->first();
-
-            if (!$booking) {
-                return $this->errorResponse(__('booking.not_found'), 404);
-            }
-
-            $isDepositPayment = $booking->deposit_amount > 0;
-
-            return $this->successResponse(true, [
-                'id' => $booking->id,
-                'booking_reference' => $booking->booking_reference,
-                'farm' => [
-                    'id' => $booking->farm->id,
-                    'name_en' => $booking->farm->name_en,
-                    'name_ar' => $booking->farm->name_ar,
-                ],
-                'price_type' => $booking->price_type,
-                'booking_dates' => $booking->formatted_booking_dates,
-                'guest_count' => $booking->guest_count,
-                'subtotal' => $booking->subtotal,
-                'discount_amount' => $booking->discount_amount,
-                'total_amount' => $booking->total_amount,
-                'deposit_amount' => $booking->deposit_amount,
-                'remaining_amount' => $booking->remaining_amount,
-                'payment_type' => $isDepositPayment ? 'deposit' : 'full',
-                'payment_status' => $booking->payment_status,
-                'booking_status' => $booking->booking_status,
-                'customer_name' => $booking->customer_name,
-                'customer_email' => $booking->customer_email,
-                'customer_phone' => $booking->customer_phone,
-                'notes' => $booking->notes,
-                'expires_at' => $booking->expires_at,
-                'created_at' => $booking->created_at,
-            ], null, 200);
-
-        } catch (Exception $e) {
-            $this->logException($e, ['action' => 'get booking', 'booking_id' => $bookingId]);
-            return $this->errorResponse(__('error.internal_error'), 500);
-        }
-    }
-
-    /**
-     * Get user's bookings
-     */
-    public function getUserBookings(Request $request): JsonResponse
-    {
-        try {
-            $query = FarmBooking::with(['farm'])
-                ->where('user_id', auth('sanctum')->id());
-
-            if ($request->status) {
-                $query->where('booking_status', $request->status);
-            }
-
-            $bookings = $query->orderBy('created_at', 'desc')
-                ->paginate($request->per_page ?? 10);
-
-            return $this->successResponse(true, $bookings, null, 200);
-
-        } catch (Exception $e) {
-            $this->logException($e, ['action' => 'get user bookings']);
-            return $this->errorResponse(__('error.internal_error'), 500);
-        }
-    }
-
-    /**
-     * Cancel booking
-     */
-    public function cancelBooking($bookingId): JsonResponse
-    {
-        try {
-            $booking = FarmBooking::where('id', $bookingId)
-                ->where('user_id', auth('sanctum')->id())
-                ->first();
-
-            if (!$booking) {
-                return $this->errorResponse(__('booking.not_found'), 404);
-            }
-
-            if (!$booking->canBeCancelled()) {
-                return $this->errorResponse(__('booking.cannot_be_cancelled'), 400);
-            }
-
-            $booking->cancel();
-
-            return $this->successResponse(true, null, __('booking.cancelled_successfully'), 200);
-
-        } catch (Exception $e) {
-            $this->logException($e, ['action' => 'cancel booking', 'booking_id' => $bookingId]);
-            return $this->errorResponse(__('error.internal_error'), 500);
         }
     }
 

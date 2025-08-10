@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\FrontEnd\ApiFarmController;
 use App\Http\Controllers\Api\FrontEnd\ApiFarmBookingController;
 use App\Http\Controllers\Api\Users\ApiFavoriteFarmController;
 use App\Http\Controllers\Api\Users\ApiRatingFarmController;
+use App\Http\Controllers\Api\Users\ApiUserBookingController;
 use App\Http\Controllers\Api\FrontEnd\ApiFeatureController;
 use App\Http\Controllers\Api\Auth\ApiAuthController;
 use App\Http\Controllers\Api\FrontEnd\ApiCityController;
@@ -41,7 +42,7 @@ Route::prefix('farms')->controller(ApiFarmController::class)->group(function () 
     Route::post('/search',             'search');  
 });
 
-// ★ BOOKING ROUTES (Public calculate price, Protected booking creation)
+// ★ FARM BOOKING ROUTES (Public price calculation, Protected booking creation)
 Route::prefix('bookings')->controller(ApiFarmBookingController::class)->group(function () {
     // Public price calculation
     Route::post('/farms/{farm}/calculate-price', 'calculatePrice');
@@ -93,7 +94,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/farms/{farmId}/user', 'getUserRating');
     });
 
-    // ★ BOOKING ROUTES (Protected) - UPDATED FOR CUSTOM CHECKOUT
+    // ★ FARM BOOKING CREATION (Protected) - Farm-focused operations
     Route::prefix('bookings')->controller(ApiFarmBookingController::class)->group(function () {
         // Get checkout page data (farm details + price info)
         Route::post('/farms/{farm}/checkout-data', 'getCheckoutPageData');
@@ -103,14 +104,22 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // Confirm payment status after Stripe processing
         Route::post('/{booking}/confirm-payment', 'confirmPayment');
-        
-        // Get booking details
-        Route::get('/{booking}', 'getBooking');
-        
-        // Get user's bookings
-        Route::get('/', 'getUserBookings');
-        
-        // Cancel booking
-        Route::delete('/{booking}/cancel', 'cancelBooking');
+    });
+
+    // ★ USER BOOKING MANAGEMENT (Protected) - User-focused operations
+    Route::prefix('user')->group(function () {
+        Route::prefix('bookings')->controller(ApiUserBookingController::class)->group(function () {
+            // Get user's bookings (supports ?status= filter)
+            Route::get('/', 'index');
+            
+            // Get user's booking statistics
+            Route::get('/stats', 'stats');
+            
+            // Get specific booking details
+            Route::get('/{booking}', 'show');
+            
+            // Cancel user's booking
+            Route::delete('/{booking}/cancel', 'cancel');
+        });
     });
 });
