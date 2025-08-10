@@ -6,7 +6,9 @@ return [
     'price_calculated_successfully' => 'تم حساب السعر بنجاح',
     'pricing_not_available' => 'السعر غير متوفر لـ :price_type',
     'unavailable_dates' => 'التواريخ غير المتاحة: :dates',
-    
+    'dates_already_booked' => 'التواريخ محجوزة بالفعل: :dates',
+    'deposit_not_available' => 'خيار دفع العربون غير متوفر لهذه المزرعة',
+
     'fields_retrieved_successfully' => 'تم استرداد حقول نموذج المزرعة بنجاح',
     'farms_filtered_successfully' => 'تم تصفية المزارع بنجاح',
 

@@ -6,6 +6,8 @@ return [
     'price_calculated_successfully' => 'Price calculated successfully',
     'pricing_not_available' => 'Pricing not available for :price_type',
     'unavailable_dates' => 'Unavailable dates: :dates',
+    'dates_already_booked' => 'Dates are already booked: :dates',
+    'deposit_not_available' => 'Deposit payment is not available for this farm',
     
     'fields_retrieved_successfully' => 'Farm form fields retrieved successfully',
     'farms_filtered_successfully' => 'Farms filtered successfully',

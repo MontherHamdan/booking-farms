@@ -114,11 +114,95 @@ trait FarmStoreTrait
             ]);
         }
         
-        // Handle not available dates
+        // Handle not available dates - NEW FORMAT
         if ($request->filled('not_available_dates')) {
-            $farm->not_available_dates = $request->not_available_dates;
+            $notAvailableDates = $request->not_available_dates;
+            
+            // Validate the structure
+            $this->validateUnavailableDatesStructure($notAvailableDates);
+            
+            // Apply business logic for price type dependencies
+            $processedDates = $this->processUnavailableDatesLogic($notAvailableDates);
+            
+            $farm->not_available_dates = $processedDates;
             $farm->save();
         }
+    }
+
+    private function validateUnavailableDatesStructure(array $notAvailableDates): void
+    {
+        $validPriceTypes = ['day_use', 'night', 'full_day'];
+        
+        foreach ($notAvailableDates as $priceType => $dates) {
+            if (!in_array($priceType, $validPriceTypes)) {
+                throw ValidationException::withMessages([
+                    'not_available_dates' => ["Invalid price type: {$priceType}"]
+                ]);
+            }
+            
+            if (!is_array($dates)) {
+                throw ValidationException::withMessages([
+                    'not_available_dates' => ["Dates for {$priceType} must be an array"]
+                ]);
+            }
+            
+            foreach ($dates as $date) {
+                if (!$this->isValidDate($date)) {
+                    throw ValidationException::withMessages([
+                        'not_available_dates' => ["Invalid date format: {$date}"]
+                    ]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Process unavailable dates with business logic
+     */
+    private function processUnavailableDatesLogic(array $notAvailableDates): array
+    {
+        $processed = [
+            'day_use' => array_unique($notAvailableDates['day_use'] ?? []),
+            'night' => array_unique($notAvailableDates['night'] ?? []),
+            'full_day' => array_unique($notAvailableDates['full_day'] ?? []),
+        ];
+        
+        // Business Logic:
+        // 1. If full_day is unavailable, add those dates to day_use and night
+        foreach ($processed['full_day'] as $date) {
+            if (!in_array($date, $processed['day_use'])) {
+                $processed['day_use'][] = $date;
+            }
+            if (!in_array($date, $processed['night'])) {
+                $processed['night'][] = $date;
+            }
+        }
+        
+        // 2. If both day_use AND night are unavailable on the same date, add to full_day
+        $dayUseSet = array_flip($processed['day_use']);
+        $nightSet = array_flip($processed['night']);
+        
+        foreach ($processed['day_use'] as $date) {
+            if (isset($nightSet[$date]) && !in_array($date, $processed['full_day'])) {
+                $processed['full_day'][] = $date;
+            }
+        }
+        
+        // Sort all arrays
+        sort($processed['day_use']);
+        sort($processed['night']);
+        sort($processed['full_day']);
+        
+        return $processed;
+    }
+
+    /**
+     * Validate date format
+     */
+    private function isValidDate(string $date): bool
+    {
+        $d = \DateTime::createFromFormat('Y-m-d', $date);
+        return $d && $d->format('Y-m-d') === $date;
     }
 
     /**

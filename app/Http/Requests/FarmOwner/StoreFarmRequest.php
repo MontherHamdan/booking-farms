@@ -40,7 +40,7 @@ class StoreFarmRequest extends FormRequest
                     'name_en' => 'nullable|string|max:255',
                     'description_ar' => 'nullable|string',
                     'description_en' => 'nullable|string',
-                    'deposit_rate' => 'nullable|numeric|min:0',
+                    'deposit_rate' => 'nullable|numeric|min:0|max:100',
                     'guest_count' => 'nullable|integer|min:1',
                 ];
                 
@@ -100,14 +100,25 @@ class StoreFarmRequest extends FormRequest
             case 5:
                 return [
                     'offer' => 'nullable|array',
-                    'offer.percentage' => 'required_with:offer|numeric|min:0|max:100',
+                    'offer.percentage' => 'required_with:offer|numeric|min:1|max:100',
                     'offer.start_date' => 'required_with:offer|date|after_or_equal:today',
                     'offer.end_date' => 'required_with:offer|date|after:offer.start_date',
                     'offer.is_active' => 'nullable|boolean',
                     
-                    // Not available dates validation
+                    // NEW: Price-type specific unavailable dates validation
                     'not_available_dates' => 'nullable|array',
-                    'not_available_dates.*' => 'date|after_or_equal:today',
+                    
+                    // Support both old format (simple array) and new format (price-type specific)
+                    // Old format: ["2025-08-15", "2025-08-20"] 
+                    'not_available_dates.*' => 'sometimes|date_format:Y-m-d|after_or_equal:today',
+                    
+                    // New format: {"day_use": [...], "night": [...], "full_day": [...]}
+                    'not_available_dates.day_use' => 'nullable|array',
+                    'not_available_dates.day_use.*' => 'date_format:Y-m-d|after_or_equal:today',
+                    'not_available_dates.night' => 'nullable|array', 
+                    'not_available_dates.night.*' => 'date_format:Y-m-d|after_or_equal:today',
+                    'not_available_dates.full_day' => 'nullable|array',
+                    'not_available_dates.full_day.*' => 'date_format:Y-m-d|after_or_equal:today',
                 ];
                 
             default:
@@ -131,6 +142,11 @@ class StoreFarmRequest extends FormRequest
                 // Ensure at least one name is provided
                 if (empty($this->name_ar) && empty($this->name_en)) {
                     $validator->errors()->add('name', __('farm.at_least_one_name_required'));
+                }
+                
+                // Validate deposit rate range
+                if ($this->filled('deposit_rate') && $this->deposit_rate > 100) {
+                    $validator->errors()->add('deposit_rate', __('farm.validation.deposit_rate.max'));
                 }
             }
             
@@ -248,7 +264,7 @@ class StoreFarmRequest extends FormRequest
     }
 
     /**
-     * Validate not available dates for Step 5
+     * Validate not available dates for Step 5 (UPDATED for price-type specific)
      */
     private function validateNotAvailableDates($validator): void
     {
@@ -258,6 +274,32 @@ class StoreFarmRequest extends FormRequest
         
         $dates = $this->not_available_dates;
         
+        // Detect format: old (simple array) vs new (price-type specific)
+        if ($this->isOldFormatUnavailableDates($dates)) {
+            $this->validateOldFormatDates($validator, $dates);
+        } else {
+            $this->validateNewFormatDates($validator, $dates);
+        }
+    }
+
+    /**
+     * Check if dates format is old (simple array) or new (price-type specific)
+     */
+    private function isOldFormatUnavailableDates($data): bool
+    {
+        if (empty($data) || !is_array($data)) {
+            return false;
+        }
+
+        // If it's a sequential array of dates, it's old format
+        return array_keys($data) === range(0, count($data) - 1);
+    }
+
+    /**
+     * Validate old format unavailable dates
+     */
+    private function validateOldFormatDates($validator, array $dates): void
+    {
         // Check for duplicates
         if (count($dates) !== count(array_unique($dates))) {
             $validator->errors()->add('not_available_dates', __('farm.validation.dates.duplicates_not_allowed'));
@@ -272,6 +314,44 @@ class StoreFarmRequest extends FormRequest
                 }
             } catch (\Exception $e) {
                 $validator->errors()->add("not_available_dates.{$index}", __('farm.validation.dates.invalid_format', ['date' => $date]));
+            }
+        }
+    }
+
+    /**
+     * Validate new format unavailable dates (price-type specific)
+     */
+    private function validateNewFormatDates($validator, array $dates): void
+    {
+        $validPriceTypes = ['day_use', 'night', 'full_day'];
+        
+        foreach ($dates as $priceType => $priceTypeDates) {
+            // Validate price type
+            if (!in_array($priceType, $validPriceTypes)) {
+                $validator->errors()->add("not_available_dates.{$priceType}", __('farm.validation.invalid_price_type', ['type' => $priceType]));
+                continue;
+            }
+            
+            if (!is_array($priceTypeDates)) {
+                $validator->errors()->add("not_available_dates.{$priceType}", __('farm.validation.dates.must_be_array'));
+                continue;
+            }
+            
+            // Check for duplicates within this price type
+            if (count($priceTypeDates) !== count(array_unique($priceTypeDates))) {
+                $validator->errors()->add("not_available_dates.{$priceType}", __('farm.validation.dates.duplicates_not_allowed'));
+            }
+            
+            // Validate each date
+            foreach ($priceTypeDates as $index => $date) {
+                try {
+                    $carbonDate = \Carbon\Carbon::parse($date);
+                    if ($carbonDate->isPast()) {
+                        $validator->errors()->add("not_available_dates.{$priceType}.{$index}", __('farm.validation.dates.cannot_be_past', ['date' => $date]));
+                    }
+                } catch (\Exception $e) {
+                    $validator->errors()->add("not_available_dates.{$priceType}.{$index}", __('farm.validation.dates.invalid_format', ['date' => $date]));
+                }
             }
         }
     }
@@ -307,7 +387,21 @@ class StoreFarmRequest extends FormRequest
      */
     public function messages(): array
     {
-        return __('farm.validation');
+        return array_merge(__('farm.validation'), [
+            // Price-type specific messages
+            'not_available_dates.day_use.*.date_format' => __('farm.validation.dates.day_use_invalid_format'),
+            'not_available_dates.day_use.*.after_or_equal' => __('farm.validation.dates.day_use_future_only'),
+            'not_available_dates.night.*.date_format' => __('farm.validation.dates.night_invalid_format'),
+            'not_available_dates.night.*.after_or_equal' => __('farm.validation.dates.night_future_only'),
+            'not_available_dates.full_day.*.date_format' => __('farm.validation.dates.full_day_invalid_format'),
+            'not_available_dates.full_day.*.after_or_equal' => __('farm.validation.dates.full_day_future_only'),
+            
+            // Offer messages
+            'offer.percentage.min' => __('farm.validation.offer.percentage_min'),
+            'offer.percentage.max' => __('farm.validation.offer.percentage_max'),
+            'offer.start_date.after_or_equal' => __('farm.validation.offer.start_date_future'),
+            'offer.end_date.after' => __('farm.validation.offer.end_date_after_start'),
+        ]);
     }
 
     /**
@@ -317,6 +411,10 @@ class StoreFarmRequest extends FormRequest
      */
     public function attributes(): array
     {
-        return __('farm.attributes');
+        return array_merge(__('farm.attributes'), [
+            'not_available_dates.day_use' => __('farm.attributes.day_use_unavailable_dates'),
+            'not_available_dates.night' => __('farm.attributes.night_unavailable_dates'),
+            'not_available_dates.full_day' => __('farm.attributes.full_day_unavailable_dates'),
+        ]);
     }
 }

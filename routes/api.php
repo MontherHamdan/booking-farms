@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\FrontEnd\ApiFarmController;
+use App\Http\Controllers\Api\FrontEnd\ApiFarmBookingController;
 use App\Http\Controllers\Api\Users\ApiFavoriteFarmController;
 use App\Http\Controllers\Api\Users\ApiRatingFarmController;
 use App\Http\Controllers\Api\FrontEnd\ApiFeatureController;
@@ -31,14 +32,22 @@ Route::prefix('cities')->controller(ApiCityController::class)->group(function ()
     Route::get('/{cityId}/areas', 'getAreasByCity');
 });
 
-// Public farm listing / detail / filter / calculate‐price / search
+// Public farm listing / detail / filter / search
 Route::prefix('farms')->controller(ApiFarmController::class)->group(function () {
     Route::get('/',                    'index');
     Route::get('/filter-fields',       'getFilterFields');
     Route::get('/{farm_id}',           'show');
     Route::post('/filter',             'filter');
     Route::post('/search',             'search');  
-    Route::post('/{farm}/calculate-price', 'calculatePrice');
+});
+
+// ★ BOOKING ROUTES (Public calculate price, Protected booking creation)
+Route::prefix('bookings')->controller(ApiFarmBookingController::class)->group(function () {
+    // Public price calculation
+    Route::post('/farms/{farm}/calculate-price', 'calculatePrice');
+    
+    // Stripe webhook (public, no auth needed)
+    Route::post('/webhook/stripe', 'handleStripeWebhook');
 });
 
 // Features listing
@@ -82,5 +91,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/farms/{farmId}',  'updateRating');
         Route::delete('/farms/{farmId}', 'deleteRating');
         Route::get('/farms/{farmId}/user', 'getUserRating');
+    });
+
+    // ★ BOOKING ROUTES (Protected) - UPDATED FOR CUSTOM CHECKOUT
+    Route::prefix('bookings')->controller(ApiFarmBookingController::class)->group(function () {
+        // Get checkout page data (farm details + price info)
+        Route::post('/farms/{farm}/checkout-data', 'getCheckoutPageData');
+        
+        // Create booking and payment intent for custom checkout
+        Route::post('/farms/{farm}/create-payment-intent', 'createPaymentIntent');
+        
+        // Confirm payment status after Stripe processing
+        Route::post('/{booking}/confirm-payment', 'confirmPayment');
+        
+        // Get booking details
+        Route::get('/{booking}', 'getBooking');
+        
+        // Get user's bookings
+        Route::get('/', 'getUserBookings');
+        
+        // Cancel booking
+        Route::delete('/{booking}/cancel', 'cancelBooking');
     });
 });

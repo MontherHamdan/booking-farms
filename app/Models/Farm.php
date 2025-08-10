@@ -270,7 +270,107 @@ class Farm extends Model
     }
 
     /**
-     * Get formatted not available dates.
+     * Get unavailable dates for a specific price type
+     */
+    public function getUnavailableDatesForPriceType(string $priceType): array
+    {
+        if (!$this->not_available_dates) {
+            return [];
+        }
+
+        $unavailableDates = [];
+        $notAvailableData = $this->not_available_dates;
+
+        // Handle both old format (simple array) and new format (price-type specific)
+        if ($this->isOldFormatUnavailableDates($notAvailableData)) {
+            // Old format - all dates unavailable for all price types
+            return $notAvailableData;
+        }
+
+        // New format - price-type specific
+        $specificDates = $notAvailableData[$priceType] ?? [];
+        
+        // For full_day requests, also check if both day_use AND night are unavailable
+        if ($priceType === 'full_day') {
+            $dayUseDates = $notAvailableData['day_use'] ?? [];
+            $nightDates = $notAvailableData['night'] ?? [];
+            
+            // If both day_use and night are unavailable on the same date, full_day is also unavailable
+            $bothUnavailable = array_intersect($dayUseDates, $nightDates);
+            $unavailableDates = array_merge($specificDates, $bothUnavailable);
+        } else {
+            // For day_use or night, also include full_day unavailable dates
+            $fullDayDates = $notAvailableData['full_day'] ?? [];
+            $unavailableDates = array_merge($specificDates, $fullDayDates);
+        }
+
+        return array_unique($unavailableDates);
+    }
+
+    /**
+     * Check if dates format is old (simple array) or new (price-type specific)
+     */
+    private function isOldFormatUnavailableDates($data): bool
+    {
+        if (empty($data) || !is_array($data)) {
+            return false;
+        }
+
+        // If it's a sequential array of dates, it's old format
+        return array_keys($data) === range(0, count($data) - 1);
+    }
+
+    /**
+     * Set unavailable dates for specific price types
+     */
+    public function setUnavailableDatesForPriceType(string $priceType, array $dates): void
+    {
+        $notAvailableData = $this->not_available_dates ?? [];
+
+        // Convert old format to new format if needed
+        if ($this->isOldFormatUnavailableDates($notAvailableData)) {
+            $notAvailableData = [
+                'day_use' => $notAvailableData,
+                'night' => $notAvailableData,
+                'full_day' => $notAvailableData,
+            ];
+        }
+
+        // Set dates for the specific price type
+        $notAvailableData[$priceType] = $dates;
+
+        $this->not_available_dates = $notAvailableData;
+    }
+
+    /**
+     * Add unavailable date for specific price type
+     */
+    public function addUnavailableDateForPriceType(string $priceType, string $date): void
+    {
+        $currentDates = $this->getUnavailableDatesForPriceType($priceType);
+        
+        if (!in_array($date, $currentDates)) {
+            $currentDates[] = $date;
+            $this->setUnavailableDatesForPriceType($priceType, $currentDates);
+        }
+    }
+
+    /**
+     * Remove unavailable date for specific price type
+     */
+    public function removeUnavailableDateForPriceType(string $priceType, string $date): void
+    {
+        $currentDates = $this->getUnavailableDatesForPriceType($priceType);
+        
+        $updatedDates = array_filter($currentDates, function($d) use ($date) {
+            return $d !== $date;
+        });
+        
+        $this->setUnavailableDatesForPriceType($priceType, array_values($updatedDates));
+    }
+
+    /**
+     * Get formatted not available dates (backward compatibility)
      */
     public function getFormattedNotAvailableDatesAttribute(): array
     {
@@ -278,13 +378,43 @@ class Farm extends Model
             return [];
         }
 
-        return array_map(function ($date) {
-            return [
+        $notAvailableData = $this->not_available_dates;
+
+        // Handle old format
+        if ($this->isOldFormatUnavailableDates($notAvailableData)) {
+            return array_map(function ($date) {
+                return [
+                    'date' => $date,
+                    'formatted' => \Carbon\Carbon::parse($date)->format('Y-m-d'),
+                    'human_readable' => \Carbon\Carbon::parse($date)->format('M d, Y'),
+                    'price_types' => ['day_use', 'night', 'full_day'], // All types for old format
+                ];
+            }, $notAvailableData);
+        }
+
+        // Handle new format - create a consolidated view
+        $allDates = [];
+        foreach (['day_use', 'night', 'full_day'] as $priceType) {
+            $dates = $notAvailableData[$priceType] ?? [];
+            foreach ($dates as $date) {
+                if (!isset($allDates[$date])) {
+                    $allDates[$date] = [];
+                }
+                $allDates[$date][] = $priceType;
+            }
+        }
+
+        $formatted = [];
+        foreach ($allDates as $date => $priceTypes) {
+            $formatted[] = [
                 'date' => $date,
                 'formatted' => \Carbon\Carbon::parse($date)->format('Y-m-d'),
                 'human_readable' => \Carbon\Carbon::parse($date)->format('M d, Y'),
+                'price_types' => array_unique($priceTypes),
             ];
-        }, $this->not_available_dates);
+        }
+
+        return $formatted;
     }
 
     /**

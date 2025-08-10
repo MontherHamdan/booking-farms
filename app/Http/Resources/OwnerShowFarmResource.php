@@ -7,7 +7,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
-class ShowFarmResource extends JsonResource
+class OwnerShowFarmResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -31,6 +31,7 @@ class ShowFarmResource extends JsonResource
             'guests_count' => $this->guest_count,
             'deposit_rate' => $this->deposit_rate,
             'status' => $this->status,
+            'current_step' => $this->current_step,
             
             // Coordinates
             'latitude' => $this->latitude,
@@ -52,6 +53,11 @@ class ShowFarmResource extends JsonResource
                 return $this->minimum_price_after_offer;
             }),
             
+            // UPDATED: Full pricing details for farm owner
+            'pricing' => $this->whenLoaded('pricing', function () {
+                return $this->getFullPricingDetails();
+            }),
+            
             // Available price types (only when all days have pricing)
             'available_price_types' => $this->whenLoaded('pricing', function () {
                 return $this->getAvailablePriceTypes();
@@ -62,9 +68,19 @@ class ShowFarmResource extends JsonResource
                 return $this->hasValidOffer();
             }),
 
-            // Favorite status (only when user is authenticated)
-            'is_favorite' => $this->when($user !== null, function () use ($user) {
-                return $this->isFavoriteByUser($user->id);
+            // Current active offers
+            'offers' => $this->whenLoaded('offers', function () {
+                return $this->offers->map(function ($offer) {
+                    return [
+                        'id' => $offer->id,
+                        'percentage' => $offer->percentage,
+                        'start_date' => $offer->start_date,
+                        'end_date' => $offer->end_date,
+                        'is_active' => $offer->is_active,
+                        'is_valid' => $offer->is_valid,
+                        'created_at' => $offer->created_at,
+                    ];
+                });
             }),
 
             // Rating information
@@ -77,7 +93,7 @@ class ShowFarmResource extends JsonResource
             }),
             
             'latest_ratings' => $this->whenLoaded('ratings', function () {
-                return $this->latest_ratings->take(3)->map(function ($rating) {
+                return $this->latest_ratings->take(5)->map(function ($rating) {
                     return [
                         'id' => $rating->id,
                         'rating' => $rating->rating,
@@ -118,15 +134,6 @@ class ShowFarmResource extends JsonResource
                     'has_coordinates' => $this->area->hasCoordinates(),
                 ];
             }),
-            'farm_owner' => $this->whenLoaded('user', function () {
-                return [
-                    'id' => $this->user->id,
-                    'name' => $this->user->name,
-                    'phone' => $this->user->phone,
-                    'email' => $this->user->email,
-                    'avatar' => $this->user->avatar,
-                ];
-            }),
             'features' => $this->whenLoaded('features', function () {
                 return $this->features->map(function ($feature) {
                     return [
@@ -149,6 +156,103 @@ class ShowFarmResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
+    }
+
+    /**
+     * Get full pricing details for farm owner (complete breakdown)
+     */
+    private function getFullPricingDetails(): array
+    {
+        $pricingDetails = [];
+        
+        foreach ($this->pricing as $pricing) {
+            $pricingDetails[] = [
+                'id' => $pricing->id,
+                'price_type' => $pricing->price_type,
+                'name_ar' => $this->getPriceTypeName($pricing->price_type, 'ar'),
+                'name_en' => $this->getPriceTypeName($pricing->price_type, 'en'),
+                
+                // Time information
+                'start_time' => $pricing->formatted_start_time,
+                'end_time' => $pricing->formatted_end_time,
+                'time_range' => $pricing->time_range,
+                'duration_hours' => $pricing->duration_in_hours,
+                
+                // Daily prices (complete breakdown)
+                'daily_prices' => [
+                    'saturday' => (float) $pricing->saturday_price,
+                    'sunday' => (float) $pricing->sunday_price,
+                    'monday' => (float) $pricing->monday_price,
+                    'tuesday' => (float) $pricing->tuesday_price,
+                    'wednesday' => (float) $pricing->wednesday_price,
+                    'thursday' => (float) $pricing->thursday_price,
+                    'friday' => (float) $pricing->friday_price,
+                ],
+                
+                // Price summary
+                'min_price' => $pricing->min_price,
+                'max_price' => $pricing->max_price,
+                'average_price' => $this->calculateAveragePrice($pricing),
+                
+                // Completion status
+                'is_complete' => $this->isPriceTypeComplete($pricing),
+                'missing_days' => $this->getMissingPriceDays($pricing),
+                
+                // Availability info for this price type
+                'unavailable_dates' => $this->getUnavailableDatesForPriceType($pricing->price_type),
+                'unavailable_dates_count' => count($this->getUnavailableDatesForPriceType($pricing->price_type)),
+                
+                'created_at' => $pricing->created_at,
+                'updated_at' => $pricing->updated_at,
+            ];
+        }
+        
+        return $pricingDetails;
+    }
+
+    /**
+     * Calculate average price for a pricing type
+     */
+    private function calculateAveragePrice($pricing): float
+    {
+        $prices = array_filter([
+            $pricing->saturday_price,
+            $pricing->sunday_price,
+            $pricing->monday_price,
+            $pricing->tuesday_price,
+            $pricing->wednesday_price,
+            $pricing->thursday_price,
+            $pricing->friday_price,
+        ], function($price) {
+            return $price > 0; // Only consider prices greater than 0
+        });
+
+        return empty($prices) ? 0 : round(array_sum($prices) / count($prices), 2);
+    }
+
+    /**
+     * Get missing price days for a pricing type
+     */
+    private function getMissingPriceDays($pricing): array
+    {
+        $dayPrices = [
+            'saturday' => $pricing->saturday_price,
+            'sunday' => $pricing->sunday_price,
+            'monday' => $pricing->monday_price,
+            'tuesday' => $pricing->tuesday_price,
+            'wednesday' => $pricing->wednesday_price,
+            'thursday' => $pricing->thursday_price,
+            'friday' => $pricing->friday_price,
+        ];
+
+        $missingDays = [];
+        foreach ($dayPrices as $day => $price) {
+            if (!$price || $price <= 0) {
+                $missingDays[] = $day;
+            }
+        }
+
+        return $missingDays;
     }
 
     /**
@@ -202,9 +306,9 @@ class ShowFarmResource extends JsonResource
 
         $today = Carbon::today()->format('Y-m-d');
 
-        return array_filter($formattedDates, function ($dateInfo) use ($today) {
+        return array_values(array_filter($formattedDates, function ($dateInfo) use ($today) {
             return $dateInfo['date'] >= $today;
-        });
+        }));
     }
 
     /**
@@ -221,7 +325,7 @@ class ShowFarmResource extends JsonResource
     }
 
     /**
-     * Get available price types where all days have pricing data.
+     * Get available price types where all days have pricing data (summary for quick view)
      */
     private function getAvailablePriceTypes(): array
     {
@@ -238,7 +342,8 @@ class ShowFarmResource extends JsonResource
                     'time_range' => $pricing->time_range,
                     'duration_hours' => $pricing->duration_in_hours,
                     'min_price' => $pricing->min_price,
-                    // 'max_price' => $pricing->max_price,
+                    'max_price' => $pricing->max_price,
+                    'average_price' => $this->calculateAveragePrice($pricing),
                 ];
             }
         }

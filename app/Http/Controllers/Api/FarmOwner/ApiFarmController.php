@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\FarmOwner;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FarmOwner\StoreFarmRequest;
 use App\Http\Resources\ShowFarmResource;
+use App\Http\Resources\OwnerShowFarmResource;
 use App\Models\Farm;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -101,7 +102,7 @@ class ApiFarmController extends Controller
             $relationships = $this->getFarmRelationships();
             $farm->load($relationships);
             
-            return $this->successResponse(true, new ShowFarmResource($farm), null, 200);
+            return $this->successResponse(true, new OwnerShowFarmResource($farm), null, 200);
 
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'show farm', 'id' => $farmId]);
@@ -171,7 +172,7 @@ class ApiFarmController extends Controller
             
             return $this->successResponse(true, [
                 'message'    => __('farm.step_saved'),
-                'farm' => new ShowFarmResource($farm),
+                'farm' => new OwnerShowFarmResource($farm),
                 'current_step' => $farm->current_step,
                 'status' => $farm->status,
                 'is_ready_for_review' => $farm->current_step >= 5,
