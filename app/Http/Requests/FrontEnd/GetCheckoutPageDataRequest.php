@@ -59,16 +59,17 @@ class GetCheckoutPageDataRequest extends FormRequest
     private function getDatesSizeMessage(): string
     {
         $priceType = $this->input('price_type');
+        $validationMessages = __('farm.validation');
         
         if ($priceType === 'day_use') {
-            return __('farm.validation.dates.day_use_single');
+            return $validationMessages['dates.day_use_single'] ;
         }
         
         if ($priceType === 'night') {
-            return __('farm.validation.dates.night_single');
+            return $validationMessages['dates.night_single'] ;
         }
         
-        return __('farm.validation.dates.size');
+        return $validationMessages['dates.size'] ;
     }
 
     /**
@@ -79,6 +80,7 @@ class GetCheckoutPageDataRequest extends FormRequest
         $validator->after(function ($validator) {
             $dates = $this->input('dates', []);
             $priceType = $this->input('price_type');
+            $validationMessages = __('farm.validation');
 
             // If full_day with 2 dates, ensure first date <= second date
             if ($priceType === 'full_day' && count($dates) === 2) {
@@ -86,7 +88,8 @@ class GetCheckoutPageDataRequest extends FormRequest
                 $endDate = $dates[1] ?? null;
 
                 if ($startDate && $endDate && $startDate > $endDate) {
-                    $validator->errors()->add('dates', __('farm.validation.dates.date_range_invalid'));
+                    $message = $validationMessages['dates.date_range_invalid'];
+                    $validator->errors()->add('dates', $message);
                 }
             }
         });

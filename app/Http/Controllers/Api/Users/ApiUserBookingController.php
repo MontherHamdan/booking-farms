@@ -15,7 +15,7 @@ class ApiUserBookingController extends Controller
     use JsonResponseTrait, ExceptionLoggerTrait;
 
     /**
-     * Get user's bookings (excluding pending payments)
+     * Get user's bookings - ONLY confirmed, completed, and cancelled
      */
     public function index(Request $request): JsonResponse
     {
@@ -25,26 +25,62 @@ class ApiUserBookingController extends Controller
                     'farm.mainImage:id,farm_id,image_path'
                 ])
                 ->where('user_id', auth('sanctum')->id());
-    
-            // By default, only show finalized bookings (exclude pending payments)
+
+            // Filter by specific status if requested
             if ($request->status) {
-                // Allow filtering by specific status
-                $query->where('booking_status', $request->status);
+                $allowedStatuses = ['confirmed', 'completed', 'cancelled'];
+                if (in_array($request->status, $allowedStatuses)) {
+                    $query->where('booking_status', $request->status);
+                } else {
+                    return $this->errorResponse('Invalid status. Allowed: confirmed, completed, cancelled', 400);
+                }
             } else {
-                // Only show bookings that have been processed (actual booking history)
+                // Show only user-relevant bookings (confirmed, completed, cancelled)
                 $query->whereIn('booking_status', [
-                    FarmBooking::BOOKING_STATUS_CONFIRMED,  // Payment successful, booking confirmed
-                    FarmBooking::BOOKING_STATUS_CANCELLED,  // Booking was cancelled
-                    FarmBooking::BOOKING_STATUS_COMPLETED   // Booking date passed, service completed
+                    FarmBooking::BOOKING_STATUS_CONFIRMED,
+                    FarmBooking::BOOKING_STATUS_COMPLETED,
+                    FarmBooking::BOOKING_STATUS_CANCELLED,
                 ]);
-                // Explicitly exclude PENDING (incomplete payments)
             }
-    
+
             $bookings = $query->orderBy('created_at', 'desc')
                 ->paginate($request->per_page ?? 10);
-    
+
+            // Transform the booking data
+            $bookings->getCollection()->transform(function ($booking) {
+                return [
+                    'id' => $booking->id,
+                    'booking_reference' => $booking->booking_reference,
+                    'farm' => [
+                        'id' => $booking->farm->id,
+                        'name_en' => $booking->farm->name_en,
+                        'name_ar' => $booking->farm->name_ar,
+                        'main_image' => $booking->farm->mainImage ? url($booking->farm->mainImage->image_path) : null,
+                    ],
+                    'price_type' => $booking->price_type,
+                    'price_type_label' => __('farm.price_types.' . $booking->price_type),
+                    'booking_dates' => $booking->formatted_booking_dates,
+                    'start_date' => $booking->start_date?->format('Y-m-d'),
+                    'end_date' => $booking->end_date?->format('Y-m-d'),
+                    'start_time' => $booking->start_time?->format('H:i'),
+                    'end_time' => $booking->end_time?->format('H:i'),
+                    'booking_period' => $booking->booking_period,
+                    'time_range' => $booking->booking_time_range,
+                    'duration_in_days' => $booking->duration_in_days,
+                    'guest_count' => $booking->guest_count,
+                    'total_amount' => $booking->total_amount,
+                    'amount_paid' => $booking->amount_paid,
+                    'remaining_amount' => $booking->remaining_amount,
+                    'payment_status' => $booking->payment_status,
+                    'booking_status' => $booking->booking_status,
+                    'can_be_cancelled' => $booking->canBeCancelled(),
+                    'created_at' => $booking->created_at,
+                    'updated_at' => $booking->updated_at,
+                ];
+            });
+
             return $this->successResponse(true, $bookings, null, 200);
-    
+
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'get user bookings']);
             return $this->errorResponse(__('error.internal_error'), 500);
@@ -65,13 +101,16 @@ class ApiUserBookingController extends Controller
                 ])
                 ->where('id', $bookingId)
                 ->where('user_id', auth('sanctum')->id())
+                ->whereIn('booking_status', [
+                    FarmBooking::BOOKING_STATUS_CONFIRMED,
+                    FarmBooking::BOOKING_STATUS_COMPLETED,
+                    FarmBooking::BOOKING_STATUS_CANCELLED,
+                ])
                 ->first();
 
             if (!$booking) {
                 return $this->errorResponse(__('booking.not_found'), 404);
             }
-
-            $isDepositPayment = $booking->deposit_amount > 0;
 
             return $this->successResponse(true, [
                 'id' => $booking->id,
@@ -80,7 +119,7 @@ class ApiUserBookingController extends Controller
                     'id' => $booking->farm->id,
                     'name_en' => $booking->farm->name_en,
                     'name_ar' => $booking->farm->name_ar,
-                    'main_image' => $booking->farm->mainImage ? $booking->farm->mainImage->image_path : null,
+                    'main_image' => $booking->farm->mainImage ? url($booking->farm->mainImage->image_path) : null,
                     'city' => $booking->farm->city ? [
                         'id' => $booking->farm->city->id,
                         'name_ar' => $booking->farm->city->name_ar,
@@ -95,30 +134,34 @@ class ApiUserBookingController extends Controller
                 'price_type' => $booking->price_type,
                 'price_type_label' => __('farm.price_types.' . $booking->price_type),
                 'booking_dates' => $booking->formatted_booking_dates,
+                'start_date' => $booking->start_date?->format('Y-m-d'),
+                'end_date' => $booking->end_date?->format('Y-m-d'),
+                'start_time' => $booking->start_time?->format('H:i'),
+                'end_time' => $booking->end_time?->format('H:i'),
+                'formatted_start_datetime' => $booking->formatted_start_datetime,
+                'formatted_end_datetime' => $booking->formatted_end_datetime,
+                'booking_period' => $booking->booking_period,
+                'time_range' => $booking->booking_time_range,
                 'guest_count' => $booking->guest_count,
                 'subtotal' => $booking->subtotal,
                 'discount_amount' => $booking->discount_amount,
                 'total_amount' => $booking->total_amount,
                 'deposit_amount' => $booking->deposit_amount,
                 'remaining_amount' => $booking->remaining_amount,
-                'payment_type' => $isDepositPayment ? 'deposit' : 'full',
+                'payment_option' => $booking->payment_option,
                 'payment_status' => $booking->payment_status,
                 'booking_status' => $booking->booking_status,
                 'customer_name' => $booking->customer_name,
                 'customer_email' => $booking->customer_email,
                 'customer_phone' => $booking->customer_phone,
                 'notes' => $booking->notes,
-                'expires_at' => $booking->expires_at,
                 'created_at' => $booking->created_at,
                 'updated_at' => $booking->updated_at,
-                
-                // Additional user-friendly fields
                 'can_be_cancelled' => $booking->canBeCancelled(),
-                // 'is_expired' => $booking->isExpired(),
                 'amount_paid' => $booking->amount_paid,
                 'duration_in_days' => $booking->duration_in_days,
-                'start_date' => $booking->start_date,
-                'end_date' => $booking->end_date,
+                'is_deposit_payment' => $booking->hasDepositPayment(),
+                'booking_summary' => $booking->booking_summary,
             ], null, 200);
 
         } catch (Exception $e) {
@@ -128,9 +171,9 @@ class ApiUserBookingController extends Controller
     }
 
     /**
-     * Cancel user's booking
+     * Cancel user's booking (only confirmed bookings can be cancelled)
      */
-    public function cancel($bookingId): JsonResponse
+    public function cancel(Request $request, $bookingId): JsonResponse
     {
         try {
             $booking = FarmBooking::where('id', $bookingId)
@@ -145,6 +188,7 @@ class ApiUserBookingController extends Controller
                 return $this->errorResponse(__('booking.cannot_be_cancelled'), 400);
             }
 
+            // Cancel the booking
             $booking->cancel();
 
             return $this->successResponse(true, [

@@ -112,14 +112,11 @@ Route::middleware('auth:sanctum')->group(function () {
             // Get user's bookings (supports ?status= filter)
             Route::get('/', 'index');
             
-            // Get user's booking statistics
-            Route::get('/stats', 'stats');
-            
             // Get specific booking details
             Route::get('/{booking}', 'show');
             
             // Cancel user's booking
-            Route::delete('/{booking}/cancel', 'cancel');
+            Route::post('/{booking}/cancel', 'cancel');
         });
     });
 });

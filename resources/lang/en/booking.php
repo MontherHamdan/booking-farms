@@ -1,8 +1,12 @@
 <?php
 
 return [
-    // Payment status messages
+    // Booking status messages
     'not_found' => 'Booking not found',
+    'cannot_be_cancelled' => 'This booking cannot be cancelled',
+    'cancelled_successfully' => 'Booking cancelled successfully',
+    
+    // Payment status messages
     'payment_successful' => 'Payment completed successfully',
     'additional_authentication_required' => 'Additional authentication required',
     
@@ -18,6 +22,42 @@ return [
     'payment_failed' => 'Payment failed',
     'payment_intent_created' => 'Payment intent created successfully',
     'deposit_not_available' => 'Deposit payment is not available for this farm',
+
+    // Booking statuses
+    'status' => [
+        'pending' => 'Payment Pending',
+        'confirmed' => 'Confirmed',
+        'failed' => 'Payment Failed',
+        'expired' => 'Payment Expired',
+        'cancelled' => 'Cancelled',
+        'completed' => 'Completed',
+    ],
+
+    // Status descriptions
+    'status_description' => [
+        'pending' => 'Waiting for payment to be completed',
+        'confirmed' => 'Your booking is confirmed and ready',
+        'failed' => 'Payment failed during checkout',
+        'expired' => 'Payment window expired (30 minutes)',
+        'cancelled' => 'Booking was cancelled by user',
+        'completed' => 'Service completed successfully',
+    ],
+
+    // Payment statuses
+    'payment_status' => [
+        'pending' => 'Payment Pending',
+        'paid' => 'Paid',
+        'failed' => 'Payment Failed',
+        'expired' => 'Payment Window Expired',
+        'partially_paid' => 'Partially Paid',
+        'refunded' => 'Refunded',
+    ],
+
+    // Payment types
+    'payment_type' => [
+        'full' => 'Full Payment',
+        'deposit' => 'Deposit Payment',
+    ],
 
     'validation' => [
         'payment_option.required' => 'Payment option is required',
