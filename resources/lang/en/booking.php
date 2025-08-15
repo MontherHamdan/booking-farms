@@ -23,6 +23,13 @@ return [
     'payment_intent_created' => 'Payment intent created successfully',
     'deposit_not_available' => 'Deposit payment is not available for this farm',
 
+    // Coupon-related booking messages
+    'coupon_applied' => 'Coupon applied successfully',
+    'coupon_removed' => 'Coupon removed successfully',
+    'coupon_invalid' => 'Invalid or expired coupon code',
+    'coupon_not_applicable' => 'This coupon is not applicable to your booking',
+    'coupon_savings' => 'You saved :amount with coupon :code',
+
     // Booking statuses
     'status' => [
         'pending' => 'Payment Pending',
@@ -71,6 +78,10 @@ return [
         'customer_email.email' => 'Customer email must be valid',
         'customer_phone.required' => 'Customer phone is required',
         'notes.max' => 'Notes cannot exceed :max characters',
+
+        'coupon_code.string' => 'Coupon code must be a valid text.',
+        'coupon_code.max' => 'Coupon code cannot exceed 20 characters.',
+        'coupon_code.regex' => 'Coupon code must contain only uppercase letters and numbers.',
     ],
 
     'attributes' => [
@@ -80,5 +91,6 @@ return [
         'customer_email' => 'Customer Email',
         'customer_phone' => 'Customer Phone',
         'notes' => 'Notes',
+        'coupon_code' => 'Coupon Code',
     ],
 ];

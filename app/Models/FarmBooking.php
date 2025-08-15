@@ -62,6 +62,9 @@ class FarmBooking extends Model
         'guest_count',
         'subtotal',
         'discount_amount',
+        'coupon_id',
+        'coupon_code',
+        'coupon_discount_amount',
         'total_amount',
         'deposit_amount',
         'remaining_amount',
@@ -85,6 +88,7 @@ class FarmBooking extends Model
         'end_time' => 'datetime:H:i',
         'subtotal' => 'decimal:2',
         'discount_amount' => 'decimal:2',
+        'coupon_discount_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'deposit_amount' => 'decimal:2',
         'remaining_amount' => 'decimal:2',
@@ -146,6 +150,16 @@ class FarmBooking extends Model
         return $this->belongsTo(Farm::class);
     }
 
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(Coupon::class);
+    }
+
+    public function couponUsage()
+    {
+        return $this->hasOne(CouponUsage::class, 'booking_id');
+    }
+
     /**
      * SCOPES
      */
@@ -196,6 +210,11 @@ class FarmBooking extends Model
         return $query->where('payment_status', self::PAYMENT_STATUS_PARTIALLY_PAID);
     }
 
+    public function scopeWithCoupon($query)
+    {
+        return $query->whereNotNull('coupon_id');
+    }
+
     /**
      * BOOLEAN CHECKS
      */
@@ -236,6 +255,11 @@ class FarmBooking extends Model
         return $this->payment_status === self::PAYMENT_STATUS_PARTIALLY_PAID;
     }
 
+    public function hasCoupon(): bool
+    {
+        return !is_null($this->coupon_id);
+    }
+
     /**
      * ATTRIBUTES
      */
@@ -250,6 +274,16 @@ class FarmBooking extends Model
         }
         
         return 0;
+    }
+
+    public function getTotalDiscountAmountAttribute(): float
+    {
+        return ($this->discount_amount ?? 0) + ($this->coupon_discount_amount ?? 0);
+    }
+
+    public function getSubtotalBeforeDiscountsAttribute(): float
+    {
+        return $this->subtotal + $this->total_discount_amount;
     }
 
     public function getFormattedBookingDatesAttribute(): array
@@ -314,6 +348,11 @@ class FarmBooking extends Model
             'period' => $this->booking_period,
             'time_range' => $this->booking_time_range,
             'guests' => $this->guest_count,
+            'subtotal' => $this->subtotal,
+            'offer_discount' => $this->discount_amount ?? 0,
+            'coupon_discount' => $this->coupon_discount_amount ?? 0,
+            'coupon_code' => $this->coupon_code,
+            'total_discount' => $this->total_discount_amount,
             'total' => $this->total_amount,
             'paid' => $this->amount_paid,
             'remaining' => $this->remaining_amount,
@@ -321,6 +360,24 @@ class FarmBooking extends Model
             'status' => $this->booking_status,
             'payment_status' => $this->payment_status,
         ];
+    }
+
+    public function getFormattedStartDatetimeAttribute(): string
+    {
+        if (!$this->start_date || !$this->start_time) {
+            return '';
+        }
+
+        return $this->start_date->format('Y-m-d') . ' ' . $this->start_time->format('H:i');
+    }
+
+    public function getFormattedEndDatetimeAttribute(): string
+    {
+        if (!$this->end_date || !$this->end_time) {
+            return '';
+        }
+
+        return $this->end_date->format('Y-m-d') . ' ' . $this->end_time->format('H:i');
     }
 
     /**
@@ -337,6 +394,11 @@ class FarmBooking extends Model
             'booking_status' => self::BOOKING_STATUS_CONFIRMED,
             'stripe_payment_intent_id' => $paymentIntentId ?: $this->stripe_payment_intent_id,
         ]);
+
+        // Mark coupon as used if coupon was applied
+        if ($this->coupon_id) {
+            $this->coupon->markAsUsed($this->user_id, $this->id);
+        }
     }
 
     public function markAsFullyPaid($paymentIntentId = null): void
@@ -347,6 +409,11 @@ class FarmBooking extends Model
             'remaining_amount' => 0,
             'stripe_payment_intent_id' => $paymentIntentId ?: $this->stripe_payment_intent_id,
         ]);
+
+        // Mark coupon as used if coupon was applied and not already marked
+        if ($this->coupon_id && !$this->couponUsage) {
+            $this->coupon->markAsUsed($this->user_id, $this->id);
+        }
     }
 
     public function markAsFailed(): void

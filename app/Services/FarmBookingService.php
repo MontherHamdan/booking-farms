@@ -4,14 +4,16 @@ namespace App\Services;
 
 use App\Models\Farm;
 use App\Models\FarmBooking;
+use App\Models\Coupon;
 use App\Traits\FarmPricingTrait;
+use App\Traits\CouponTrait;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Stripe\PaymentIntent;
 
 class FarmBookingService
 {
-    use FarmPricingTrait;
+    use FarmPricingTrait, CouponTrait;
 
     /**
      * Check if dates are available for booking
@@ -87,8 +89,10 @@ class FarmBookingService
     /**
      * Calculate pricing for booking
      */
-    public function calculatePricing(Farm $farm, array $processedDates, string $priceType, string $paymentOption = 'full'): array
+    public function calculatePricing(Farm $farm, array $processedDates, string $priceType, string $paymentOption = 'full', ?string $couponCode = null, int $userId = null, string $platform = 'web'): array
     {
+        $this->farm = $farm; // Store farm for coupon trait methods
+        
         $pricing = $farm->pricing()->where('price_type', $priceType)->first();
         
         // Calculate subtotal
@@ -116,7 +120,7 @@ class FarmBookingService
             $isDepositPayment = true;
         }
 
-        return [
+        $pricingData = [
             'subtotal' => $subtotal,
             'discount_amount' => $discountAmount,
             'offer_percentage' => $percentage,
@@ -125,6 +129,9 @@ class FarmBookingService
             'deposit_amount' => $depositAmount,
             'remaining_amount' => $remainingAmount,
             'is_deposit' => $isDepositPayment,
+            'coupon_discount_amount' => 0,
+            'coupon_applied' => false,
+            'coupon_details' => null,
             'pricing_details' => [
                 'start_time' => $pricing->formatted_start_time,
                 'end_time' => $pricing->formatted_end_time,
@@ -132,7 +139,31 @@ class FarmBookingService
                 'duration_hours' => $pricing->duration_in_hours,
             ]
         ];
+
+        // Apply coupon if provided and valid
+        if ($couponCode && $userId) {
+            $couponValidation = $this->validateCouponForBooking($couponCode, $farm, $processedDates, $userId, $platform);
+            
+            if ($couponValidation['valid']) {
+                $pricingData = $this->applyCouponDiscount($pricingData, $couponValidation['coupon']);
+            } else {
+                // Return coupon errors
+                $pricingData['coupon_errors'] = $couponValidation['errors'];
+            }
+        }
+
+        return $pricingData;
     }
+
+    /**
+     * Validate coupon code for booking
+     */
+    public function validateCoupon(string $couponCode, Farm $farm, array $processedDates, int $userId, string $platform = 'web'): array
+    {
+        return $this->validateCouponForBooking($couponCode, $farm, $processedDates, $userId, $platform);
+    }
+
+
 
     /**
      * Create booking record
@@ -168,12 +199,15 @@ class FarmBookingService
             'user_id' => $booking->user_id,
             'farm_id' => $booking->farm_id,
             'payment_status' => $booking->payment_status,
+            'coupon_used' => $booking->hasCoupon(),
+            'coupon_code' => $booking->coupon_code,
             'reason' => $reason,
         ]);
 
         // TODO: Process refund if eligible
         // TODO: Send cancellation notification emails
         // TODO: Update farm availability calendar
+        // TODO: Handle coupon usage refund if needed
     }
 
     /**
@@ -192,6 +226,8 @@ class FarmBookingService
             'booking_reference' => $booking->booking_reference,
             'user_id' => $booking->user_id,
             'farm_id' => $booking->farm_id,
+            'coupon_used' => $booking->hasCoupon(),
+            'coupon_code' => $booking->coupon_code,
             'reason' => $reason,
         ]);
 
@@ -263,6 +299,8 @@ class FarmBookingService
             'total_amount' => $booking->total_amount,
             'booking_status' => $booking->booking_status,
             'payment_status' => $booking->payment_status,
+            'coupon_used' => $booking->hasCoupon(),
+            'coupon_code' => $booking->coupon_code,
         ]);
 
         // TODO: Send expiration notification email to customer
@@ -312,6 +350,8 @@ class FarmBookingService
             'cancelled' => FarmBooking::cancelled()->count(),
             'completed' => FarmBooking::completed()->count(),
             'should_be_expired' => FarmBooking::shouldBeExpired()->count(),
+            'with_coupons' => FarmBooking::withCoupon()->count(),
+            'coupon_savings' => FarmBooking::whereNotNull('coupon_discount_amount')->sum('coupon_discount_amount'),
         ];
     }
 
@@ -336,7 +376,7 @@ class FarmBookingService
      */
     public function getUserBookings(int $userId, array $filters = []): array
     {
-        $query = FarmBooking::with(['farm', 'farm.mainImage'])
+        $query = FarmBooking::with(['farm', 'farm.mainImage', 'coupon'])
             ->where('user_id', $userId);
 
         // Filter out pending bookings by default (incomplete payments)
@@ -365,6 +405,15 @@ class FarmBookingService
             $query->where('end_date', '<=', $filters['to_date']);
         }
 
+        // Filter by coupon usage
+        if (isset($filters['with_coupon'])) {
+            if ($filters['with_coupon']) {
+                $query->whereNotNull('coupon_id');
+            } else {
+                $query->whereNull('coupon_id');
+            }
+        }
+
         return $query->orderBy('created_at', 'desc')->get()->toArray();
     }
 
@@ -389,6 +438,8 @@ class FarmBookingService
             'booking_id' => $booking->id,
             'booking_reference' => $booking->booking_reference,
             'refund_amount' => $refundAmount,
+            'coupon_used' => $booking->hasCoupon(),
+            'coupon_code' => $booking->coupon_code,
         ]);
 
         return [
@@ -417,7 +468,32 @@ class FarmBookingService
             'completed' => $stats['completed'],
             'maintenance' => [
                 'should_be_expired' => $stats['should_be_expired'],
+            ],
+            'coupons' => [
+                'bookings_with_coupons' => $stats['with_coupons'],
+                'total_savings' => $stats['coupon_savings'],
             ]
+        ];
+    }
+
+    /**
+     * Get coupon statistics
+     */
+    public function getCouponStatistics(): array
+    {
+        $totalCoupons = Coupon::count();
+        $activeCoupons = Coupon::active()->count();
+        $validCoupons = Coupon::valid()->count();
+        $totalUsages = \App\Models\CouponUsage::count();
+        $totalSavings = FarmBooking::whereNotNull('coupon_discount_amount')->sum('coupon_discount_amount');
+
+        return [
+            'total_coupons' => $totalCoupons,
+            'active_coupons' => $activeCoupons,
+            'valid_coupons' => $validCoupons,
+            'total_usages' => $totalUsages,
+            'total_savings' => round($totalSavings, 2),
+            'average_discount_per_usage' => $totalUsages > 0 ? round($totalSavings / $totalUsages, 2) : 0,
         ];
     }
 }

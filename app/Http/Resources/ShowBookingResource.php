@@ -47,6 +47,17 @@ class ShowBookingResource extends JsonResource
             'guest_count' => $this->guest_count,
             'subtotal' => $this->subtotal,
             'discount_amount' => $this->discount_amount,
+            'coupon_applied' => $this->hasCoupon(),
+            'coupon_code' => $this->coupon_code,
+            'coupon_discount_amount' => $this->coupon_discount_amount,
+            'coupon_details' => $this->whenLoaded('coupon', function () {
+                return $this->coupon ? [
+                    'id' => $this->coupon->id,
+                    'code' => $this->coupon->code,
+                    'name' => $this->coupon->name,
+                    'discount_description' => $this->coupon->discount_description,
+                ] : null;
+            }),
             'total_amount' => $this->total_amount,
             'deposit_amount' => $this->deposit_amount,
             'remaining_amount' => $this->remaining_amount,

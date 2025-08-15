@@ -94,6 +94,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/farms/{farmId}/user', 'getUserRating');
     });
 
+    // ★ COUPON ROUTES (Protected)
+    Route::prefix('coupons')->controller(ApiFarmBookingController::class)->group(function () {
+        // Validate specific coupon code
+        Route::post('/farms/{farm}/validate', 'validateCoupon');
+    });
+
     // ★ FARM BOOKING CREATION (Protected) - Farm-focused operations
     Route::prefix('bookings')->controller(ApiFarmBookingController::class)->group(function () {
         // Get checkout page data (farm details + price info)

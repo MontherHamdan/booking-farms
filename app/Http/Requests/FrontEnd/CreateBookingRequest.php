@@ -24,6 +24,7 @@ class CreateBookingRequest extends FormRequest
             'customer_phone' => ['required', 'string', 'max:20'],
             'payment_option' => ['required', 'string', 'in:full,deposit'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'coupon_code' => ['nullable', 'string', 'max:20', 'regex:/^[A-Z0-9]+$/'],
         ];
 
         // Add specific date count validation based on price type
@@ -53,6 +54,7 @@ class CreateBookingRequest extends FormRequest
             [
                 'dates.size' => $this->getDatesSizeMessage(),
                 'dates.max' => __('farm.validation.dates.max'),
+                'coupon_code.regex' => __('coupon.validation.invalid_format'),
             ]
         );
     }
@@ -74,6 +76,13 @@ class CreateBookingRequest extends FormRequest
         // Default payment option to 'full' if not provided
         if (!$this->has('payment_option')) {
             $this->merge(['payment_option' => 'full']);
+        }
+
+        // Convert coupon code to uppercase
+        if ($this->has('coupon_code') && !empty($this->coupon_code)) {
+            $this->merge([
+                'coupon_code' => strtoupper($this->coupon_code),
+            ]);
         }
     }
 

@@ -215,6 +215,12 @@ return [
         'star_filter.integer' => 'Star filter must be a number.',
         'star_filter.min' => 'Star filter must be at least :min.',
         'star_filter.max' => 'Star filter cannot exceed :max.',
+
+        // Coupon validation messages
+        'coupon_code.string' => 'Coupon code must be a valid text.',
+        'coupon_code.max' => 'Coupon code cannot exceed 20 characters.',
+        'coupon_code.regex' => 'Coupon code must contain only uppercase letters and numbers.',
+        'coupon_code.exists' => 'The selected coupon code does not exist.',
     ],
 
     'filter_placeholders' => [

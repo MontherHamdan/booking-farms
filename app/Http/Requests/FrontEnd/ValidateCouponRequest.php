@@ -4,7 +4,7 @@ namespace App\Http\Requests\FrontEnd;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class GetCheckoutPageDataRequest extends FormRequest
+class ValidateCouponRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -14,27 +14,28 @@ class GetCheckoutPageDataRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'price_type' => ['required', 'string', 'in:day_use,night,full_day'],
-            'dates' => ['required', 'array', 'min:1'],
-            'dates.*' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
-            'payment_option' => ['required', 'string', 'in:full,deposit'],
-            'guest_count' => ['required', 'integer', 'min:1'],
-            'coupon_code' => ['nullable', 'string', 'max:20', 'regex:/^[A-Z0-9]+$/'],
+            'coupon_code' => ['required', 'string', 'max:20', 'regex:/^[A-Z0-9]+$/'],
+            'dates' => ['nullable', 'array', 'min:1'],
+            'dates.*' => ['date_format:Y-m-d', 'after_or_equal:today'],
+            'price_type' => ['nullable', 'string', 'in:day_use,night,full_day'],
         ];
 
-        // Add specific date count validation based on price type
+        // Add specific date count validation based on price type if provided
         $priceType = $this->input('price_type');
+        $dates = $this->input('dates', []);
         
-        if (in_array($priceType, ['day_use', 'night'])) {
-            // day_use and night must have exactly 1 date
-            $rules['dates'] = ['required', 'array', 'size:1'];
-        } elseif ($priceType === 'full_day') {
-            // full_day can have 1 or 2 dates (single day or date range)
-            $rules['dates'] = ['required', 'array', 'min:1', 'max:2'];
-            
-            // If 2 dates provided, add validation for date range
-            if (count($this->input('dates', [])) === 2) {
-                $rules['dates'] = ['required', 'array', 'size:2'];
+        if ($priceType && !empty($dates)) {
+            if (in_array($priceType, ['day_use', 'night'])) {
+                // day_use and night must have exactly 1 date
+                $rules['dates'] = ['nullable', 'array', 'size:1'];
+            } elseif ($priceType === 'full_day') {
+                // full_day can have 1 or 2 dates (single day or date range)
+                $rules['dates'] = ['nullable', 'array', 'min:1', 'max:2'];
+                
+                // If 2 dates provided, add validation for date range
+                if (count($dates) === 2) {
+                    $rules['dates'] = ['nullable', 'array', 'size:2'];
+                }
             }
         }
 
@@ -47,9 +48,10 @@ class GetCheckoutPageDataRequest extends FormRequest
             __('farm.validation'), 
             __('booking.validation'), 
             [
+                'coupon_code.required' => __('coupon.validation.code_required'),
+                'coupon_code.regex' => __('coupon.validation.invalid_format'),
                 'dates.size' => $this->getDatesSizeMessage(),
                 'dates.max' => __('farm.validation.dates.max'),
-                'coupon_code.regex' => __('coupon.validation.invalid_format'),
             ]
         );
     }
@@ -61,18 +63,18 @@ class GetCheckoutPageDataRequest extends FormRequest
 
     protected function prepareForValidation()
     {
+        // Convert coupon code to uppercase
+        if ($this->has('coupon_code')) {
+            $this->merge([
+                'coupon_code' => strtoupper($this->coupon_code),
+            ]);
+        }
+
         // Sort dates to ensure consistency
         if ($this->has('dates') && is_array($this->dates)) {
             $sortedDates = $this->dates;
             sort($sortedDates);
             $this->merge(['dates' => $sortedDates]);
-        }
-
-        // Convert coupon code to uppercase
-        if ($this->has('coupon_code') && !empty($this->coupon_code)) {
-            $this->merge([
-                'coupon_code' => strtoupper($this->coupon_code),
-            ]);
         }
     }
 
@@ -103,7 +105,11 @@ class GetCheckoutPageDataRequest extends FormRequest
         $validator->after(function ($validator) {
             $dates = $this->input('dates', []);
             $priceType = $this->input('price_type');
-            $validationMessages = __('farm.validation');
+
+            // Skip validation if no dates or price_type provided
+            if (empty($dates) || !$priceType) {
+                return;
+            }
 
             // If full_day with 2 dates, ensure first date <= second date
             if ($priceType === 'full_day' && count($dates) === 2) {
@@ -111,8 +117,7 @@ class GetCheckoutPageDataRequest extends FormRequest
                 $endDate = $dates[1] ?? null;
 
                 if ($startDate && $endDate && $startDate > $endDate) {
-                    $message = $validationMessages['dates.date_range_invalid'];
-                    $validator->errors()->add('dates', $message);
+                    $validator->errors()->add('dates', __('farm.validation.dates.date_range_invalid'));
                 }
             }
 

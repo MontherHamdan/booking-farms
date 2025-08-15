@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\FrontEnd\CalculatePriceRequest;
 use App\Http\Requests\FrontEnd\CreateBookingRequest;
 use App\Http\Requests\FrontEnd\GetCheckoutPageDataRequest;
+use App\Http\Requests\FrontEnd\ValidateCouponRequest;
 use App\Models\Farm;
 use App\Models\FarmBooking;
 use App\Services\FarmBookingService;
@@ -14,6 +15,7 @@ use App\Traits\ExceptionLoggerTrait;
 use App\Traits\FarmPricingTrait;
 use App\Traits\StripeWebhookHandlerTrait;
 use App\Traits\BookingFormatterTrait;
+use App\Traits\CouponTrait;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -29,7 +31,8 @@ class ApiFarmBookingController extends Controller
         ExceptionLoggerTrait, 
         FarmPricingTrait,
         StripeWebhookHandlerTrait,
-        BookingFormatterTrait;
+        BookingFormatterTrait,
+        CouponTrait;
 
     protected FarmBookingService $bookingService;
 
@@ -74,7 +77,7 @@ class ApiFarmBookingController extends Controller
                 return $this->errorResponse(__('farm.dates_already_booked', ['dates' => implode(', ', $availabilityErrors['booked'])]), 400);
             }
 
-            // Calculate pricing
+            // Calculate pricing (without coupon - this is just for display)
             $pricingData = $this->bookingService->calculatePricing($farm, $processedDates, $priceType);
 
             // Return pricing information
@@ -102,6 +105,57 @@ class ApiFarmBookingController extends Controller
     }
 
     /**
+     * Validate coupon code
+     */
+    public function validateCoupon(ValidateCouponRequest $request, $farmId): JsonResponse
+    {
+        try {
+            $farm = Farm::find($farmId);
+            if (!$farm) {
+                return $this->errorResponse(__('farm.not_found', ['id' => $farmId]), 404);
+            }
+
+            $couponCode = $request->coupon_code;
+            $dates = $request->dates ?? [];
+            $userId = auth('sanctum')->id();
+            $platform = $request->header('User-Agent-Platform', 'web');
+
+            if (!$userId) {
+                return $this->errorResponse(__('auth.unauthenticated'), 401);
+            }
+
+            // Process dates if provided
+            $processedDates = !empty($dates) ? $this->processDatesByPriceType($dates, $request->price_type ?? 'day_use') : [];
+
+            // Validate coupon
+            $validation = $this->bookingService->validateCoupon($couponCode, $farm, $processedDates, $userId, $platform);
+
+            if ($validation['valid']) {
+                return $this->successResponse(true, [
+                    'valid' => true,
+                    'coupon' => [
+                        'id' => $validation['coupon']->id,
+                        'code' => $validation['coupon']->code,
+                        'name' => $validation['coupon']->name,
+                        'description' => $validation['coupon']->discount_description,
+                        'discount_type' => $validation['coupon']->discount_type,
+                        'discount_value' => $validation['coupon']->discount_value,
+                        'max_discount' => $validation['coupon']->max_discount,
+                    ]
+                ], __('coupon.valid'), 200);
+            } else {
+                return $this->errorResponse(implode(' ', $validation['errors']), 400);
+            }
+
+        } catch (Exception $e) {
+            $this->logException($e, ['action' => 'validate coupon', 'farm_id' => $farmId]);
+            return $this->errorResponse(__('error.internal_error'), 500);
+        }
+    }
+
+
+
+    /**
      * Get checkout page data
      */
     public function getCheckoutPageData(GetCheckoutPageDataRequest $request, $farmId): JsonResponse
@@ -116,6 +170,7 @@ class ApiFarmBookingController extends Controller
             $dates = $request->dates;
             $priceType = $request->price_type;
             $paymentOption = $request->payment_option;
+            $couponCode = $request->coupon_code;
 
             // Validate pricing exists
             $pricing = $farm->pricing()->where('price_type', $priceType)->first();
@@ -128,9 +183,21 @@ class ApiFarmBookingController extends Controller
                 return $this->errorResponse(__('farm.deposit_not_available'), 400);
             }
 
+            // Get user ID for coupon validation
+            $userId = auth('sanctum')->id();
+            $platform = $request->header('User-Agent-Platform', 'web');
+
             // Process dates and calculate price
             $processedDates = $this->processDatesByPriceType($dates, $priceType);
-            $pricingData = $this->bookingService->calculatePricing($farm, $processedDates, $priceType, $paymentOption);
+            $pricingData = $this->bookingService->calculatePricing(
+                $farm, 
+                $processedDates, 
+                $priceType, 
+                $paymentOption, 
+                $couponCode, 
+                $userId, 
+                $platform
+            );
             $periodData = $this->getFormattedBookingPeriod($processedDates);
 
             // Get time information
@@ -163,6 +230,10 @@ class ApiFarmBookingController extends Controller
                     'subtotal' => $pricingData['subtotal'],
                     'discount_amount' => $pricingData['discount_amount'],
                     'offer_percentage' => $pricingData['offer_percentage'],
+                    'coupon_applied' => $pricingData['coupon_applied'] ?? false,
+                    'coupon_discount_amount' => $pricingData['coupon_discount_amount'] ?? 0,
+                    'coupon_details' => $pricingData['coupon_details'] ?? null,
+                    'coupon_errors' => $pricingData['coupon_errors'] ?? null,
                     'total' => $pricingData['total'],
                     'payment_option' => $paymentOption,
                     'paying_now' => $pricingData['payment_amount'],
@@ -196,6 +267,7 @@ class ApiFarmBookingController extends Controller
                 $dates = $request->dates;
                 $priceType = $request->price_type;
                 $paymentOption = $request->payment_option ?? 'full';
+                $couponCode = $request->coupon_code;
                 
                 // Process dates and check availability
                 $processedDates = $this->processDatesByPriceType($dates, $priceType);
@@ -209,8 +281,25 @@ class ApiFarmBookingController extends Controller
                     return $this->errorResponse(__('farm.dates_already_booked', ['dates' => implode(', ', $availabilityErrors['booked'])]), 400);
                 }
 
-                // Calculate pricing
-                $pricingData = $this->bookingService->calculatePricing($farm, $processedDates, $priceType, $paymentOption);
+                // Get user ID and platform
+                $userId = auth('sanctum')->id();
+                $platform = $request->header('User-Agent-Platform', 'web');
+
+                // Calculate pricing with coupon
+                $pricingData = $this->bookingService->calculatePricing(
+                    $farm, 
+                    $processedDates, 
+                    $priceType, 
+                    $paymentOption, 
+                    $couponCode, 
+                    $userId, 
+                    $platform
+                );
+
+                // Check for coupon errors
+                if (!empty($pricingData['coupon_errors'])) {
+                    return $this->errorResponse(implode(' ', $pricingData['coupon_errors']), 400);
+                }
 
                 // Validate deposit option
                 if ($paymentOption === 'deposit' && (!$farm->deposit_rate || $farm->deposit_rate <= 0)) {
@@ -219,7 +308,7 @@ class ApiFarmBookingController extends Controller
 
                 // Create booking
                 $bookingData = [
-                    'user_id' => auth('sanctum')->id(),
+                    'user_id' => $userId,
                     'farm_id' => $farmId,
                     'price_type' => $priceType,
                     'booking_dates' => $processedDates,
@@ -238,6 +327,13 @@ class ApiFarmBookingController extends Controller
                     'farm' => $farm, // Pass farm for setting booking times
                 ];
 
+                // Add coupon data if applied
+                if ($pricingData['coupon_applied'] && isset($pricingData['coupon_details'])) {
+                    $bookingData['coupon_id'] = $pricingData['coupon_details']['id'];
+                    $bookingData['coupon_code'] = $pricingData['coupon_details']['code'];
+                    $bookingData['coupon_discount_amount'] = $pricingData['coupon_discount_amount'];
+                }
+
                 $booking = $this->bookingService->createBooking($bookingData);
 
                 // Create Stripe Payment Intent
@@ -248,9 +344,11 @@ class ApiFarmBookingController extends Controller
                     'metadata' => [
                         'booking_id' => $booking->id,
                         'farm_id' => $farmId,
-                        'user_id' => auth('sanctum')->id(),
+                        'user_id' => $userId,
                         'booking_reference' => $booking->booking_reference,
                         'payment_type' => $pricingData['is_deposit'] ? 'deposit' : 'full',
+                        'coupon_code' => $booking->coupon_code ?? null,
+                        'coupon_discount' => $booking->coupon_discount_amount ?? 0,
                     ],
                     'description' => $this->buildBookingDescription($booking, $farm),
                     'receipt_email' => $request->customer_email,
@@ -274,6 +372,8 @@ class ApiFarmBookingController extends Controller
                         'expires_at' => $booking->expires_at,
                         'booking_period' => $booking->booking_period,
                         'time_range' => $booking->booking_time_range,
+                        'coupon_applied' => $pricingData['coupon_applied'] ?? false,
+                        'coupon_savings' => $pricingData['coupon_discount_amount'] ?? 0,
                     ]
                 ], null, 200);
             });
@@ -308,6 +408,8 @@ class ApiFarmBookingController extends Controller
                     'booking_status' => $booking->fresh()->booking_status,
                     'booking_reference' => $booking->booking_reference,
                     'message' => __('booking.payment_successful'),
+                    'coupon_used' => $booking->hasCoupon(),
+                    'coupon_savings' => $booking->coupon_discount_amount ?? 0,
                 ], null, 200);
             } elseif ($paymentIntent->status === 'requires_action') {
                 return $this->successResponse(true, [

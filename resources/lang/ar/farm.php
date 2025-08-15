@@ -215,6 +215,12 @@ return [
         'star_filter.integer' => 'حقل تصفية النجوم يجب أن يكون رقماً.',
         'star_filter.min' => 'حقل تصفية النجوم يجب أن يكون على الأقل :min.',
         'star_filter.max' => 'حقل تصفية النجوم لا يمكن أن يتجاوز :max.',
+
+        // Coupon validation messages
+        'coupon_code.string' => 'رمز الكوبون يجب أن يكون نصاً صالحاً.',
+        'coupon_code.max' => 'رمز الكوبون لا يمكن أن يتجاوز 20 حرفاً.',
+        'coupon_code.regex' => 'رمز الكوبون يجب أن يحتوي على أحرف إنجليزية كبيرة وأرقام فقط.',
+        'coupon_code.exists' => 'رمز الكوبون المحدد غير موجود.',
     ],
 
     'filter_placeholders' => [

@@ -5,6 +5,7 @@ namespace App\Traits;
 use App\Models\Farm;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Exception;
 
 trait FarmPricingTrait
 {

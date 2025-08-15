@@ -23,6 +23,13 @@ return [
     'payment_intent_created' => 'تم إنشاء نية الدفع بنجاح',
     'deposit_not_available' => 'خيار دفع العربون غير متوفر لهذه المزرعة',
 
+    // Coupon-related booking messages
+    'coupon_applied' => 'تم تطبيق الكوبون بنجاح',
+    'coupon_removed' => 'تم إزالة الكوبون بنجاح',
+    'coupon_invalid' => 'رمز كوبون غير صالح أو منتهي الصلاحية',
+    'coupon_not_applicable' => 'هذا الكوبون غير قابل للتطبيق على حجزك',
+    'coupon_savings' => 'وفرت :amount باستخدام الكوبون :code',
+
     // Booking statuses
     'status' => [
         'pending' => 'في انتظار الدفع',
@@ -71,6 +78,10 @@ return [
         'customer_email.email' => 'البريد الإلكتروني غير صالح',
         'customer_phone.required' => 'رقم الهاتف مطلوب',
         'notes.max' => 'الملاحظات لا يمكن أن تتجاوز :max حرفًا',
+
+        'coupon_code.string' => 'رمز الكوبون يجب أن يكون نصاً صالحاً.',
+        'coupon_code.max' => 'رمز الكوبون لا يمكن أن يتجاوز 20 حرفاً.',
+        'coupon_code.regex' => 'رمز الكوبون يجب أن يحتوي على أحرف إنجليزية كبيرة وأرقام فقط.',
     ],
 
     'attributes' => [
@@ -80,5 +91,6 @@ return [
         'customer_email' => 'البريد الإلكتروني للعميل',
         'customer_phone' => 'رقم هاتف العميل',
         'notes' => 'الملاحظات',
+        'coupon_code' => 'رمز الكوبون',
     ],
 ];
