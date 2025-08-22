@@ -25,6 +25,10 @@ class CreateBookingRequest extends FormRequest
             'payment_option' => ['required', 'string', 'in:full,deposit'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'coupon_code' => ['nullable', 'string', 'max:20', 'regex:/^[A-Z0-9]+$/'],
+            
+            // NEW: Payment method fields
+            'payment_method_id' => ['nullable', 'string', 'max:255'],
+            'save_card' => ['nullable', 'boolean'],
         ];
 
         // Add specific date count validation based on price type
@@ -55,13 +59,19 @@ class CreateBookingRequest extends FormRequest
                 'dates.size' => $this->getDatesSizeMessage(),
                 'dates.max' => __('farm.validation.dates.max'),
                 'coupon_code.regex' => __('coupon.validation.invalid_format'),
+                'payment_method_id.string' => __('card.validation.payment_method_id_invalid'),
+                'save_card.boolean' => __('card.validation.save_card_boolean'),
             ]
         );
     }
 
     public function attributes(): array
     {
-        return array_merge(__('farm.attributes'), __('booking.attributes'));
+        return array_merge(
+            __('farm.attributes'), 
+            __('booking.attributes'),
+            __('card.attributes')
+        );
     }
 
     protected function prepareForValidation()
@@ -83,6 +93,11 @@ class CreateBookingRequest extends FormRequest
             $this->merge([
                 'coupon_code' => strtoupper($this->coupon_code),
             ]);
+        }
+
+        // Default save_card to false if not provided
+        if (!$this->has('save_card')) {
+            $this->merge(['save_card' => false]);
         }
     }
 
@@ -126,6 +141,15 @@ class CreateBookingRequest extends FormRequest
             // Validate dates are not duplicated
             if (count($dates) !== count(array_unique($dates))) {
                 $validator->errors()->add('dates', __('farm.validation.dates.duplicates_not_allowed'));
+            }
+
+            // NEW: Validate payment method logic
+            $paymentMethodId = $this->input('payment_method_id');
+            $saveCard = $this->input('save_card', false);
+
+            // If payment_method_id is provided, user shouldn't request to save card
+            if ($paymentMethodId && $saveCard) {
+                $validator->errors()->add('save_card', __('card.validation.cannot_save_existing_card'));
             }
 
             // Additional validation can be added here for farm-specific rules

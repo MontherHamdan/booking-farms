@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
+use Stripe\PaymentMethod;
 
 class ApiFarmBookingController extends Controller
 {
@@ -269,6 +270,32 @@ class ApiFarmBookingController extends Controller
                 $paymentOption = $request->payment_option ?? 'full';
                 $couponCode = $request->coupon_code;
                 
+                // Handle saved cards and new card saving
+                $paymentMethodId = $request->payment_method_id; // Saved card ID
+                $saveCard = $request->save_card ?? false; // Whether to save new card
+                
+                // Get user and ensure they can make payments
+                $userId = auth('sanctum')->id();
+                $user = auth('sanctum')->user();
+                
+                // Check if user can create Stripe customer (has email OR phone)
+                if (!$user->canCreateStripeCustomer()) {
+                    $missingInfo = $user->getMissingContactInfo();
+                    return $this->errorResponse(__('card.validation.contact_info_required'), 422);
+                }
+
+                // If using saved card, verify user has Stripe account
+                if ($paymentMethodId && !$user->hasStripeAccount()) {
+                    return $this->errorResponse(__('card.validation.no_saved_cards'), 422);
+                }
+
+                // Create or get Stripe customer
+                try {
+                    $stripeCustomerId = $user->createOrGetStripeCustomer();
+                } catch (\Exception $e) {
+                    return $this->errorResponse(__('card.validation.contact_info_required'), 422);
+                }
+                
                 // Process dates and check availability
                 $processedDates = $this->processDatesByPriceType($dates, $priceType);
                 $availabilityErrors = $this->bookingService->checkAvailability($farm, $processedDates, $priceType);
@@ -281,8 +308,6 @@ class ApiFarmBookingController extends Controller
                     return $this->errorResponse(__('farm.dates_already_booked', ['dates' => implode(', ', $availabilityErrors['booked'])]), 400);
                 }
 
-                // Get user ID and platform
-                $userId = auth('sanctum')->id();
                 $platform = $request->header('User-Agent-Platform', 'web');
 
                 // Calculate pricing with coupon
@@ -306,6 +331,13 @@ class ApiFarmBookingController extends Controller
                     return $this->errorResponse(__('farm.deposit_not_available'), 400);
                 }
 
+                // Verify saved card belongs to user
+                if ($paymentMethodId) {
+                    if (!$this->verifyPaymentMethodOwnership($paymentMethodId, $stripeCustomerId)) {
+                        return $this->errorResponse(__('card.validation.card_not_found'), 404);
+                    }
+                }
+
                 // Create booking
                 $bookingData = [
                     'user_id' => $userId,
@@ -324,7 +356,7 @@ class ApiFarmBookingController extends Controller
                     'customer_phone' => $request->customer_phone,
                     'notes' => $request->notes,
                     'expires_at' => now()->addMinutes(30),
-                    'farm' => $farm, // Pass farm for setting booking times
+                    'farm' => $farm,
                 ];
 
                 // Add coupon data if applied
@@ -336,11 +368,12 @@ class ApiFarmBookingController extends Controller
 
                 $booking = $this->bookingService->createBooking($bookingData);
 
-                // Create Stripe Payment Intent
-                $paymentIntent = PaymentIntent::create([
+                // Prepare Payment Intent with saved card support
+                $paymentIntentData = [
                     'amount' => (int) ($pricingData['payment_amount'] * 100),
                     'currency' => 'aed',
-                    'payment_method_types' => ['card'],
+                    'customer' => $stripeCustomerId, // Associate with customer
+                    'payment_method_types' => ['card'], // ✅ Only accept cards
                     'metadata' => [
                         'booking_id' => $booking->id,
                         'farm_id' => $farmId,
@@ -351,20 +384,40 @@ class ApiFarmBookingController extends Controller
                         'coupon_discount' => $booking->coupon_discount_amount ?? 0,
                     ],
                     'description' => $this->buildBookingDescription($booking, $farm),
-                    'receipt_email' => $request->customer_email,
-                    'confirmation_method' => 'automatic',
-                    'confirm' => false,
-                ]);
+                ];
+
+                // Add receipt email only if user has email
+                if (!empty($user->email)) {
+                    $paymentIntentData['receipt_email'] = $user->email;
+                }
+
+                // If using saved card, attach it
+                if ($paymentMethodId) {
+                    $paymentIntentData['payment_method'] = $paymentMethodId;
+                    $paymentIntentData['confirmation_method'] = 'manual';
+                    $paymentIntentData['confirm'] = true;
+                } else {
+                    // For new cards
+                    $paymentIntentData['confirmation_method'] = 'automatic';
+                    $paymentIntentData['confirm'] = false;
+                    
+                    // Setup for future usage if user wants to save card
+                    if ($saveCard) {
+                        $paymentIntentData['setup_future_usage'] = 'off_session';
+                    }
+                }
+
+                // Create Stripe Payment Intent
+                $paymentIntent = PaymentIntent::create($paymentIntentData);
 
                 // Update booking with payment intent ID
                 $booking->update(['stripe_payment_intent_id' => $paymentIntent->id]);
 
-                return $this->successResponse(true, [
+                $responseData = [
                     'message' => __('booking.payment_intent_created'),
                     'data' => [
                         'booking_id' => $booking->id,
                         'booking_reference' => $booking->booking_reference,
-                        'client_secret' => $paymentIntent->client_secret,
                         'payment_intent_id' => $paymentIntent->id,
                         'amount' => $pricingData['payment_amount'],
                         'currency' => 'aed',
@@ -375,11 +428,31 @@ class ApiFarmBookingController extends Controller
                         'coupon_applied' => $pricingData['coupon_applied'] ?? false,
                         'coupon_savings' => $pricingData['coupon_discount_amount'] ?? 0,
                     ]
-                ], null, 200);
+                ];
+
+                // Add client secret for new cards, or status for saved cards
+                if ($paymentMethodId) {
+                    // For saved cards, payment might be complete or require action
+                    $responseData['data']['status'] = $paymentIntent->status;
+                    if ($paymentIntent->status === 'requires_action') {
+                        $responseData['data']['client_secret'] = $paymentIntent->client_secret;
+                    }
+                } else {
+                    // For new cards, always provide client secret
+                    $responseData['data']['client_secret'] = $paymentIntent->client_secret;
+                }
+
+                return $this->successResponse(true, $responseData, null, 200);
             });
 
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $this->logException($e, ['action' => 'create payment intent', 'farm_id' => $farmId]);
+            
+            // Handle specific Stripe customer creation errors
+            if (strpos($e->getMessage(), 'Either email or phone') !== false) {
+                return $this->errorResponse(__('card.validation.contact_info_required'), 422);
+            }
+            
             return $this->errorResponse(__('error.internal_error'), 500);
         }
     }
@@ -472,6 +545,16 @@ class ApiFarmBookingController extends Controller
         } catch (Exception $e) {
             Log::error('Error processing Stripe webhook: ' . $e->getMessage());
             return response()->json(['error' => 'Webhook processing failed'], 500);
+        }
+    }
+
+    private function verifyPaymentMethodOwnership($paymentMethodId, $customerId): bool
+    {
+        try {
+            $paymentMethod = PaymentMethod::retrieve($paymentMethodId);
+            return $paymentMethod->customer === $customerId;
+        } catch (\Exception $e) {
+            return false;
         }
     }
 }
