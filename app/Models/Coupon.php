@@ -299,12 +299,12 @@ class Coupon extends Model
         if ($this->discount_type === self::DISCOUNT_TYPE_PERCENTAGE) {
             $description = $this->discount_value . '% off';
             if ($this->max_discount) {
-                $description .= ' (max ' . number_format($this->max_discount, 2) . ' AED)';
+                $description .= ' (max ' . number_format($this->max_discount, 2) . ')';
             }
             return $description;
         }
-
-        return number_format($this->discount_value, 2) . ' AED off';
+    
+        return number_format($this->discount_value, 2) . ' off';
     }
 
     public function getCityNamesAttribute(): array
