@@ -473,28 +473,92 @@ class ApiFarmBookingController extends Controller
 
             $paymentIntent = PaymentIntent::retrieve($booking->stripe_payment_intent_id);
             
-            if ($paymentIntent->status === 'succeeded') {
-                $booking->markAsPaid($paymentIntent->id);
-                
-                return $this->successResponse(true, [
-                    'status' => 'succeeded',
-                    'booking_status' => $booking->fresh()->booking_status,
-                    'booking_reference' => $booking->booking_reference,
-                    'message' => __('booking.payment_successful'),
-                    'coupon_used' => $booking->hasCoupon(),
-                    'coupon_savings' => $booking->coupon_discount_amount ?? 0,
-                ], null, 200);
-            } elseif ($paymentIntent->status === 'requires_action') {
-                return $this->successResponse(true, [
-                    'status' => 'requires_action',
-                    'client_secret' => $paymentIntent->client_secret,
-                    'message' => __('booking.additional_authentication_required'),
-                ], null, 200);
-            } else {
-                return $this->successResponse(false, [
-                    'status' => $paymentIntent->status,
-                    'message' => __('booking.payment_' . $paymentIntent->status),
-                ], null, 200);
+            // Handle different payment statuses
+            switch ($paymentIntent->status) {
+                case 'succeeded':
+                    $booking->markAsPaid($paymentIntent->id);
+                    
+                    return $this->successResponse(true, [
+                        'status' => 'succeeded',
+                        'booking_status' => $booking->fresh()->booking_status,
+                        'booking_reference' => $booking->booking_reference,
+                        'message' => __('booking.payment_successful'),
+                        'coupon_used' => $booking->hasCoupon(),
+                        'coupon_savings' => $booking->coupon_discount_amount ?? 0,
+                    ], null, 200);
+
+                case 'requires_confirmation':
+                    // Confirm the payment intent after 3D Secure authentication
+                    try {
+                        $confirmedPaymentIntent = $paymentIntent->confirm();
+                        
+                        if ($confirmedPaymentIntent->status === 'succeeded') {
+                            $booking->markAsPaid($confirmedPaymentIntent->id);
+                            
+                            return $this->successResponse(true, [
+                                'status' => 'succeeded',
+                                'booking_status' => $booking->fresh()->booking_status,
+                                'booking_reference' => $booking->booking_reference,
+                                'message' => __('booking.payment_successful'),
+                                'coupon_used' => $booking->hasCoupon(),
+                                'coupon_savings' => $booking->coupon_discount_amount ?? 0,
+                            ], null, 200);
+                        } elseif ($confirmedPaymentIntent->status === 'requires_action') {
+                            // Still needs more authentication
+                            return $this->successResponse(true, [
+                                'status' => 'requires_action',
+                                'client_secret' => $confirmedPaymentIntent->client_secret,
+                                'message' => __('booking.additional_authentication_required'),
+                            ], null, 200);
+                        } else {
+                            // Payment failed during confirmation
+                            $booking->markAsFailed();
+                            return $this->successResponse(false, [
+                                'status' => $confirmedPaymentIntent->status,
+                                'message' => __('booking.payment_failed'),
+                            ], null, 200);
+                        }
+                    } catch (\Stripe\Exception\CardException $e) {
+                        // Card was declined
+                        $booking->markAsFailed();
+                        return $this->successResponse(false, [
+                            'status' => 'failed',
+                            'message' => $e->getDeclineCode() ? __('card.declined.' . $e->getDeclineCode()) : __('booking.payment_failed'),
+                            'error_code' => $e->getDeclineCode(),
+                        ], null, 200);
+                    } catch (\Exception $e) {
+                        Log::error('Payment confirmation failed: ' . $e->getMessage(), [
+                            'booking_id' => $bookingId,
+                            'payment_intent_id' => $paymentIntent->id
+                        ]);
+                        return $this->errorResponse(__('booking.payment_confirmation_failed'), 500);
+                    }
+
+                case 'requires_action':
+                    return $this->successResponse(true, [
+                        'status' => 'requires_action',
+                        'client_secret' => $paymentIntent->client_secret,
+                        'message' => __('booking.additional_authentication_required'),
+                    ], null, 200);
+
+                case 'canceled':
+                    $booking->markAsFailed();
+                    return $this->successResponse(false, [
+                        'status' => 'canceled',
+                        'message' => __('booking.payment_canceled'),
+                    ], null, 200);
+
+                case 'requires_payment_method':
+                    return $this->successResponse(false, [
+                        'status' => 'requires_payment_method',
+                        'message' => __('booking.payment_method_failed'),
+                    ], null, 200);
+
+                default:
+                    return $this->successResponse(false, [
+                        'status' => $paymentIntent->status,
+                        'message' => __('booking.payment_' . $paymentIntent->status),
+                    ], null, 200);
             }
 
         } catch (Exception $e) {
