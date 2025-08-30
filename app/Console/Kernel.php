@@ -9,6 +9,8 @@ class Kernel extends ConsoleKernel
 {
     protected $commands = [
         \App\Console\Commands\ProcessBookingEarningsCommand::class,
+        \App\Console\Commands\CompleteBookingsCommand::class,
+        \App\Console\Commands\ExpirePendingBookings::class,
     ];
     
     /**
@@ -16,11 +18,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
-
-        $schedule->command('bookings:expire-pending')
-        ->everyMinutes(30)
-        ->withoutOverlapping(10);
+        // Expire pending bookings every 5 minutes
+        $schedule->command('bookings:expire-pending --limit=100')
+        ->everyFiveMinutes()
+        ->withoutOverlapping()
+        ->appendOutputTo(storage_path('logs/booking-expiry.log'));
 
         // Process earnings for confirmed bookings every 10 minutes
         $schedule->command('bookings:process-earnings --limit=50')
@@ -28,11 +30,11 @@ class Kernel extends ConsoleKernel
         ->withoutOverlapping()
         ->appendOutputTo(storage_path('logs/earnings-processing.log'));
 
-        // Expire pending bookings (existing command, make sure this exists)
-        $schedule->command('bookings:expire-pending --limit=100')
-            ->everyFiveMinutes()
-            ->withoutOverlapping()
-            ->appendOutputTo(storage_path('logs/booking-expiry.log'));
+        // Complete expired bookings every 15 minutes
+        $schedule->command('bookings:complete --limit=50')
+        ->everyFifteenMinutes()
+        ->withoutOverlapping()
+        ->appendOutputTo(storage_path('logs/booking-completion.log'));
     }
 
     /**

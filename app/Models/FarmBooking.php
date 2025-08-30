@@ -272,6 +272,17 @@ class FarmBooking extends Model
         return !is_null($this->coupon_id);
     }
 
+    public function hasEnded(): bool
+    {
+        if (!$this->end_date || !$this->end_time) {
+            return false;
+        }
+    
+        $bookingEndDateTime = Carbon::parse($this->end_date->format('Y-m-d') . ' ' . $this->end_time->format('H:i:s'));
+        
+        return now()->greaterThan($bookingEndDateTime);
+    }
+
     /**
      * ATTRIBUTES
      */

@@ -11,17 +11,17 @@
                     <li class="breadcrumb-item active">Payment Settings</li>
                 </ol>
             </div>
-            <h4 class="page-title">Manual Payment Settings</h4>
+            <h4 class="page-title">Platform Settings</h4>
         </div>
     </div>
 </div>
 
 <div class="row">
-    <!-- Settings Form -->
+    <!-- Payment Settings Form -->
     <div class="col-xl-8">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title mb-4">Platform Payment Configuration</h5>
+                <h5 class="card-title mb-4">Payment Configuration</h5>
                 
                 <form method="POST" action="{{ route('dashboard.wallet.payment-settings.update') }}">
                     @csrf
@@ -66,7 +66,72 @@
 
                     <div class="d-flex justify-content-end">
                         <button type="submit" class="btn btn-primary">
-                            <i class="mdi mdi-content-save me-1"></i>Update Settings
+                            <i class="mdi mdi-content-save me-1"></i>Update Payment Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Commission Settings Form -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4">Commission Rate Configuration</h5>
+                
+                <form method="POST" action="{{ route('dashboard.wallet.wallet.commission-settings.update') }}">
+                    @csrf
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Default Commission Rate (%) *</label>
+                                <input type="number" name="default_commission_rate" class="form-control" 
+                                       value="{{ \App\Models\PlatformSetting::getDefaultCommissionRate() }}" 
+                                       required min="0" max="100" step="0.01">
+                                <small class="form-text text-muted">
+                                    Commission rate assigned to new farm owners
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Minimum Rate (%) *</label>
+                                <input type="number" name="minimum_commission_rate" class="form-control" 
+                                       value="{{ \App\Models\PlatformSetting::getMinimumCommissionRate() }}" 
+                                       required min="0" max="100" step="0.01">
+                                <small class="form-text text-muted">
+                                    Lowest allowed commission rate
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Maximum Rate (%) *</label>
+                                <input type="number" name="maximum_commission_rate" class="form-control" 
+                                       value="{{ \App\Models\PlatformSetting::getMaximumCommissionRate() }}" 
+                                       required min="0" max="100" step="0.01">
+                                <small class="form-text text-muted">
+                                    Highest allowed commission rate
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="alert alert-warning">
+                            <i class="mdi mdi-alert-triangle me-2"></i>
+                            <strong>Important:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>Default rate must be between minimum and maximum rates</li>
+                                <li>Individual farm owner rates can be adjusted within these limits</li>
+                                <li>Changes affect new farm owners and manual rate updates</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-success">
+                            <i class="mdi mdi-percent me-1"></i>Update Commission Settings
                         </button>
                     </div>
                 </form>
@@ -145,6 +210,20 @@
                     </div>
                 </div>
 
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Commission Range:</span>
+                        <span class="badge bg-info">{{ \App\Models\PlatformSetting::getMinimumCommissionRate() }}% - {{ \App\Models\PlatformSetting::getMaximumCommissionRate() }}%</span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Default Rate:</span>
+                        <span class="badge bg-warning">{{ \App\Models\PlatformSetting::getDefaultCommissionRate() }}%</span>
+                    </div>
+                </div>
+
                 <div class="mt-4">
                     <div class="d-flex justify-content-between">
                         <a href="{{ route('dashboard.wallet.pending-payments') }}" class="btn btn-warning btn-sm">
@@ -154,22 +233,6 @@
                             <i class="mdi mdi-download me-1"></i>Export
                         </a>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Recent Settings Changes -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Setting Change History</h5>
-                <div class="alert alert-light">
-                    <i class="mdi mdi-clock-outline me-2"></i>
-                    This feature will track all changes to payment settings with timestamps and admin information.
-                    <br><small class="text-muted">Coming soon in the next update.</small>
                 </div>
             </div>
         </div>

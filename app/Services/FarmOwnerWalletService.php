@@ -26,7 +26,7 @@ class FarmOwnerWalletService
                 'pending_balance' => 0.00,
                 'total_earned' => 0.00,
                 'total_paid_out' => 0.00,
-                'platform_commission_rate' => config('app.default_commission_rate', 15.00),
+                'platform_commission_rate' => PlatformSetting::getDefaultCommissionRate() ?? config('app.default_commission_rate', 5.00),
                 'is_active' => true,
             ]
         );
@@ -525,21 +525,24 @@ class FarmOwnerWalletService
      */
     public function updateCommissionRate(int $userId, float $newRate): FarmOwnerWallet
     {
-        if ($newRate < 0 || $newRate > 50) {
-            throw new \InvalidArgumentException('Commission rate must be between 0% and 50%');
+        $minRate = PlatformSetting::getMinimumCommissionRate();
+        $maxRate = PlatformSetting::getMaximumCommissionRate();
+        
+        if ($newRate < $minRate || $newRate > $maxRate) {
+            throw new \InvalidArgumentException("Commission rate must be between {$minRate}% and {$maxRate}%");
         }
-
+    
         $wallet = $this->getOrCreateWallet($userId);
         $oldRate = $wallet->platform_commission_rate;
         
         $wallet->update(['platform_commission_rate' => $newRate]);
-
+    
         Log::info('Commission rate updated', [
             'user_id' => $userId,
             'old_rate' => $oldRate,
             'new_rate' => $newRate,
         ]);
-
+    
         return $wallet->fresh();
     }
 

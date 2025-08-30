@@ -266,6 +266,40 @@ class WalletManagementController extends Controller
     }
 
     /**
+     * Update commission settings
+     */
+    public function updateCommissionSettings(Request $request)
+    {
+        $request->validate([
+            'default_commission_rate' => 'required|numeric|min:0|max:100',
+            'minimum_commission_rate' => 'required|numeric|min:0|max:100',
+            'maximum_commission_rate' => 'required|numeric|min:0|max:100',
+        ]);
+
+        try {
+            // Validate rate hierarchy
+            if ($request->minimum_commission_rate >= $request->maximum_commission_rate) {
+                return redirect()->back()->with('error', 'Minimum rate must be less than maximum rate.');
+            }
+
+            if ($request->default_commission_rate < $request->minimum_commission_rate || 
+                $request->default_commission_rate > $request->maximum_commission_rate) {
+                return redirect()->back()->with('error', 'Default rate must be between minimum and maximum rates.');
+            }
+
+            // Update settings
+            PlatformSetting::set(PlatformSetting::MINIMUM_COMMISSION_RATE, $request->minimum_commission_rate, 'Minimum allowed commission rate');
+            PlatformSetting::set(PlatformSetting::MAXIMUM_COMMISSION_RATE, $request->maximum_commission_rate, 'Maximum allowed commission rate');
+            PlatformSetting::set(PlatformSetting::DEFAULT_COMMISSION_RATE, $request->default_commission_rate, 'Default commission rate for new farm owners');
+
+            return redirect()->back()->with('success', 'Commission settings updated successfully.');
+
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to update commission settings: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Transactions listing (UPDATED)
      */
     public function transactions(Request $request)
@@ -319,23 +353,23 @@ class WalletManagementController extends Controller
         ));
     }
 
-    /**
-     * Update commission rate for farm owner
-     */
     public function updateCommissionRate(Request $request, $walletId)
     {
+        $minRate = PlatformSetting::getMinimumCommissionRate();
+        $maxRate = PlatformSetting::getMaximumCommissionRate();
+        
         $request->validate([
-            'commission_rate' => 'required|numeric|min:0|max:50',
+            'commission_rate' => "required|numeric|min:{$minRate}|max:{$maxRate}",
             'reason' => 'nullable|string|max:500',
         ]);
-
+    
         $wallet = FarmOwnerWallet::findOrFail($walletId);
         $oldRate = $wallet->platform_commission_rate;
         $newRate = $request->input('commission_rate');
-
+    
         try {
             $this->walletService->updateCommissionRate($wallet->user_id, $newRate);
-
+    
             // Log the change
             \Log::info('Commission rate updated by admin', [
                 'wallet_id' => $wallet->id,
@@ -345,9 +379,9 @@ class WalletManagementController extends Controller
                 'admin_id' => auth()->id(),
                 'reason' => $request->input('reason'),
             ]);
-
+    
             return redirect()->back()->with('success', "Commission rate updated from {$oldRate}% to {$newRate}%");
-
+    
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to update commission rate: ' . $e->getMessage());
         }

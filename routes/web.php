@@ -69,6 +69,7 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth'])->group(func
         Route::get('/wallets', 'wallets')->name('wallets');
         Route::get('/wallets/{wallet}', 'showWallet')->name('wallets.show');
         Route::post('/wallets/{wallet}/commission-rate', 'updateCommissionRate')->name('wallets.commission-rate');
+        Route::post('/wallet/commission-settings', 'updateCommissionSettings')->name('wallet.commission-settings.update');
         Route::post('/wallets/{wallet}/adjustment', 'addAdjustment')->name('wallets.adjustment');
         
         Route::get('/pending-payments', 'pendingPayments')->name('pending-payments');

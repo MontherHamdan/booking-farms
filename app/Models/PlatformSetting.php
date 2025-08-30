@@ -19,6 +19,9 @@ class PlatformSetting extends Model
     // Setting Keys
     const TRANSFER_FREQUENCY_DAYS = 'transfer_frequency_days';
     const MINIMUM_TRANSFER_AMOUNT = 'minimum_transfer_amount';
+    const DEFAULT_COMMISSION_RATE = 'default_commission_rate';
+    const MINIMUM_COMMISSION_RATE = 'minimum_commission_rate';
+    const MAXIMUM_COMMISSION_RATE = 'maximum_commission_rate';
 
     /**
      * Get a setting value by key
@@ -81,6 +84,45 @@ class PlatformSetting extends Model
     }
 
     /**
+     * Get default commission rate for new farm owners
+     */
+    public static function getDefaultCommissionRate(): float
+    {
+        return (float) self::get(self::DEFAULT_COMMISSION_RATE, 5.00);
+    }
+
+        /**
+     * Get minimum allowed commission rate
+     */
+    public static function getMinimumCommissionRate(): float
+    {
+        return (float) self::get(self::MINIMUM_COMMISSION_RATE, 0.00);
+    }
+
+    /**
+     * Get maximum allowed commission rate
+     */
+    public static function getMaximumCommissionRate(): float
+    {
+        return (float) self::get(self::MAXIMUM_COMMISSION_RATE, 50.00);
+    }
+
+    /**
+     * Set default commission rate
+     */
+    public static function setDefaultCommissionRate(float $rate): void
+    {
+        $minRate = self::getMinimumCommissionRate();
+        $maxRate = self::getMaximumCommissionRate();
+        
+        if ($rate < $minRate || $rate > $maxRate) {
+            throw new \InvalidArgumentException("Commission rate must be between {$minRate}% and {$maxRate}%");
+        }
+        
+        self::set(self::DEFAULT_COMMISSION_RATE, $rate, 'Default commission rate for new farm owners');
+    }
+
+    /**
      * Get all settings as key-value pairs
      */
     public static function getAllSettings(): array
@@ -103,6 +145,16 @@ class PlatformSetting extends Model
                 'label' => 'Minimum Transfer Amount',
                 'value' => 'AED ' . number_format(self::getMinimumTransferAmount(), 2),
                 'description' => 'Minimum balance required before transfer is eligible',
+            ],
+            'commission' => [
+                'label' => 'Default Commission Rate',
+                'value' => self::getDefaultCommissionRate() . '%',
+                'description' => 'Default commission rate for new farm owners',
+            ],
+            'commission_limits' => [
+                'label' => 'Commission Rate Limits',
+                'value' => self::getMinimumCommissionRate() . '% - ' . self::getMaximumCommissionRate() . '%',
+                'description' => 'Allowed commission rate range',
             ],
         ];
     }
