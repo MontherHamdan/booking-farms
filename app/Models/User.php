@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Stripe\Customer;
 use Stripe\Stripe;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Log;
 
 class User extends Authenticatable
 {
@@ -150,7 +152,7 @@ class User extends Authenticatable
             return $customer->id;
 
         } catch (\Exception $e) {
-            \Log::error('Failed to create Stripe customer', [
+            Log::error('Failed to create Stripe customer', [
                 'user_id' => $this->id,
                 'has_email' => !empty($this->email),
                 'has_phone' => !empty($this->phone),
@@ -211,5 +213,89 @@ class User extends Authenticatable
         }
         
         return $missing;
+    }
+
+    /**
+     * Get the farm owner's wallet
+     */
+    public function farmOwnerWallet(): HasOne
+    {
+        return $this->hasOne(FarmOwnerWallet::class);
+    }
+
+    public function farmOwnerBankAccount(): HasOne
+    {
+        return $this->hasOne(FarmOwnerBankAccount::class);
+    }
+
+    public function manualPayments(): HasMany
+    {
+        return $this->hasMany(ManualPayment::class);
+    }
+
+    /**
+     * Get the farm owner's farms (if user is a farm owner)
+     */
+    public function ownedFarms(): HasMany
+    {
+        return $this->hasMany(Farm::class);
+    }
+
+    /**
+     * Check if user is a farm owner
+     */
+    public function isFarmOwner(): bool
+    {
+        return $this->ownedFarms()->exists();
+    }
+
+    /**
+     * Get wallet balance if user is farm owner
+     */
+    public function getWalletBalance(): float
+    {
+        return $this->farmOwnerWallet?->balance ?? 0.00;
+    }
+
+    /**
+     * Check if user has active farms
+     */
+    public function hasActiveFarms(): bool
+    {
+        return $this->ownedFarms()->where('status', Farm::Active)->exists();
+    }
+
+    public function hasBankAccount(): bool
+    {
+        return $this->farmOwnerBankAccount()->exists();
+    }
+
+    /**
+     * Get user's farm owner statistics
+     */
+    public function getFarmOwnerStats(): array
+    {
+        if (!$this->isFarmOwner()) {
+            return [];
+        }
+
+        $wallet = $this->farmOwnerWallet;
+        
+        return [
+            'total_farms' => $this->ownedFarms()->count(),
+            'active_farms' => $this->ownedFarms()->where('status', Farm::Active)->count(),
+            'pending_farms' => $this->ownedFarms()->where('status', Farm::Pending)->count(),
+            'wallet_balance' => $wallet?->balance ?? 0,
+            'total_earned' => $wallet?->total_earned ?? 0,
+            'total_paid_out' => $this->manualPayments()->sum('amount'), // NEW: replaced total_withdrawn
+            'total_bookings' => FarmBooking::whereHas('farm', function ($q) {
+                $q->where('user_id', $this->id);
+            })->count(),
+            'confirmed_bookings' => FarmBooking::whereHas('farm', function ($q) {
+                $q->where('user_id', $this->id);
+            })->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)->count(),
+            'has_bank_account' => $this->hasBankAccount(), // NEW
+            'pending_payment_amount' => $wallet?->balance ?? 0, // NEW: amount pending for next manual payment
+        ];
     }
 }

@@ -107,15 +107,19 @@ class FarmBookingService
         $discountAmount = ($subtotal * $percentage) / 100;
         $total = $subtotal - $discountAmount;
 
-        // Calculate payment amounts
+        // Always calculate deposit amounts if deposit rate exists
         $depositAmount = 0;
         $remainingAmount = 0;
+        if ($farm->deposit_rate && $farm->deposit_rate > 0) {
+            $depositAmount = ($total * $farm->deposit_rate) / 100;
+            $remainingAmount = $total - $depositAmount;
+        }
+
+        // Calculate payment amounts based on payment option
         $paymentAmount = $total;
         $isDepositPayment = false;
 
-        if ($paymentOption === 'deposit' && $farm->deposit_rate && $farm->deposit_rate > 0) {
-            $depositAmount = ($total * $farm->deposit_rate) / 100;
-            $remainingAmount = $total - $depositAmount;
+        if ($paymentOption === 'deposit' && $depositAmount > 0) {
             $paymentAmount = $depositAmount;
             $isDepositPayment = true;
         }

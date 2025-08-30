@@ -7,6 +7,10 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
 class Kernel extends ConsoleKernel
 {
+    protected $commands = [
+        \App\Console\Commands\ProcessBookingEarningsCommand::class,
+    ];
+    
     /**
      * Define the application's command schedule.
      */
@@ -17,6 +21,18 @@ class Kernel extends ConsoleKernel
         $schedule->command('bookings:expire-pending')
         ->everyMinutes(30)
         ->withoutOverlapping(10);
+
+        // Process earnings for confirmed bookings every 10 minutes
+        $schedule->command('bookings:process-earnings --limit=50')
+        ->everyTenMinutes()
+        ->withoutOverlapping()
+        ->appendOutputTo(storage_path('logs/earnings-processing.log'));
+
+        // Expire pending bookings (existing command, make sure this exists)
+        $schedule->command('bookings:expire-pending --limit=100')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/booking-expiry.log'));
     }
 
     /**

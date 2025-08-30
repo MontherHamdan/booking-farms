@@ -78,6 +78,12 @@ class FarmBooking extends Model
         'customer_phone',
         'notes',
         'expires_at',
+        // NEW WALLET-RELATED FIELDS
+        'platform_commission_rate',
+        'platform_commission_amount', 
+        'farm_owner_earning',
+        'earnings_processed',
+        'earnings_processed_at',
     ];
 
     protected $casts = [
@@ -93,6 +99,12 @@ class FarmBooking extends Model
         'deposit_amount' => 'decimal:2',
         'remaining_amount' => 'decimal:2',
         'expires_at' => 'datetime',
+        // NEW WALLET-RELATED CASTS
+        'platform_commission_rate' => 'decimal:2',
+        'platform_commission_amount' => 'decimal:2',
+        'farm_owner_earning' => 'decimal:2',
+        'earnings_processed' => 'boolean',
+        'earnings_processed_at' => 'datetime',
     ];
 
     // PAYMENT STATUS CONSTANTS
@@ -385,19 +397,37 @@ class FarmBooking extends Model
      */
     public function markAsPaid($paymentIntentId = null): void
     {
+        $wasAlreadyPaid = $this->isFullyPaid() || $this->isPartiallyPaid();
+        
+        // ORIGINAL LOGIC (preserved)
         $newStatus = $this->hasDepositPayment() 
             ? self::PAYMENT_STATUS_PARTIALLY_PAID 
             : self::PAYMENT_STATUS_PAID;
-
+    
         $this->update([
             'payment_status' => $newStatus,
             'booking_status' => self::BOOKING_STATUS_CONFIRMED,
             'stripe_payment_intent_id' => $paymentIntentId ?: $this->stripe_payment_intent_id,
         ]);
-
+    
         // Mark coupon as used if coupon was applied
         if ($this->coupon_id) {
             $this->coupon->markAsUsed($this->user_id, $this->id);
+        }
+        
+        // NEW FUNCTIONALITY - Process earnings if this is the first time being marked as paid
+        if (!$wasAlreadyPaid && $this->shouldProcessEarnings()) {
+            try {
+                $this->processEarnings();
+            } catch (\Exception $e) {
+                \Log::error('Failed to auto-process earnings for booking', [
+                    'booking_id' => $this->id,
+                    'booking_reference' => $this->booking_reference,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString() // ADD THIS
+                ]);
+                // Don't throw exception - earnings can be processed later via command
+            }
         }
     }
 
@@ -434,14 +464,32 @@ class FarmBooking extends Model
 
     public function cancel(): void
     {
+        // ORIGINAL LOGIC (preserved)
         if ($this->booking_status !== self::BOOKING_STATUS_CONFIRMED) {
             throw new \InvalidArgumentException('Only confirmed bookings can be cancelled');
         }
-
+        
+        $wasEarningsProcessed = $this->earnings_processed;
+    
         $this->update([
             'booking_status' => self::BOOKING_STATUS_CANCELLED,
             // payment_status remains unchanged for refund processing
         ]);
+        
+        // NEW FUNCTIONALITY - Process refund if earnings were already processed
+        if ($wasEarningsProcessed) {
+            try {
+                $walletService = app(\App\Services\FarmOwnerWalletService::class);
+                $walletService->processBookingRefund($this);
+            } catch (\Exception $e) {
+                \Log::error('Failed to process refund for cancelled booking', [
+                    'booking_id' => $this->id,
+                    'booking_reference' => $this->booking_reference,
+                    'error' => $e->getMessage()
+                ]);
+                // Don't throw exception - refund can be processed manually
+            }
+        }
     }
 
     /**
@@ -489,5 +537,129 @@ class FarmBooking extends Model
         return $this->payment_option === self::PAYMENT_OPTION_DEPOSIT 
             ? __('booking.payment_type.deposit') 
             : __('booking.payment_type.full');
+    }
+
+    /**
+     * Process earnings when booking is confirmed and paid
+     */
+    public function processEarnings(): void
+    {
+        if ($this->earnings_processed) {
+            throw new \InvalidArgumentException('Earnings already processed for this booking');
+        }
+
+        if ($this->booking_status !== self::BOOKING_STATUS_CONFIRMED) {
+            throw new \InvalidArgumentException('Only confirmed bookings can have earnings processed');
+        }
+
+        $walletService = app(\App\Services\FarmOwnerWalletService::class);
+        $walletService->processBookingEarning($this);
+    }
+
+    /**
+     * Check if earnings should be processed automatically
+     */
+    public function shouldProcessEarnings(): bool
+    {
+        return $this->booking_status === self::BOOKING_STATUS_CONFIRMED 
+            && !$this->earnings_processed 
+            && in_array($this->payment_status, [
+                self::PAYMENT_STATUS_PAID,
+                self::PAYMENT_STATUS_PARTIALLY_PAID // ADD THIS
+            ]);
+    }
+
+    /**
+     * Get farm owner from booking
+     */
+    public function getFarmOwner(): ?User
+    {
+        return $this->farm?->user;
+    }
+
+    /**
+     * Check if booking has processed earnings
+     */
+    public function hasProcessedEarnings(): bool
+    {
+        return $this->earnings_processed && $this->farm_owner_earning > 0;
+    }
+
+    /**
+     * Get earning breakdown
+     */
+    public function getEarningBreakdown(): array
+    {
+        return [
+            'total_amount' => $this->total_amount,
+            'commission_rate' => $this->platform_commission_rate,
+            'commission_amount' => $this->platform_commission_amount,
+            'farm_owner_earning' => $this->farm_owner_earning,
+            'earnings_processed' => $this->earnings_processed,
+            'earnings_processed_at' => $this->earnings_processed_at,
+        ];
+    }
+
+    /**
+     * Scope for bookings that need earnings processing
+     */
+    public function scopeNeedsEarningsProcessing($query)
+    {
+        return $query->where('booking_status', self::BOOKING_STATUS_CONFIRMED)
+                    ->where('earnings_processed', false)
+                    ->whereIn('payment_status', [
+                        self::PAYMENT_STATUS_PAID,
+                        self::PAYMENT_STATUS_PARTIALLY_PAID
+                    ]);
+    }
+
+    /**
+     * Scope for bookings with processed earnings
+     */
+    public function scopeWithProcessedEarnings($query)
+    {
+        return $query->where('earnings_processed', true);
+    }
+
+    /**
+     * Get commission percentage for display
+     */
+    public function getCommissionPercentageAttribute(): string
+    {
+        return $this->platform_commission_rate ? $this->platform_commission_rate . '%' : 'N/A';
+    }
+
+    /**
+     * Get net earning percentage (what farm owner gets)
+     */
+    public function getNetEarningPercentageAttribute(): string
+    {
+        if (!$this->platform_commission_rate) {
+            return 'N/A';
+        }
+        
+        $netPercentage = 100 - $this->platform_commission_rate;
+        return $netPercentage . '%';
+    }
+
+    /**
+     * Calculate what the earning would be with current commission rate
+     * Useful for recalculating old bookings
+     */
+    public function calculateCurrentEarning(): array
+    {
+        $wallet = $this->getFarmOwner()?->farmOwnerWallet;
+        $currentCommissionRate = $wallet?->platform_commission_rate ?? 15.00;
+        
+        $commissionAmount = ($this->total_amount * $currentCommissionRate) / 100;
+        $farmOwnerEarning = $this->total_amount - $commissionAmount;
+        
+        return [
+            'total_amount' => $this->total_amount,
+            'current_commission_rate' => $currentCommissionRate,
+            'current_commission_amount' => $commissionAmount,
+            'current_farm_owner_earning' => $farmOwnerEarning,
+            'difference_from_processed' => $farmOwnerEarning - ($this->farm_owner_earning ?? 0),
+        ];
     }
 }

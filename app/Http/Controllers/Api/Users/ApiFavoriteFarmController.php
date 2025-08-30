@@ -11,10 +11,11 @@ use Illuminate\Http\Request;
 use Exception;
 use App\Traits\JsonResponseTrait;
 use App\Traits\ExceptionLoggerTrait;
+use App\Traits\FarmImageTrait;
 
 class ApiFavoriteFarmController extends Controller
 {
-    use JsonResponseTrait, ExceptionLoggerTrait;
+    use JsonResponseTrait, ExceptionLoggerTrait, FarmImageTrait;
 
     /**
      * Display a listing of user's favorite farms.
@@ -23,24 +24,21 @@ class ApiFavoriteFarmController extends Controller
     {
         try {
             $userId = auth()->id();
-    
+
             // Get favorite farms via a paginator—even if none exist, this returns an empty paginator
+            $relationships = $this->getFarmRelationships();
+            
             $farms = Farm::whereIn('id', function($q) use ($userId) {
                     $q->select('farm_id')
-                      ->from('favorite_farms')
-                      ->where('user_id', $userId);
+                    ->from('favorite_farms')
+                    ->where('user_id', $userId);
                 })
-                ->with(['city', 'features', 'pricing', 'offers'])
+                ->with($relationships)
                 ->paginate($request->per_page ?? 15);
-    
-            // load images exactly like ApiFarmController
-            $farms->getCollection()->transform(function ($farm) {
-                $mainImage     = $farm->images()->where('is_main', true)->get();
-                $nonMainImages = $farm->images()->where('is_main', false)->limit(4)->get();
-                $farm->setRelation('images', $mainImage->concat($nonMainImages));
-                return $farm;
-            });
-    
+
+            // Load farm images using the trait method
+            $this->loadFarmImages($farms);
+
             return $this->successResponse(
                 true,
                 new FarmCollection($farms),
