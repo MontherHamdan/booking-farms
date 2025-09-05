@@ -1,6 +1,6 @@
 @extends('admin.layout')
-@section('content')
 
+@section('content')
 <div class="row">
     <div class="col-12">
         <div class="page-title-box">
@@ -11,14 +11,14 @@
                     <li class="breadcrumb-item active">Pending Payments</li>
                 </ol>
             </div>
-            <h4 class="page-title">Manual Payments Management</h4>
+            <h4 class="page-title">Pending Payments</h4>
         </div>
     </div>
 </div>
 
 <!-- Summary Cards -->
 <div class="row">
-    <div class="col-xl-3 col-md-6">
+    <div class="col-lg-3 col-md-6">
         <div class="card">
             <div class="card-body text-center">
                 <i class="mdi mdi-clock-outline text-warning" style="font-size: 24px;"></i>
@@ -27,7 +27,7 @@
             </div>
         </div>
     </div>
-    <div class="col-xl-3 col-md-6">
+    <div class="col-lg-3 col-md-6">
         <div class="card">
             <div class="card-body text-center">
                 <i class="mdi mdi-cash-usd text-success" style="font-size: 24px;"></i>
@@ -36,7 +36,7 @@
             </div>
         </div>
     </div>
-    <div class="col-xl-3 col-md-6">
+    <div class="col-lg-3 col-md-6">
         <div class="card">
             <div class="card-body text-center">
                 <i class="mdi mdi-account-multiple text-info" style="font-size: 24px;"></i>
@@ -45,7 +45,7 @@
             </div>
         </div>
     </div>
-    <div class="col-xl-3 col-md-6">
+    <div class="col-lg-3 col-md-6">
         <div class="card">
             <div class="card-body text-center">
                 <i class="mdi mdi-bank-off text-danger" style="font-size: 24px;"></i>
@@ -63,11 +63,11 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <i class="mdi mdi-information me-2"></i>
-                    <strong>Payment Settings:</strong> 
+                    <strong>Settings:</strong> 
                     Transfers every {{ $pendingData['settings']['transfer_frequency_days'] }} days | 
-                    Minimum amount: AED {{ number_format($pendingData['settings']['minimum_transfer_amount'], 2) }}
+                    Minimum: AED {{ number_format($pendingData['settings']['minimum_transfer_amount'], 2) }}
                 </div>
-                <a href="{{ route('dashboard.wallet.payment-settings') }}" class="btn btn-sm btn-outline-primary">
+                <a href="{{ route('dashboard.settings.index') }}" class="btn btn-sm btn-outline-primary">
                     <i class="mdi mdi-cog me-1"></i> Settings
                 </a>
             </div>
@@ -80,7 +80,7 @@
     <div class="col-12">
         <div class="card">
             <div class="card-body">
-                <form method="GET" action="{{ route('dashboard.wallet.pending-payments') }}" class="row g-3">
+                <form method="GET" class="row g-3">
                     <div class="col-md-4">
                         <label class="form-label">Filter</label>
                         <select name="filter" class="form-select">
@@ -92,8 +92,7 @@
                     <div class="col-md-6">
                         <label class="form-label">Search</label>
                         <input type="text" name="search" class="form-control" 
-                               placeholder="Search by name or email..." 
-                               value="{{ request('search') }}">
+                               placeholder="Name or email..." value="{{ request('search') }}">
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">&nbsp;</label>
@@ -143,8 +142,8 @@
                                     <div class="d-flex align-items-center">
                                         <div class="flex-shrink-0 me-3">
                                             @php
-                                                $nameParts = explode(' ', $item['user']['name']);
-                                                $initials = collect($nameParts)->take(2)->map(fn($part) => strtoupper(substr($part, 0, 1)))->implode('');
+                                                $initials = collect(explode(' ', $item['user']['name']))
+                                                    ->take(2)->map(fn($part) => strtoupper(substr($part, 0, 1)))->implode('');
                                             @endphp
                                             <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white" 
                                                  style="width: 40px; height: 40px; font-weight: 500;">
@@ -159,12 +158,11 @@
                                 </td>
                                 <td>
                                     <span class="fw-bold text-success">AED {{ number_format($item['balance'], 2) }}</span>
-                                    <br><small class="text-muted">Total earned: AED {{ number_format($item['total_earned'], 2) }}</small>
+                                    <br><small class="text-muted">Earned: AED {{ number_format($item['total_earned'], 2) }}</small>
                                 </td>
                                 <td>
                                     @if($item['has_bank_account'])
-                                        <span class="badge bg-light text-dark">{{ $item['bank_account']['account_type_label'] ?? 'Unknown' }}</span>
-                                        <br><small class="text-muted">{{ $item['bank_account']['primary_identifier'] ?? 'N/A' }}</small>
+                                        <span class="badge bg-success">{{ $item['bank_account']['account_type_label'] ?? 'Bank Account' }}</span>
                                     @else
                                         <span class="badge bg-danger">No Bank Account</span>
                                     @endif
@@ -180,20 +178,24 @@
                                     <span class="badge bg-warning">{{ $item['days_since_last_payment'] }} days</span>
                                 </td>
                                 <td>
-                                    @if($item['has_bank_account'])
-                                        <button class="btn btn-success btn-sm" 
-                                                onclick="processPayment({{ $item['user']['id'] }}, '{{ $item['user']['name'] }}', {{ $item['balance'] }})">
-                                            <i class="mdi mdi-bank-transfer me-1"></i>Process Payment
-                                        </button>
-                                    @else
-                                        <button class="btn btn-outline-danger btn-sm" disabled>
-                                            <i class="mdi mdi-alert me-1"></i>No Bank Account
-                                        </button>
-                                    @endif
-                                    <a href="{{ route('dashboard.wallet.wallets.show', $item['wallet_id']) }}" 
-                                       class="btn btn-outline-primary btn-sm ms-1">
-                                        <i class="mdi mdi-eye"></i>
-                                    </a>
+                                    <div class="d-flex gap-1">
+                                        @if($item['has_bank_account'])
+                                            <button class="btn btn-success btn-sm process-payment-btn"
+                                                    data-user-id="{{ $item['user']['id'] }}" 
+                                                    data-user-name="{{ $item['user']['name'] }}" 
+                                                    data-balance="{{ $item['balance'] }}">
+                                                <i class="mdi mdi-bank-transfer me-1"></i>Process
+                                            </button>
+                                        @else
+                                            <button class="btn btn-outline-danger btn-sm" disabled>
+                                                <i class="mdi mdi-alert me-1"></i>No Bank
+                                            </button>
+                                        @endif
+                                        <a href="{{ route('dashboard.wallet.wallets.show', $item['wallet_id']) }}" 
+                                           class="btn btn-outline-primary btn-sm">
+                                            <i class="mdi mdi-eye"></i>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                             @endforeach
@@ -214,7 +216,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="card-title mb-0 text-info">
-                        <i class="mdi mdi-clock-outline me-2"></i>Eligible but Not Ready 
+                        <i class="mdi mdi-clock-outline me-2"></i>Not Ready Yet
                         <span class="badge bg-info">{{ $eligibleButNotReady->count() }}</span>
                     </h5>
                     <div>
@@ -242,8 +244,8 @@
                                     <div class="d-flex align-items-center">
                                         <div class="flex-shrink-0 me-3">
                                             @php
-                                                $nameParts = explode(' ', $item['user']['name']);
-                                                $initials = collect($nameParts)->take(2)->map(fn($part) => strtoupper(substr($part, 0, 1)))->implode('');
+                                                $initials = collect(explode(' ', $item['user']['name']))
+                                                    ->take(2)->map(fn($part) => strtoupper(substr($part, 0, 1)))->implode('');
                                             @endphp
                                             <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-secondary text-white" 
                                                  style="width: 40px; height: 40px; font-weight: 500;">
@@ -258,12 +260,11 @@
                                 </td>
                                 <td>
                                     <span class="fw-bold">AED {{ number_format($item['balance'], 2) }}</span>
-                                    <br><small class="text-muted">Total earned: AED {{ number_format($item['total_earned'], 2) }}</small>
+                                    <br><small class="text-muted">Earned: AED {{ number_format($item['total_earned'], 2) }}</small>
                                 </td>
                                 <td>
                                     @if($item['has_bank_account'])
-                                        <span class="badge bg-light text-dark">{{ $item['bank_account']['account_type_label'] ?? 'Unknown' }}</span>
-                                        <br><small class="text-muted">{{ $item['bank_account']['primary_identifier'] ?? 'N/A' }}</small>
+                                        <span class="badge bg-success">{{ $item['bank_account']['account_type_label'] ?? 'Bank Account' }}</span>
                                     @else
                                         <span class="badge bg-danger">No Bank Account</span>
                                     @endif
@@ -282,20 +283,22 @@
                                     <span class="badge bg-secondary">{{ $daysUntilReady }} days</span>
                                 </td>
                                 <td>
-                                    <div class="btn-group btn-group-sm">
+                                    <div class="d-flex gap-1">
                                         @if($item['has_bank_account'])
-                                            <button class="btn btn-outline-success" 
-                                                    onclick="processPayment({{ $item['user']['id'] }}, '{{ $item['user']['name'] }}', {{ $item['balance'] }})"
+                                            <button class="btn btn-outline-success btn-sm process-payment-btn" 
+                                                    data-user-id="{{ $item['user']['id'] }}"
+                                                    data-user-name="{{ $item['user']['name'] }}"
+                                                    data-balance="{{ $item['balance'] }}"
                                                     title="Process Early Payment">
                                                 <i class="mdi mdi-bank-transfer"></i>
                                             </button>
                                         @else
-                                            <button class="btn btn-outline-danger" disabled title="No Bank Account">
+                                            <button class="btn btn-outline-danger btn-sm" disabled>
                                                 <i class="mdi mdi-alert"></i>
                                             </button>
                                         @endif
                                         <a href="{{ route('dashboard.wallet.wallets.show', $item['wallet_id']) }}" 
-                                           class="btn btn-outline-primary" title="View Wallet">
+                                           class="btn btn-outline-primary btn-sm">
                                             <i class="mdi mdi-eye"></i>
                                         </a>
                                     </div>
@@ -326,39 +329,34 @@
 @endif
 
 <!-- Process Payment Modal -->
-<div class="modal fade" id="processPaymentModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="processPaymentModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Process Manual Payment</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
             <form method="POST" id="processPaymentForm">
                 @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title">Process Payment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Farm Owner</label>
-                        <input type="text" class="form-control" id="paymentFarmOwner" readonly>
+                    <div class="alert alert-info">
+                        <i class="mdi mdi-information me-2"></i>
+                        Processing payment for <strong id="paymentUserName"></strong>
+                        <br>Available: <strong id="paymentBalance"></strong>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Available Balance</label>
-                        <input type="text" class="form-control" id="paymentBalance" readonly>
+                        <label class="form-label">Amount (AED) *</label>
+                        <input type="number" name="amount" class="form-control" id="paymentAmount" 
+                               step="0.01" min="1" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Payment Amount (AED) *</label>
-                        <input type="number" name="amount" class="form-control" required 
-                               min="1" step="0.01" id="paymentAmount">
-                        <small class="form-text text-muted">Maximum available balance</small>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Notes (Optional)</label>
+                        <label class="form-label">Notes</label>
                         <textarea name="notes" class="form-control" rows="3" 
-                                  placeholder="Add any notes about this payment..."></textarea>
+                                  placeholder="Optional notes..."></textarea>
                     </div>
                     <div class="alert alert-warning">
                         <i class="mdi mdi-alert me-2"></i>
-                        <strong>Important:</strong> This will deduct the amount from the farm owner's wallet. 
-                        Make sure you have processed the actual bank transfer before confirming.
+                        This will deduct the amount from the wallet. Ensure bank transfer is completed first.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -371,23 +369,48 @@
         </div>
     </div>
 </div>
-
-<script>
-function processPayment(userId, farmOwnerName, balance) {
-    const modal = new bootstrap.Modal(document.getElementById('processPaymentModal'));
-    const form = document.getElementById('processPaymentForm');
-    
-    // Set form action
-    form.action = `{{ route('dashboard.wallet.process-payment', '') }}/${userId}`;
-    
-    // Populate modal
-    document.getElementById('paymentFarmOwner').value = farmOwnerName;
-    document.getElementById('paymentBalance').value = `AED ${balance.toLocaleString()}`;
-    document.getElementById('paymentAmount').value = balance;
-    document.getElementById('paymentAmount').max = balance;
-    
-    modal.show();
-}
-</script>
-
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('processPaymentModal');
+    const form = document.getElementById('processPaymentForm');
+    const buttons = document.querySelectorAll('.process-payment-btn');
+    
+    buttons.forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            const userName = this.dataset.userName;
+            const balance = parseFloat(this.dataset.balance);
+            
+            // Set form action
+            form.action = `{{ route('dashboard.wallet.process-payment', '') }}/${userId}`;
+            
+            // Populate modal
+            document.getElementById('paymentUserName').textContent = userName;
+            document.getElementById('paymentBalance').textContent = `AED ${balance.toLocaleString()}`;
+            document.getElementById('paymentAmount').value = balance;
+            document.getElementById('paymentAmount').max = balance;
+            
+            // Show modal
+            new bootstrap.Modal(modal).show();
+        });
+    });
+    
+    // Form validation
+    form.addEventListener('submit', function(e) {
+        const amount = parseFloat(document.getElementById('paymentAmount').value);
+        const maxAmount = parseFloat(document.getElementById('paymentAmount').max);
+        
+        if (amount > maxAmount) {
+            e.preventDefault();
+            alert('Amount cannot exceed available balance');
+            return false;
+        }
+        
+        return confirm('Are you sure you want to process this payment?');
+    });
+});
+</script>
+@endpush

@@ -1,6 +1,6 @@
 @extends('admin.layout')
-@section('content')
 
+@section('content')
 <div class="row">
     <div class="col-12">
         <div class="page-title-box">
@@ -16,12 +16,52 @@
     </div>
 </div>
 
+<!-- Quick Stats -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card border-0 bg-primary-subtle">
+            <div class="card-body text-center">
+                <i class="mdi mdi-wallet text-primary" style="font-size: 24px;"></i>
+                <h4 class="text-primary mt-2 mb-1">{{ $wallets->total() }}</h4>
+                <p class="text-muted mb-0 small">Total Wallets</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-success-subtle">
+            <div class="card-body text-center">
+                <i class="mdi mdi-cash-multiple text-success" style="font-size: 24px;"></i>
+                <h4 class="text-success mt-2 mb-1">AED {{ number_format($wallets->sum('balance'), 2) }}</h4>
+                <p class="text-muted mb-0 small">Total Balance</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-info-subtle">
+            <div class="card-body text-center">
+                <i class="mdi mdi-trending-up text-info" style="font-size: 24px;"></i>
+                <h4 class="text-info mt-2 mb-1">AED {{ number_format($wallets->sum('total_earned'), 2) }}</h4>
+                <p class="text-muted mb-0 small">Total Earned</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-warning-subtle">
+            <div class="card-body text-center">
+                <i class="mdi mdi-bank-transfer-out text-warning" style="font-size: 24px;"></i>
+                <h4 class="text-warning mt-2 mb-1">AED {{ number_format($wallets->sum('total_paid_out'), 2) }}</h4>
+                <p class="text-muted mb-0 small">Total Paid Out</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Filters -->
 <div class="row">
     <div class="col-12">
         <div class="card">
             <div class="card-body">
-                <form method="GET" action="{{ route('dashboard.wallet.wallets') }}" class="row g-3">
+                <form method="GET" class="row g-3">
                     <div class="col-md-3">
                         <label for="search" class="form-label">Search</label>
                         <input type="text" class="form-control" id="search" name="search" 
@@ -29,7 +69,7 @@
                     </div>
                     <div class="col-md-2">
                         <label for="status" class="form-label">Status</label>
-                        <select class="form-select" id="statuss" name="status">
+                        <select class="form-select" id="status" name="status">
                             <option value="">All Statuses</option>
                             <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Active</option>
                             <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
@@ -79,7 +119,7 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="card-title mb-0">
                         Farm Owner Wallets 
-                        <span class="badge badge-soft-info">{{ $wallets->total() }}</span>
+                        <span class="badge bg-info">{{ $wallets->total() }}</span>
                     </h5>
                     <div class="d-flex gap-2">
                         @if(request()->hasAny(['search', 'status', 'min_balance', 'sort', 'direction']))
@@ -92,7 +132,8 @@
                                 <i class="mdi mdi-export me-1"></i> Export
                             </button>
                             <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="{{ route('dashboard.wallet.export', ['type' => 'wallets']) }}">Export Wallets</a></li>
+                                <li><a class="dropdown-item" href="{{ route('dashboard.wallet.export.wallets') }}">Export Wallets</a></li>
+                                <li><a class="dropdown-item" href="{{ route('dashboard.wallet.export.payments') }}">Export Payments</a></li>
                             </ul>
                         </div>
                     </div>
@@ -108,8 +149,9 @@
                                 <th>Total Earned</th>
                                 <th>Total Paid Out</th>
                                 <th>Commission Rate</th>
+                                <th>Bank Account</th>
                                 <th>Status</th>
-                                <th>Recent Activity</th>
+                                <th>Last Activity</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -118,70 +160,65 @@
                             <tr>
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <div class="flex-shrink-0">
-                                            <div class="avatar-sm">
-                                                <div class="avatar-title rounded-circle bg-primary-subtle text-primary">
-                                                    {{ strtoupper(substr($wallet->user->name, 0, 1)) }}
-                                                </div>
+                                        <div class="flex-shrink-0 me-3">
+                                            @php
+                                                $initials = collect(explode(' ', $wallet->user->name))
+                                                    ->take(2)->map(fn($part) => strtoupper(substr($part, 0, 1)))->implode('');
+                                            @endphp
+                                            <div class="avatar-sm bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center">
+                                                <span class="text-primary fw-bold">{{ $initials ?: 'U' }}</span>
                                             </div>
                                         </div>
-                                        <div class="flex-grow-1 ms-3">
+                                        <div>
                                             <h6 class="mb-0">{{ $wallet->user->name }}</h6>
                                             <small class="text-muted">{{ $wallet->user->email }}</small>
-                                            @if($wallet->user->farmOwnerBankAccount)
-                                            <br><small class="text-success">
-                                                <i class="mdi mdi-bank"></i> Bank Account Setup
-                                            </small>
-                                            @else
-                                            <br><small class="text-warning">
-                                                <i class="mdi mdi-alert-circle"></i> No Bank Account
-                                            </small>
-                                            @endif
                                         </div>
                                     </div>
                                 </td>
                                 <td>
                                     <span class="fw-bold text-primary">AED {{ number_format($wallet->balance, 2) }}</span>
-                                    @if($wallet->pending_balance > 0)
-                                    <br><small class="text-muted">Pending: AED {{ number_format($wallet->pending_balance, 2) }}</small>
+                                    @if($wallet->balance >= 50)
+                                    <br><small class="text-success">
+                                        <i class="mdi mdi-check-circle me-1"></i>Eligible for payment
+                                    </small>
+                                    @else
+                                    <br><small class="text-muted">Below minimum</small>
                                     @endif
                                 </td>
                                 <td>
-                                    <span class="text-success">AED {{ number_format($wallet->total_earned, 2) }}</span>
+                                    <span class="text-success fw-bold">AED {{ number_format($wallet->total_earned, 2) }}</span>
                                 </td>
                                 <td>
-                                    <span class="text-info">AED {{ number_format($wallet->total_paid_out, 2) }}</span>
+                                    <span class="text-info fw-bold">AED {{ number_format($wallet->total_paid_out ?? 0, 2) }}</span>
                                 </td>
                                 <td>
-                                    <span class="badge badge-soft-secondary">{{ $wallet->platform_commission_rate }}%</span>
+                                    <span class="badge bg-secondary">{{ $wallet->platform_commission_rate }}%</span>
+                                </td>
+                                <td>
+                                    @if($wallet->user->farmOwnerBankAccount)
+                                        <span class="badge bg-success">
+                                            <i class="mdi mdi-bank me-1"></i>{{ $wallet->user->farmOwnerBankAccount->getAccountTypeLabel() }}
+                                        </span>
+                                    @else
+                                        <span class="badge bg-danger">
+                                            <i class="mdi mdi-bank-off me-1"></i>Not Setup
+                                        </span>
+                                    @endif
                                 </td>
                                 <td>
                                     @if($wallet->is_active)
-                                    <span class="badge badge-soft-success">Active</span>
+                                    <span class="badge bg-success">Active</span>
                                     @else
-                                    <span class="badge badge-soft-danger">Inactive</span>
+                                    <span class="badge bg-danger">Inactive</span>
                                     @endif
                                 </td>
                                 <td>
-                                    @if($wallet->transactions->count() > 0)
-                                    <div class="text-muted small">
-                                        @foreach($wallet->transactions->take(2) as $transaction)
-                                        <div class="mb-1">
-                                            <span class="badge badge-soft-{{ $transaction->amount >= 0 ? 'success' : 'warning' }} me-1">
-                                                {{ ucfirst(str_replace('_', ' ', $transaction->type)) }}
-                                            </span>
-                                            <span class="fw-bold {{ $transaction->amount >= 0 ? 'text-success' : 'text-danger' }}">
-                                                {{ $transaction->amount >= 0 ? '+' : '' }}AED {{ number_format($transaction->amount, 2) }}
-                                            </span>
-                                            <br><small class="text-muted">{{ $transaction->created_at->diffForHumans() }}</small>
-                                        </div>
-                                        @endforeach
-                                        @if($wallet->transactions->count() > 2)
-                                        <small class="text-primary">{{ $wallet->transactions->count() - 2 }} more...</small>
-                                        @endif
-                                    </div>
+                                    @if($wallet->updated_at->diffInDays() < 7)
+                                    <small class="text-success">{{ $wallet->updated_at->diffForHumans() }}</small>
+                                    @elseif($wallet->updated_at->diffInDays() < 30)
+                                    <small class="text-warning">{{ $wallet->updated_at->diffForHumans() }}</small>
                                     @else
-                                    <span class="text-muted small">No transactions</span>
+                                    <small class="text-muted">{{ $wallet->updated_at->diffForHumans() }}</small>
                                     @endif
                                 </td>
                                 <td>
@@ -191,8 +228,7 @@
                                             <i class="mdi mdi-eye"></i>
                                         </a>
                                         @if($wallet->balance >= 50 && $wallet->user->farmOwnerBankAccount)
-                                        <button type="button" class="btn btn-sm btn-outline-warning" 
-                                                data-bs-toggle="modal" data-bs-target="#processPaymentModal"
+                                        <button type="button" class="btn btn-sm btn-warning process-payment-btn"
                                                 data-user-id="{{ $wallet->user_id }}" 
                                                 data-user-name="{{ $wallet->user->name }}"
                                                 data-balance="{{ $wallet->balance }}"
@@ -200,13 +236,19 @@
                                             <i class="mdi mdi-bank-transfer-out"></i>
                                         </button>
                                         @endif
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" 
-                                                data-bs-toggle="modal" data-bs-target="#adjustmentModal"
+                                        <button type="button" class="btn btn-sm btn-outline-secondary adjustment-btn"
                                                 data-wallet-id="{{ $wallet->id }}" 
                                                 data-user-name="{{ $wallet->user->name }}"
                                                 data-balance="{{ $wallet->balance }}"
                                                 title="Add Adjustment">
                                             <i class="mdi mdi-plus-minus-variant"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-info commission-btn"
+                                                data-wallet-id="{{ $wallet->id }}" 
+                                                data-user-name="{{ $wallet->user->name }}"
+                                                data-current-rate="{{ $wallet->platform_commission_rate }}"
+                                                title="Update Commission">
+                                            <i class="mdi mdi-percent"></i>
                                         </button>
                                     </div>
                                 </td>
@@ -219,14 +261,15 @@
                 <!-- Pagination -->
                 <div class="d-flex justify-content-between align-items-center mt-3">
                     <div class="text-muted">
-                        Showing {{ $wallets->firstItem() ?? 0 }} to {{ $wallets->lastItem() ?? 0 }} of {{ $wallets->total() }} wallets
+                        Showing {{ $wallets->firstItem() ?? 0 }} to {{ $wallets->lastItem() ?? 0 }} 
+                        of {{ $wallets->total() }} wallets
                     </div>
                     {{ $wallets->appends(request()->query())->links() }}
                 </div>
                 @else
                 <div class="text-center py-5">
                     <i class="mdi mdi-wallet text-muted" style="font-size: 48px;"></i>
-                    <p class="text-muted mt-2 mb-0">No wallets found</p>
+                    <p class="text-muted mt-2">No wallets found</p>
                     @if(request()->hasAny(['search', 'status', 'min_balance']))
                     <a href="{{ route('dashboard.wallet.wallets') }}" class="btn btn-sm btn-outline-primary mt-2">
                         Clear filters and show all
@@ -246,7 +289,7 @@
             <form method="POST" id="processPaymentForm">
                 @csrf
                 <div class="modal-header">
-                    <h5 class="modal-title">Process Manual Payment</h5>
+                    <h5 class="modal-title">Process Payment</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -264,6 +307,10 @@
                         <label for="paymentNotes" class="form-label">Notes</label>
                         <textarea class="form-control" id="paymentNotes" name="notes" rows="3" 
                                   placeholder="Optional notes for this payment..."></textarea>
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="mdi mdi-alert-triangle me-2"></i>
+                        Ensure bank transfer is completed before processing this payment.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -323,39 +370,218 @@
     </div>
 </div>
 
+<!-- Commission Rate Modal -->
+<div class="modal fade" id="commissionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" id="commissionForm">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title">Update Commission Rate</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="mdi mdi-information me-2"></i>
+                        Updating commission rate for <strong id="commissionUserName"></strong>
+                        <br>Current rate: <strong id="commissionCurrentRate"></strong>
+                    </div>
+                    
+                    @php
+                        $minRate = \App\Models\PlatformSetting::getMinimumCommissionRate();
+                        $maxRate = \App\Models\PlatformSetting::getMaximumCommissionRate();
+                        $defaultRate = \App\Models\PlatformSetting::getDefaultCommissionRate();
+                    @endphp
+                    
+                    <div class="mb-3">
+                        <label for="commissionRate" class="form-label">Commission Rate (%) *</label>
+                        <input type="number" class="form-control" id="commissionRate" name="commission_rate" 
+                               step="0.01" min="{{ $minRate }}" max="{{ $maxRate }}" required>
+                        <div class="form-text" id="commissionRateHelp">
+                            Rate must be between {{ $minRate }}% and {{ $maxRate }}%
+                            <br><small class="text-muted">Platform default: {{ $defaultRate }}%</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Rate Buttons -->
+                    @if($minRate != $maxRate)
+                    <div class="mb-3">
+                        <label class="form-label">Quick Set:</label>
+                        <div class="d-flex gap-2 flex-wrap">
+                            @if($minRate > 0)
+                            <button type="button" class="btn btn-sm btn-outline-secondary quick-rate-btn" data-rate="{{ $minRate }}">
+                                {{ $minRate }}% (Min)
+                            </button>
+                            @endif
+                            
+                            @if($defaultRate != $minRate && $defaultRate != $maxRate)
+                            <button type="button" class="btn btn-sm btn-outline-primary quick-rate-btn" data-rate="{{ $defaultRate }}">
+                                {{ $defaultRate }}% (Default)
+                            </button>
+                            @endif
+                            
+                            @if($maxRate < 100)
+                            <button type="button" class="btn btn-sm btn-outline-secondary quick-rate-btn" data-rate="{{ $maxRate }}">
+                                {{ $maxRate }}% (Max)
+                            </button>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+                    
+                    <div class="mb-3">
+                        <label for="commissionReason" class="form-label">Reason for Change</label>
+                        <textarea class="form-control" id="commissionReason" name="reason" rows="3" 
+                                  placeholder="Optional reason for this change..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="mdi mdi-percent me-1"></i> Update Commission
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endsection
+
+@push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Process Payment Modal
+    // Process Payment Modal Handler
     const processPaymentModal = document.getElementById('processPaymentModal');
-    if (processPaymentModal) {
-        processPaymentModal.addEventListener('show.bs.modal', function(event) {
-            const button = event.relatedTarget;
-            const userId = button.getAttribute('data-user-id');
-            const userName = button.getAttribute('data-user-name');
-            const balance = button.getAttribute('data-balance');
-            
-            document.getElementById('paymentUserName').textContent = userName;
-            document.getElementById('paymentBalance').textContent = 'AED ' + parseFloat(balance).toLocaleString();
-            document.getElementById('paymentAmount').max = balance;
-            document.getElementById('paymentForm').action = `/dashboard/wallet/process-payment/${userId}`;
-        });
-    }
+    const processPaymentForm = document.getElementById('processPaymentForm');
+    const processPaymentButtons = document.querySelectorAll('.process-payment-btn');
     
-    // Adjustment Modal
-    const adjustmentModal = document.getElementById('adjustmentModal');
-    if (adjustmentModal) {
-        adjustmentModal.addEventListener('show.bs.modal', function(event) {
-            const button = event.relatedTarget;
-            const walletId = button.getAttribute('data-wallet-id');
-            const userName = button.getAttribute('data-user-name');
-            const balance = button.getAttribute('data-balance');
+    processPaymentButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            const userName = this.dataset.userName;
+            const balance = parseFloat(this.dataset.balance);
             
-            document.getElementById('adjustmentUserName').textContent = userName;
-            document.getElementById('adjustmentBalance').textContent = 'AED ' + parseFloat(balance).toLocaleString();
-            document.getElementById('adjustmentForm').action = `/dashboard/wallet/wallets/${walletId}/adjustment`;
+            // Set form action
+            processPaymentForm.action = `{{ route('dashboard.wallet.process-payment', '') }}/${userId}`;
+            
+            // Populate modal
+            document.getElementById('paymentUserName').textContent = userName;
+            document.getElementById('paymentBalance').textContent = `AED ${balance.toLocaleString()}`;
+            document.getElementById('paymentAmount').value = balance;
+            document.getElementById('paymentAmount').max = balance;
+            
+            // Show modal
+            new bootstrap.Modal(processPaymentModal).show();
         });
-    }
+    });
+    
+    // Process Payment Form validation
+    processPaymentForm.addEventListener('submit', function(e) {
+        const amount = parseFloat(document.getElementById('paymentAmount').value);
+        const maxAmount = parseFloat(document.getElementById('paymentAmount').max);
+        
+        if (amount > maxAmount) {
+            e.preventDefault();
+            alert('Amount cannot exceed available balance');
+            return false;
+        }
+        
+        return confirm('Are you sure you want to process this payment?');
+    });
+
+    // Adjustment Modal Handler
+    const adjustmentModal = document.getElementById('adjustmentModal');
+    const adjustmentForm = document.getElementById('adjustmentForm');
+    const adjustmentButtons = document.querySelectorAll('.adjustment-btn');
+    
+    adjustmentButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const walletId = this.dataset.walletId;
+            const userName = this.dataset.userName;
+            const balance = parseFloat(this.dataset.balance);
+            
+            // Set form action
+            adjustmentForm.action = `{{ route('dashboard.wallet.wallets.adjustment', '') }}/${walletId}`;
+            
+            // Populate modal
+            document.getElementById('adjustmentUserName').textContent = userName;
+            document.getElementById('adjustmentBalance').textContent = `AED ${balance.toLocaleString()}`;
+            
+            // Show modal
+            new bootstrap.Modal(adjustmentModal).show();
+        });
+    });
+    
+    // Adjustment Form validation
+    adjustmentForm.addEventListener('submit', function(e) {
+        const amount = parseFloat(document.getElementById('adjustmentAmount').value);
+        
+        if (amount === 0) {
+            e.preventDefault();
+            alert('Amount cannot be zero');
+            return false;
+        }
+        
+        const action = amount > 0 ? 'add funds to' : 'deduct funds from';
+        return confirm(`Are you sure you want to ${action} this wallet?`);
+    });
+
+    // Commission Modal Handler
+    const commissionModal = document.getElementById('commissionModal');
+    const commissionForm = document.getElementById('commissionForm');
+    const commissionButtons = document.querySelectorAll('.commission-btn');
+    
+    commissionButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const walletId = this.dataset.walletId;
+            const userName = this.dataset.userName;
+            const currentRate = parseFloat(this.dataset.currentRate);
+            
+            // Set form action
+            commissionForm.action = `{{ route('dashboard.wallet.wallets.commission-rate', '') }}/${walletId}`;
+            
+            // Populate modal
+            document.getElementById('commissionUserName').textContent = userName;
+            document.getElementById('commissionCurrentRate').textContent = `${currentRate}%`;
+            document.getElementById('commissionRate').value = currentRate;
+            
+            // Update help text if current rate equals default
+            const defaultRate = {{ $defaultRate }};
+            const helpText = document.getElementById('commissionRateHelp');
+            if (currentRate === defaultRate) {
+                helpText.innerHTML = 'Rate must be between {{ $minRate }}% and {{ $maxRate }}%<br><small class="text-success">Currently using platform default</small>';
+            } else {
+                helpText.innerHTML = 'Rate must be between {{ $minRate }}% and {{ $maxRate }}%<br><small class="text-muted">Platform default: {{ $defaultRate }}%</small>';
+            }
+            
+            // Show modal
+            new bootstrap.Modal(commissionModal).show();
+        });
+    });
+    
+    // Quick rate buttons handler
+    const quickRateButtons = document.querySelectorAll('.quick-rate-btn');
+    quickRateButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const rate = this.dataset.rate;
+            document.getElementById('commissionRate').value = rate;
+        });
+    });
+    
+    // Commission Form validation
+    commissionForm.addEventListener('submit', function(e) {
+        const rate = parseFloat(document.getElementById('commissionRate').value);
+        const minRate = {{ $minRate }};
+        const maxRate = {{ $maxRate }};
+        
+        if (rate < minRate || rate > maxRate) {
+            e.preventDefault();
+            alert(`Commission rate must be between ${minRate}% and ${maxRate}%`);
+            return false;
+        }
+        
+        return confirm('Are you sure you want to update the commission rate?');
+    });
 });
 </script>
-
-@endsection
+@endpush
