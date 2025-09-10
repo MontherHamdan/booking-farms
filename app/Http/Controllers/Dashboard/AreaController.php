@@ -70,7 +70,7 @@ class AreaController extends Controller
                 $query->orderBy('order', 'asc');
             }
             
-            $areas = $query->paginate(7);
+            $areas = $query->paginate(10);
             
             // Get cities for filter dropdown with their area counts
             $cities = City::published()->ordered()->withCount('areas')->get();

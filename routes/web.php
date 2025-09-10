@@ -5,6 +5,8 @@ use App\Http\Controllers\Dashboard\Auth\AuthController;
 use App\Http\Controllers\Dashboard\CouponController;
 use App\Http\Controllers\Dashboard\WalletController;
 use App\Http\Controllers\Dashboard\SettingsController;
+use App\Http\Controllers\Dashboard\FarmController;
+use App\Http\Controllers\Dashboard\BookingController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\Dashboard\CityController;
@@ -47,6 +49,48 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth'])->group(func
     Route::resource('coupons', CouponController::class);
     Route::get('coupons/{coupon}/usages', [CouponController::class, 'usages'])->name('coupons.usages');
     Route::patch('coupons/{coupon}/toggle-status', [CouponController::class, 'toggleStatus'])->name('coupons.toggle-status');
+    
+    // ═══════════════════════════════════════════════════════════════════════════════════
+    //                              FARM MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════════════════
+    
+    Route::prefix('farms')->name('farms.')->controller(FarmController::class)->group(function () {
+        // Main CRUD
+        Route::get('/', 'index')->name('index');
+        Route::get('/{farm}', 'show')->name('show');
+        Route::get('/{farm}/edit', 'edit')->name('edit');
+        Route::put('/{farm}', 'update')->name('update');
+        
+        // Status management
+        Route::post('/{farm}/status', 'updateStatus')->name('update-status');
+        Route::post('/bulk-status', 'bulkStatusUpdate')->name('bulk-status');
+        
+        // Image management
+        Route::delete('/{farm}/images/{image}', 'deleteImage')->name('delete-image');
+        
+        // AJAX endpoints
+        Route::get('/cities/{city}/areas', 'getAreasByCity')->name('areas-by-city');
+    });
+    
+    // ═══════════════════════════════════════════════════════════════════════════════════
+    //                              BOOKING MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════════════════
+    
+    Route::prefix('bookings')->name('bookings.')->controller(BookingController::class)->group(function () {
+        // Main CRUD
+        Route::get('/', 'index')->name('index');
+        Route::get('/{booking}', 'show')->name('show');
+        
+        // Status management
+        Route::post('/{booking}/status', 'updateStatus')->name('update-status');
+        
+        // Reports and analytics
+        Route::get('/reports/analytics', 'reports')->name('reports');
+        Route::get('/statistics', 'statistics')->name('statistics');
+        
+        // Export
+        Route::get('/export/csv', 'export')->name('export');
+    });
     
     // ═══════════════════════════════════════════════════════════════════════════════════
     //                              WALLET MANAGEMENT

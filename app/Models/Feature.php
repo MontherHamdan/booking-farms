@@ -29,4 +29,12 @@ class Feature extends Model
     {
         return $this->belongsToMany(Farm::class, 'farm_feature');
     }
+
+    /**
+     * Get areas ordered by the order column
+     */
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('order', 'asc');
+    }
 }

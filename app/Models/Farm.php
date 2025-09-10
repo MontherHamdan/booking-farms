@@ -196,6 +196,14 @@ class Farm extends Model
     }
 
     /**
+     * Get all bookings for the farm.
+     */
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(FarmBooking::class);
+    }
+
+    /**
      * Check if farm has a valid offer.
      */
     public function hasValidOffer(): bool
