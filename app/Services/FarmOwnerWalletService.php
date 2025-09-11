@@ -34,6 +34,7 @@ class FarmOwnerWalletService
 
     /**
      * Process earnings from a confirmed booking
+     * UPDATED: Handle deposit vs full payment correctly
      */
     public function processBookingEarning(FarmBooking $booking): array
     {
@@ -52,11 +53,11 @@ class FarmOwnerWalletService
             $farmOwner = $booking->farm->user;
             $wallet = $this->getOrCreateWallet($farmOwner->id);
 
-            // Calculate commission and earnings
-            $totalAmount = $booking->total_amount;
+            // UPDATED: Calculate earnings based on actual payment received
+            $actualPaidAmount = $this->getActualPaidAmount($booking);
             $commissionRate = $wallet->platform_commission_rate;
-            $commissionAmount = ($totalAmount * $commissionRate) / 100;
-            $farmOwnerEarning = $totalAmount - $commissionAmount;
+            $commissionAmount = ($actualPaidAmount * $commissionRate) / 100;
+            $farmOwnerEarning = $actualPaidAmount - $commissionAmount;
 
             // Update booking with earning details
             $booking->update([
@@ -70,11 +71,13 @@ class FarmOwnerWalletService
             // Add earning to wallet
             $transaction = $wallet->addFunds(
                 $farmOwnerEarning,
-                "Earning from booking #{$booking->booking_reference}",
+                $this->getEarningDescription($booking, $actualPaidAmount),
                 [
                     'booking_id' => $booking->id,
                     'booking_reference' => $booking->booking_reference,
-                    'total_amount' => $totalAmount,
+                    'total_booking_amount' => $booking->total_amount,
+                    'actual_paid_amount' => $actualPaidAmount, // NEW: track actual amount paid
+                    'payment_type' => $this->getPaymentTypeForEarning($booking), // NEW
                     'commission_rate' => $commissionRate,
                     'commission_amount' => $commissionAmount,
                     'farm_owner_earning' => $farmOwnerEarning,
@@ -91,13 +94,15 @@ class FarmOwnerWalletService
                 'amount' => -$commissionAmount, // Negative for platform commission
                 'balance_before' => $wallet->balance, // After earning was added
                 'balance_after' => $wallet->balance, // No change to wallet balance
-                'description' => "Platform commission for booking #{$booking->booking_reference}",
+                'description' => $this->getCommissionDescription($booking, $actualPaidAmount),
                 'status' => 'completed',
                 'metadata' => [
                     'booking_id' => $booking->id,
                     'booking_reference' => $booking->booking_reference,
                     'commission_rate' => $commissionRate,
-                    'total_booking_amount' => $totalAmount,
+                    'total_booking_amount' => $booking->total_amount,
+                    'actual_paid_amount' => $actualPaidAmount,
+                    'payment_type' => $this->getPaymentTypeForEarning($booking), 
                 ],
                 'processed_at' => now(),
             ]);
@@ -108,7 +113,9 @@ class FarmOwnerWalletService
                 'booking_id' => $booking->id,
                 'booking_reference' => $booking->booking_reference,
                 'farm_owner_id' => $farmOwner->id,
-                'total_amount' => $totalAmount,
+                'total_booking_amount' => $booking->total_amount,
+                'actual_paid_amount' => $actualPaidAmount, 
+                'payment_type' => $this->getPaymentTypeForEarning($booking), 
                 'commission_amount' => $commissionAmount,
                 'farm_owner_earning' => $farmOwnerEarning,
                 'new_wallet_balance' => $wallet->fresh()->balance,
@@ -116,7 +123,9 @@ class FarmOwnerWalletService
 
             return [
                 'success' => true,
-                'total_amount' => $totalAmount,
+                'total_booking_amount' => $booking->total_amount,
+                'actual_paid_amount' => $actualPaidAmount, 
+                'payment_type' => $this->getPaymentTypeForEarning($booking), 
                 'commission_rate' => $commissionRate,
                 'commission_amount' => $commissionAmount,
                 'farm_owner_earning' => $farmOwnerEarning,
@@ -135,6 +144,74 @@ class FarmOwnerWalletService
             
             throw $e;
         }
+    }
+
+        /**
+     * NEW: Get the actual amount paid for earning calculation
+     */
+    private function getActualPaidAmount(FarmBooking $booking): float
+    {
+        switch ($booking->payment_status) {
+            case FarmBooking::PAYMENT_STATUS_PAID:
+                // Full payment - use total amount
+                return $booking->total_amount;
+                
+            case FarmBooking::PAYMENT_STATUS_PARTIALLY_PAID:
+                // Deposit payment - use only deposit amount
+                return $booking->deposit_amount;
+                
+            default:
+                throw new \InvalidArgumentException(
+                    "Cannot calculate earnings for payment status: {$booking->payment_status}"
+                );
+        }
+    }
+
+    /**
+     * NEW: Get payment type description for earning
+     */
+    private function getPaymentTypeForEarning(FarmBooking $booking): string
+    {
+        switch ($booking->payment_status) {
+            case FarmBooking::PAYMENT_STATUS_PAID:
+                return $booking->payment_option === FarmBooking::PAYMENT_OPTION_DEPOSIT 
+                    ? 'full_payment_after_deposit' 
+                    : 'full_payment';
+                    
+            case FarmBooking::PAYMENT_STATUS_PARTIALLY_PAID:
+                return 'deposit_payment';
+                
+            default:
+                return 'unknown';
+        }
+    }
+
+    /**
+     * NEW: Get earning description based on payment type
+     */
+    private function getEarningDescription(FarmBooking $booking, float $actualPaidAmount): string
+    {
+        $baseDescription = "Earning from booking #{$booking->booking_reference}";
+        
+        if ($booking->payment_status === FarmBooking::PAYMENT_STATUS_PARTIALLY_PAID) {
+            return $baseDescription . " (Deposit: AED " . number_format($actualPaidAmount, 2) . ")";
+        }
+        
+        return $baseDescription . " (Full Payment: AED " . number_format($actualPaidAmount, 2) . ")";
+    }
+
+    /**
+     * NEW: Get commission description based on payment type
+     */
+    private function getCommissionDescription(FarmBooking $booking, float $actualPaidAmount): string
+    {
+        $baseDescription = "Platform commission for booking #{$booking->booking_reference}";
+        
+        if ($booking->payment_status === FarmBooking::PAYMENT_STATUS_PARTIALLY_PAID) {
+            return $baseDescription . " (Deposit: AED " . number_format($actualPaidAmount, 2) . ")";
+        }
+        
+        return $baseDescription . " (Full Payment: AED " . number_format($actualPaidAmount, 2) . ")";
     }
 
     /**
