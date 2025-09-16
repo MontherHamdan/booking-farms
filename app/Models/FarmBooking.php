@@ -41,12 +41,15 @@ class FarmBooking extends Model
         'customer_phone',
         'notes',
         'expires_at',
-        // NEW WALLET-RELATED FIELDS
+        // WALLET-RELATED FIELDS
         'platform_commission_rate',
         'platform_commission_amount', 
         'farm_owner_earning',
         'earnings_processed',
         'earnings_processed_at',
+        // NEW PENDING BALANCE FIELDS
+        'earnings_confirmed',
+        'earnings_confirmed_at',
     ];
 
     protected $casts = [
@@ -62,12 +65,15 @@ class FarmBooking extends Model
         'deposit_amount' => 'decimal:2',
         'remaining_amount' => 'decimal:2',
         'expires_at' => 'datetime',
-        // NEW WALLET-RELATED CASTS
+        // WALLET-RELATED CASTS
         'platform_commission_rate' => 'decimal:2',
         'platform_commission_amount' => 'decimal:2',
         'farm_owner_earning' => 'decimal:2',
         'earnings_processed' => 'boolean',
         'earnings_processed_at' => 'datetime',
+        // NEW PENDING BALANCE CASTS
+        'earnings_confirmed' => 'boolean',
+        'earnings_confirmed_at' => 'datetime',
     ];
 
     // PAYMENT STATUS CONSTANTS
@@ -191,6 +197,45 @@ class FarmBooking extends Model
     }
 
     /**
+     * Scope for bookings that need earnings processing
+     */
+    public function scopeNeedsEarningsProcessing($query)
+    {
+        return $query->where('booking_status', self::BOOKING_STATUS_CONFIRMED)
+                    ->where('earnings_processed', false)
+                    ->whereIn('payment_status', [
+                        self::PAYMENT_STATUS_PAID,
+                        self::PAYMENT_STATUS_PARTIALLY_PAID
+                    ]);
+    }
+
+    /**
+     * NEW: Scope for bookings that need earnings confirmation
+     */
+    public function scopeNeedsEarningsConfirmation($query)
+    {
+        return $query->where('booking_status', self::BOOKING_STATUS_COMPLETED)
+                    ->where('earnings_processed', true)
+                    ->where('earnings_confirmed', false);
+    }
+
+    /**
+     * Scope for bookings with processed earnings
+     */
+    public function scopeWithProcessedEarnings($query)
+    {
+        return $query->where('earnings_processed', true);
+    }
+
+    /**
+     * NEW: Scope for bookings with confirmed earnings
+     */
+    public function scopeWithConfirmedEarnings($query)
+    {
+        return $query->where('earnings_confirmed', true);
+    }
+
+    /**
      * BOOLEAN CHECKS
      */
     public function isExpired(): bool
@@ -244,6 +289,22 @@ class FarmBooking extends Model
         $bookingEndDateTime = Carbon::parse($this->end_date->format('Y-m-d') . ' ' . $this->end_time->format('H:i:s'));
         
         return now()->greaterThan($bookingEndDateTime);
+    }
+
+    /**
+     * Check if booking has processed earnings
+     */
+    public function hasProcessedEarnings(): bool
+    {
+        return $this->earnings_processed && $this->farm_owner_earning > 0;
+    }
+
+    /**
+     * NEW: Check if earnings have been confirmed
+     */
+    public function hasConfirmedEarnings(): bool
+    {
+        return $this->earnings_confirmed && $this->earnings_confirmed_at;
     }
 
     /**
@@ -367,6 +428,27 @@ class FarmBooking extends Model
     }
 
     /**
+     * Get commission percentage for display
+     */
+    public function getCommissionPercentageAttribute(): string
+    {
+        return $this->platform_commission_rate ? $this->platform_commission_rate . '%' : 'N/A';
+    }
+
+    /**
+     * Get net earning percentage (what farm owner gets)
+     */
+    public function getNetEarningPercentageAttribute(): string
+    {
+        if (!$this->platform_commission_rate) {
+            return 'N/A';
+        }
+        
+        $netPercentage = 100 - $this->platform_commission_rate;
+        return $netPercentage . '%';
+    }
+
+    /**
      * STATUS CHANGE METHODS
      */
     public function markAsPaid($paymentIntentId = null): void
@@ -444,14 +526,15 @@ class FarmBooking extends Model
         }
         
         $wasEarningsProcessed = $this->earnings_processed;
+        $wasEarningsConfirmed = $this->earnings_confirmed; // NEW: also check confirmed status
     
         $this->update([
             'booking_status' => self::BOOKING_STATUS_CANCELLED,
             // payment_status remains unchanged for refund processing
         ]);
         
-        // NEW FUNCTIONALITY - Process refund if earnings were already processed
-        if ($wasEarningsProcessed) {
+        // UPDATED: Process refund if earnings were already processed OR confirmed
+        if ($wasEarningsProcessed || $wasEarningsConfirmed) {
             try {
                 $walletService = app(\App\Services\FarmOwnerWalletService::class);
                 $walletService->processBookingRefund($this);
@@ -475,9 +558,6 @@ class FarmBooking extends Model
             return;
         }
 
-        $this->start_date = Carbon::parse(min($this->booking_dates));
-        $this->end_date = Carbon::parse(max($this->booking_dates));
-
         $pricing = $farm->pricing()->where('price_type', $this->price_type)->first();
         
         if (!$pricing) {
@@ -486,18 +566,54 @@ class FarmBooking extends Model
 
         switch ($this->price_type) {
             case self::PRICE_TYPE_DAY_USE:
-            case self::PRICE_TYPE_NIGHT:
+                // Day use: same date for start and end
+                $this->start_date = Carbon::parse(min($this->booking_dates));
+                $this->end_date = Carbon::parse(max($this->booking_dates));
                 $this->start_time = Carbon::parse($pricing->start_time);
                 $this->end_time = Carbon::parse($pricing->end_time);
                 break;
                 
+            case self::PRICE_TYPE_NIGHT:
+                // Night: start date is the selected date, end date is next day
+                $selectedDate = Carbon::parse($this->booking_dates[0]); // Night bookings have only 1 date
+                $this->start_date = $selectedDate;
+                
+                // Parse times
+                $startTime = Carbon::parse($pricing->start_time);
+                $endTime = Carbon::parse($pricing->end_time);
+                
+                // If end time is earlier than start time, it means it goes to next day
+                if ($endTime->format('H:i') < $startTime->format('H:i')) {
+                    $this->end_date = $selectedDate->copy()->addDay();
+                } else {
+                    // Same day night (unusual but possible)
+                    $this->end_date = $selectedDate;
+                }
+                
+                $this->start_time = $startTime;
+                $this->end_time = $endTime;
+                break;
+                
             case self::PRICE_TYPE_FULL_DAY:
+                // Full day: can be single day or date range
+                $this->start_date = Carbon::parse(min($this->booking_dates));
+                $this->end_date = Carbon::parse(max($this->booking_dates));
+                
                 $dayUsePricing = $farm->pricing()->where('price_type', self::PRICE_TYPE_DAY_USE)->first();
                 $nightPricing = $farm->pricing()->where('price_type', self::PRICE_TYPE_NIGHT)->first();
                 
                 if ($dayUsePricing && $nightPricing) {
                     $this->start_time = Carbon::parse($dayUsePricing->start_time);
                     $this->end_time = Carbon::parse($nightPricing->end_time);
+                    
+                    // For full day, if night ends on next day, adjust end_date accordingly
+                    $nightStart = Carbon::parse($nightPricing->start_time);
+                    $nightEnd = Carbon::parse($nightPricing->end_time);
+                    
+                    if ($nightEnd->format('H:i') < $nightStart->format('H:i')) {
+                        // Night goes to next day, so full day ends on the day after end_date
+                        $this->end_date = $this->end_date->addDay();
+                    }
                 } else {
                     $this->start_time = Carbon::parse('00:00');
                     $this->end_time = Carbon::parse('23:59');
@@ -531,6 +647,27 @@ class FarmBooking extends Model
     }
 
     /**
+     * NEW: Confirm earnings (move from pending to confirmed balance)
+     */
+    public function confirmEarnings(): void
+    {
+        if ($this->earnings_confirmed) {
+            throw new \InvalidArgumentException('Earnings already confirmed for this booking');
+        }
+
+        if (!$this->earnings_processed) {
+            throw new \InvalidArgumentException('Earnings must be processed before they can be confirmed');
+        }
+
+        if ($this->booking_status !== self::BOOKING_STATUS_COMPLETED) {
+            throw new \InvalidArgumentException('Only completed bookings can have earnings confirmed');
+        }
+
+        $walletService = app(\App\Services\FarmOwnerWalletService::class);
+        $walletService->confirmBookingEarning($this);
+    }
+
+    /**
      * Check if earnings should be processed automatically
      */
     public function shouldProcessEarnings(): bool
@@ -544,6 +681,16 @@ class FarmBooking extends Model
     }
 
     /**
+     * NEW: Check if earnings should be confirmed automatically
+     */
+    public function shouldConfirmEarnings(): bool
+    {
+        return $this->booking_status === self::BOOKING_STATUS_COMPLETED 
+            && $this->earnings_processed 
+            && !$this->earnings_confirmed;
+    }
+
+    /**
      * Get farm owner from booking
      */
     public function getFarmOwner(): ?User
@@ -552,15 +699,7 @@ class FarmBooking extends Model
     }
 
     /**
-     * Check if booking has processed earnings
-     */
-    public function hasProcessedEarnings(): bool
-    {
-        return $this->earnings_processed && $this->farm_owner_earning > 0;
-    }
-
-    /**
-     * Get earning breakdown
+     * Get earning breakdown (UPDATED)
      */
     public function getEarningBreakdown(): array
     {
@@ -571,49 +710,43 @@ class FarmBooking extends Model
             'farm_owner_earning' => $this->farm_owner_earning,
             'earnings_processed' => $this->earnings_processed,
             'earnings_processed_at' => $this->earnings_processed_at,
+            'earnings_confirmed' => $this->earnings_confirmed, // NEW
+            'earnings_confirmed_at' => $this->earnings_confirmed_at, // NEW
+            'earning_status' => $this->getEarningStatus(), // NEW
         ];
     }
 
     /**
-     * Scope for bookings that need earnings processing
+     * NEW: Get earning status for display
      */
-    public function scopeNeedsEarningsProcessing($query)
+    public function getEarningStatus(): string
     {
-        return $query->where('booking_status', self::BOOKING_STATUS_CONFIRMED)
-                    ->where('earnings_processed', false)
-                    ->whereIn('payment_status', [
-                        self::PAYMENT_STATUS_PAID,
-                        self::PAYMENT_STATUS_PARTIALLY_PAID
-                    ]);
-    }
-
-    /**
-     * Scope for bookings with processed earnings
-     */
-    public function scopeWithProcessedEarnings($query)
-    {
-        return $query->where('earnings_processed', true);
-    }
-
-    /**
-     * Get commission percentage for display
-     */
-    public function getCommissionPercentageAttribute(): string
-    {
-        return $this->platform_commission_rate ? $this->platform_commission_rate . '%' : 'N/A';
-    }
-
-    /**
-     * Get net earning percentage (what farm owner gets)
-     */
-    public function getNetEarningPercentageAttribute(): string
-    {
-        if (!$this->platform_commission_rate) {
-            return 'N/A';
+        if (!$this->earnings_processed) {
+            return 'not_processed';
         }
-        
-        $netPercentage = 100 - $this->platform_commission_rate;
-        return $netPercentage . '%';
+
+        if ($this->earnings_processed && !$this->earnings_confirmed) {
+            return 'pending_confirmation';
+        }
+
+        if ($this->earnings_confirmed) {
+            return 'confirmed';
+        }
+
+        return 'unknown';
+    }
+
+    /**
+     * NEW: Get earning status label
+     */
+    public function getEarningStatusLabel(): string
+    {
+        return match($this->getEarningStatus()) {
+            'not_processed' => 'Not Processed',
+            'pending_confirmation' => 'Pending Confirmation',
+            'confirmed' => 'Confirmed',
+            default => 'Unknown',
+        };
     }
 
     /**

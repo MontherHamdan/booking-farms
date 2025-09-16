@@ -18,6 +18,8 @@ class WalletTransaction extends Model
         'amount',
         'balance_before',
         'balance_after',
+        'pending_balance_before',
+        'pending_balance_after',
         'description',
         'status',
         'metadata',
@@ -29,18 +31,20 @@ class WalletTransaction extends Model
         'amount' => 'decimal:2',
         'balance_before' => 'decimal:2',
         'balance_after' => 'decimal:2',
+        'pending_balance_before' => 'decimal:2',
+        'pending_balance_after' => 'decimal:2',
         'metadata' => 'array',
         'processed_at' => 'datetime',
     ];
 
-    // Transaction Types
-    const TYPE_EARNING = 'earning';
-    const TYPE_COMMISSION = 'commission';
-    const TYPE_WITHDRAWAL = 'withdrawal';
-    const TYPE_REFUND = 'refund';
-    const TYPE_ADJUSTMENT = 'adjustment';
-    const TYPE_BONUS = 'bonus';
-    const TYPE_MANUAL_PAYMENT = 'manual_payment';
+    // CLEANED UP TRANSACTION TYPES - Remove old unused types
+    const TYPE_PENDING_EARNING = 'pending_earning';     // When booking confirmed (→ pending_balance)
+    const TYPE_EARNING_CONFIRMED = 'earning_confirmed'; // When booking completed (pending → balance)
+    const TYPE_COMMISSION = 'commission';               // Platform commission deduction
+    const TYPE_MANUAL_PAYMENT = 'manual_payment';      // Admin payment to farm owner
+    const TYPE_REFUND = 'refund';                      // Refund deduction
+    const TYPE_ADJUSTMENT = 'adjustment';              // Admin adjustment
+    const TYPE_BONUS = 'bonus';                        // Admin bonus
 
     // Transaction Status
     const STATUS_PENDING = 'pending';
@@ -73,19 +77,35 @@ class WalletTransaction extends Model
     }
 
     /**
-     * Check if transaction is earning type
+     * Check if transaction is any earning type
      */
     public function isEarning(): bool
     {
-        return $this->type === self::TYPE_EARNING;
+        return in_array($this->type, [self::TYPE_PENDING_EARNING, self::TYPE_EARNING_CONFIRMED]);
     }
 
     /**
-     * Check if transaction is withdrawal type
+     * Check if transaction is pending earning
      */
-    public function isWithdrawal(): bool
+    public function isPendingEarning(): bool
     {
-        return $this->type === self::TYPE_WITHDRAWAL;
+        return $this->type === self::TYPE_PENDING_EARNING;
+    }
+
+    /**
+     * Check if transaction is confirmed earning
+     */
+    public function isConfirmedEarning(): bool
+    {
+        return $this->type === self::TYPE_EARNING_CONFIRMED;
+    }
+
+    /**
+     * Check if transaction is manual payment (was withdrawal)
+     */
+    public function isManualPayment(): bool
+    {
+        return $this->type === self::TYPE_MANUAL_PAYMENT;
     }
 
     /**
@@ -105,22 +125,15 @@ class WalletTransaction extends Model
     }
 
     /**
-     * Check if transaction is pending
-     */
-    public function isPending(): bool
-    {
-        return $this->status === self::STATUS_PENDING;
-    }
-
-    /**
-     * Get transaction type label
+     * Get transaction type label - UPDATED
      */
     public function getTypeLabel(): string
     {
         return match($this->type) {
-            self::TYPE_EARNING => 'Booking Earning',
+            self::TYPE_PENDING_EARNING => 'Pending Earning',
+            self::TYPE_EARNING_CONFIRMED => 'Confirmed Earning',
             self::TYPE_COMMISSION => 'Platform Commission',
-            self::TYPE_WITHDRAWAL => 'Withdrawal',
+            self::TYPE_MANUAL_PAYMENT => 'Payment',
             self::TYPE_REFUND => 'Refund Deduction',
             self::TYPE_ADJUSTMENT => 'Admin Adjustment',
             self::TYPE_BONUS => 'Bonus',
@@ -152,23 +165,18 @@ class WalletTransaction extends Model
     }
 
     /**
-     * Check if transaction increases balance
+     * Check if transaction affects pending balance
      */
-    public function increasesBalance(): bool
+    public function affectsPendingBalance(): bool
     {
-        return $this->amount > 0;
+        return in_array($this->type, [
+            self::TYPE_PENDING_EARNING,
+            self::TYPE_EARNING_CONFIRMED
+        ]);
     }
 
     /**
-     * Check if transaction decreases balance
-     */
-    public function decreasesBalance(): bool
-    {
-        return $this->amount < 0;
-    }
-
-    /**
-     * Scopes
+     * UPDATED SCOPES - Remove references to old types
      */
     public function scopeCompleted($query)
     {
@@ -182,12 +190,22 @@ class WalletTransaction extends Model
 
     public function scopeEarnings($query)
     {
-        return $query->where('type', self::TYPE_EARNING);
+        return $query->whereIn('type', [self::TYPE_PENDING_EARNING, self::TYPE_EARNING_CONFIRMED]);
     }
 
-    public function scopeWithdrawals($query)
+    public function scopePendingEarnings($query)
     {
-        return $query->where('type', self::TYPE_WITHDRAWAL);
+        return $query->where('type', self::TYPE_PENDING_EARNING);
+    }
+
+    public function scopeConfirmedEarnings($query)
+    {
+        return $query->where('type', self::TYPE_EARNING_CONFIRMED);
+    }
+
+    public function scopeManualPayments($query)
+    {
+        return $query->where('type', self::TYPE_MANUAL_PAYMENT);
     }
 
     public function scopeCommissions($query)

@@ -2,6 +2,24 @@
     <div class="h-100" data-simplebar>
         <!-- User box -->
         <div class="user-box text-center">
+            @if(Auth::user()->avatar)
+               <img src="{{ Auth::user()->avatar }}" alt="user-img" title="{{ Auth::user()->name }}"
+                   class="rounded-circle img-thumbnail avatar-md">
+           @else
+               @php
+                   // Split the name into parts and extract up to two initials
+                   $nameParts = explode(' ', Auth::user()->name);
+                   $initials = collect($nameParts)
+                       ->filter(fn($part) => strlen($part) > 0)
+                       ->take(2)
+                       ->map(fn($part) => strtoupper(substr($part, 0, 1)))
+                       ->implode('');
+               @endphp
+               <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-secondary text-white avatar-md" 
+                   style="width: 50px; height: 50px; font-weight: 400; font-size: 1rem;">
+                   {{ $initials ?: 'U' }}
+               </div>
+           @endif
             <h5 class="mt-2 mb-1 d-block">Admin</h5>
             <p class="text-muted left-user-info">Backend</p>
             

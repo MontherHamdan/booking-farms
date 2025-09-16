@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Traits\LogErrorAndRedirectTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 
 class BookingController extends Controller
@@ -135,6 +136,413 @@ class BookingController extends Controller
                 ->with('error', 'Booking not found or error occurred.');
         }
     }
+    
+    /**
+     * Show the form for editing the specified booking.
+     */
+    public function edit($id)
+    {
+        try {
+            $booking = FarmBooking::with([
+                'farm.user', 'farm.city', 'farm.area', 'farm.pricing',
+                'user', 'coupon'
+            ])->findOrFail($id);
+            
+            // Get available farms for potential reassignment (admin only)
+            $farms = Farm::with(['city', 'area'])
+                ->where('status', 'approved')
+                ->orderBy('name_en')
+                ->get();
+            
+            return view('admin.bookings.edit', compact('booking', 'farms'));
+        } catch (\Exception $e) {
+            $this->logErrorAndRedirect($e, 'Error loading booking edit form: ');
+            return redirect()->route('dashboard.bookings.index')
+                ->with('error', 'Booking not found or error occurred.');
+        }
+    }
+    
+    /**
+     * Update the specified booking.
+     */
+    public function update(Request $request, $id)
+    {
+        try {
+            $booking = FarmBooking::with(['farm', 'user'])->findOrFail($id);
+            $originalBooking = clone $booking;
+            
+            $validated = $request->validate([
+                // Customer Information
+                'customer_name' => 'nullable|string|max:255',
+                'customer_email' => 'nullable|email|max:255',
+                'customer_phone' => 'nullable|string|max:20',
+                
+                // Booking Details
+                'guest_count' => 'required|integer|min:1|max:100',
+                'notes' => 'nullable|string|max:1000',
+                
+                // Dates and Times (for display, actual changes would need price recalculation)
+                'start_date' => 'required|date',
+                'end_date' => 'required|date|after_or_equal:start_date',
+                'start_time' => 'nullable|date_format:H:i',
+                'end_time' => 'nullable|date_format:H:i',
+                
+                // Status Updates
+                'booking_status' => [
+                    'required', 
+                    Rule::in(['pending', 'confirmed', 'cancelled', 'failed', 'completed'])
+                ],
+                'payment_status' => [
+                    'required', 
+                    Rule::in(['pending', 'paid', 'partially_paid', 'failed', 'expired', 'refunded'])
+                ],
+                
+                // Admin-only fields
+                'farm_id' => 'sometimes|exists:farms,id',
+                
+                // Update reason
+                'update_reason' => 'required|string|max:500',
+            ]);
+            
+            // Track changes for logging
+            $changes = [];
+            $criticalChanges = false;
+            
+            // Update basic fields
+            foreach (['customer_name', 'customer_email', 'customer_phone', 'guest_count', 'notes'] as $field) {
+                if (isset($validated[$field]) && $booking->$field !== $validated[$field]) {
+                    $changes[$field] = [
+                        'old' => $booking->$field,
+                        'new' => $validated[$field]
+                    ];
+                    $booking->$field = $validated[$field];
+                }
+            }
+            
+            // Handle date/time changes (requires careful handling)
+            if (isset($validated['start_date']) && $booking->start_date?->format('Y-m-d') !== $validated['start_date']) {
+                $changes['start_date'] = [
+                    'old' => $booking->start_date?->format('Y-m-d'),
+                    'new' => $validated['start_date']
+                ];
+                $booking->start_date = Carbon::parse($validated['start_date']);
+                $criticalChanges = true;
+            }
+            
+            if (isset($validated['end_date']) && $booking->end_date?->format('Y-m-d') !== $validated['end_date']) {
+                $changes['end_date'] = [
+                    'old' => $booking->end_date?->format('Y-m-d'),
+                    'new' => $validated['end_date']
+                ];
+                $booking->end_date = Carbon::parse($validated['end_date']);
+                $criticalChanges = true;
+            }
+            
+            // Handle time changes
+            if (isset($validated['start_time'])) {
+                $newStartTime = Carbon::parse($validated['start_time'])->format('H:i:s');
+                if ($booking->start_time?->format('H:i:s') !== $newStartTime) {
+                    $changes['start_time'] = [
+                        'old' => $booking->start_time?->format('H:i'),
+                        'new' => Carbon::parse($validated['start_time'])->format('H:i')
+                    ];
+                    $booking->start_time = Carbon::parse($validated['start_time']);
+                }
+            }
+            
+            if (isset($validated['end_time'])) {
+                $newEndTime = Carbon::parse($validated['end_time'])->format('H:i:s');
+                if ($booking->end_time?->format('H:i:s') !== $newEndTime) {
+                    $changes['end_time'] = [
+                        'old' => $booking->end_time?->format('H:i'),
+                        'new' => Carbon::parse($validated['end_time'])->format('H:i')
+                    ];
+                    $booking->end_time = Carbon::parse($validated['end_time']);
+                }
+            }
+            
+            // Handle status changes with business logic
+            $oldBookingStatus = $booking->booking_status;
+            $oldPaymentStatus = $booking->payment_status;
+            
+            if ($validated['booking_status'] !== $oldBookingStatus) {
+                $changes['booking_status'] = [
+                    'old' => $oldBookingStatus,
+                    'new' => $validated['booking_status']
+                ];
+                
+                // Apply business logic for status changes
+                $this->handleBookingStatusChange($booking, $validated['booking_status'], $oldBookingStatus);
+                $criticalChanges = true;
+            }
+            
+            if ($validated['payment_status'] !== $oldPaymentStatus) {
+                $changes['payment_status'] = [
+                    'old' => $oldPaymentStatus,
+                    'new' => $validated['payment_status']
+                ];
+                
+                // Apply business logic for payment status changes
+                $this->handlePaymentStatusChange($booking, $validated['payment_status'], $oldPaymentStatus);
+                $criticalChanges = true;
+            }
+            
+            // Handle farm change (admin only - very critical)
+            if (isset($validated['farm_id']) && $booking->farm_id !== $validated['farm_id']) {
+                $oldFarm = $booking->farm;
+                $newFarm = Farm::find($validated['farm_id']);
+                
+                if ($newFarm) {
+                    $changes['farm_id'] = [
+                        'old' => $oldFarm->name_en ?: $oldFarm->name_ar,
+                        'new' => $newFarm->name_en ?: $newFarm->name_ar
+                    ];
+                    $booking->farm_id = $validated['farm_id'];
+                    $criticalChanges = true;
+                }
+            }
+            
+            // Update booking dates array if dates changed
+            if (isset($changes['start_date']) || isset($changes['end_date'])) {
+                $booking->booking_dates = $this->generateBookingDatesArray(
+                    $booking->start_date,
+                    $booking->end_date
+                );
+            }
+            
+            // Save the booking
+            $booking->save();
+            
+            // Log the update
+            \Log::info('Booking updated by admin', [
+                'booking_id' => $booking->id,
+                'booking_reference' => $booking->booking_reference,
+                'admin_id' => auth()->id(),
+                'changes' => $changes,
+                'critical_changes' => $criticalChanges,
+                'update_reason' => $validated['update_reason']
+            ]);
+            
+            $message = 'Booking updated successfully.';
+            if ($criticalChanges) {
+                $message .= ' Critical changes were made - please review the booking details.';
+            }
+            
+            return redirect()->route('dashboard.bookings.show', $booking->id)
+                ->with('success', $message);
+                
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput();
+        } catch (\Exception $e) {
+            $this->logErrorAndRedirect($e, 'Error updating booking: ');
+            
+            return redirect()->back()
+                ->with('error', 'Error updating booking. Please try again.')
+                ->withInput();
+        }
+    }
+    
+    /**
+     * Handle booking status changes with business logic
+     */
+    private function handleBookingStatusChange(FarmBooking $booking, string $newStatus, string $oldStatus): void
+    {
+        switch ($newStatus) {
+            case 'confirmed':
+                if ($oldStatus === 'pending') {
+                    // Auto-process earnings if payment is already made
+                    if (in_array($booking->payment_status, ['paid', 'partially_paid']) && !$booking->earnings_processed) {
+                        try {
+                            $booking->processEarnings();
+                        } catch (\Exception $e) {
+                            \Log::error('Failed to auto-process earnings during status change', [
+                                'booking_id' => $booking->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+                }
+                break;
+                
+            case 'cancelled':
+                // Handle cancellation logic
+                if ($booking->earnings_processed || $booking->earnings_confirmed) {
+                    try {
+                        $walletService = app(\App\Services\FarmOwnerWalletService::class);
+                        $walletService->processBookingRefund($booking);
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to process refund during status change', [
+                            'booking_id' => $booking->id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
+                break;
+                
+            case 'completed':
+                // Auto-confirm earnings if they're processed but not confirmed
+                if ($booking->earnings_processed && !$booking->earnings_confirmed) {
+                    try {
+                        $booking->confirmEarnings();
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to auto-confirm earnings during completion', [
+                            'booking_id' => $booking->id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
+                break;
+        }
+        
+        $booking->booking_status = $newStatus;
+    }
+    
+    /**
+     * Handle payment status changes with business logic
+     */
+    private function handlePaymentStatusChange(FarmBooking $booking, string $newStatus, string $oldStatus): void
+    {
+        switch ($newStatus) {
+            case 'paid':
+                // If booking is confirmed and earnings not processed, process them
+                if ($booking->booking_status === 'confirmed' && !$booking->earnings_processed) {
+                    try {
+                        $booking->processEarnings();
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to auto-process earnings during payment status change', [
+                            'booking_id' => $booking->id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
+                
+                // Reset remaining amount for full payment
+                $booking->remaining_amount = 0;
+                break;
+                
+            case 'partially_paid':
+                // Set remaining amount if it's a deposit payment
+                if ($booking->hasDepositPayment()) {
+                    $booking->remaining_amount = $booking->total_amount - $booking->deposit_amount;
+                }
+                break;
+                
+            case 'refunded':
+                // Handle refund logic if needed
+                break;
+        }
+        
+        $booking->payment_status = $newStatus;
+    }
+    
+    /**
+     * Generate booking dates array from start and end dates
+     */
+    private function generateBookingDatesArray(Carbon $startDate, Carbon $endDate): array
+    {
+        $dates = [];
+        $currentDate = $startDate->copy();
+        
+        while ($currentDate->lte($endDate)) {
+            $dates[] = $currentDate->format('Y-m-d');
+            $currentDate->addDay();
+        }
+        
+        return $dates;
+    }
+    
+    /**
+     * Update booking status (enhanced version).
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        try {
+            $booking = FarmBooking::findOrFail($id);
+            
+            $request->validate([
+                'status' => 'required|in:pending,confirmed,cancelled,failed,completed',
+                'reason' => 'nullable|string|max:500'
+            ]);
+            
+            $oldStatus = $booking->booking_status;
+            $newStatus = $request->status;
+            
+            // Handle different status changes
+            switch ($newStatus) {
+                case 'cancelled':
+                    $booking->cancel();
+                    break;
+                    
+                case 'confirmed':
+                    $booking->booking_status = 'confirmed';
+                    // Auto-process earnings if payment is made
+                    if (in_array($booking->payment_status, ['paid', 'partially_paid']) && !$booking->earnings_processed) {
+                        try {
+                            $booking->processEarnings();
+                        } catch (\Exception $e) {
+                            \Log::error('Failed to auto-process earnings during confirmation', [
+                                'booking_id' => $booking->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+                    $booking->save();
+                    break;
+                    
+                case 'completed':
+                    $booking->booking_status = 'completed';
+                    // Auto-confirm earnings if they're processed
+                    if ($booking->earnings_processed && !$booking->earnings_confirmed) {
+                        try {
+                            $booking->confirmEarnings();
+                        } catch (\Exception $e) {
+                            \Log::error('Failed to auto-confirm earnings during completion', [
+                                'booking_id' => $booking->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+                    $booking->save();
+                    break;
+                    
+                case 'failed':
+                    $booking->markAsFailed();
+                    break;
+                    
+                case 'pending':
+                    $booking->booking_status = 'pending';
+                    $booking->save();
+                    break;
+                    
+                default:
+                    $booking->booking_status = $newStatus;
+                    $booking->save();
+            }
+            
+            // Log the status change
+            \Log::info('Booking status updated by admin', [
+                'booking_id' => $booking->id,
+                'booking_reference' => $booking->booking_reference,
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
+                'admin_id' => auth()->id(),
+                'reason' => $request->reason
+            ]);
+            
+            return redirect()->back()
+                ->with('success', "Booking status updated to {$newStatus}.");
+                
+        } catch (\Exception $e) {
+            $this->logErrorAndRedirect($e, 'Error updating booking status: ');
+            
+            return redirect()->back()
+                ->with('error', 'Error updating booking status. Please try again.');
+        }
+    }
+
+    // ... (rest of the existing methods: statistics, export, reports remain unchanged)
     
     /**
      * Get booking statistics for dashboard.
@@ -294,49 +702,6 @@ class BookingController extends Controller
         } catch (\Exception $e) {
             $this->logErrorAndRedirect($e, 'Error exporting bookings: ');
             return redirect()->back()->with('error', 'Error exporting bookings.');
-        }
-    }
-    
-    /**
-     * Update booking status (for admin actions).
-     */
-    public function updateStatus(Request $request, $id)
-    {
-        try {
-            $booking = FarmBooking::findOrFail($id);
-            
-            $request->validate([
-                'status' => 'required|in:confirmed,cancelled,failed',
-                'reason' => 'nullable|string|max:500'
-            ]);
-            
-            $oldStatus = $booking->booking_status;
-            
-            if ($request->status === 'cancelled') {
-                $booking->cancel();
-            } else {
-                $booking->booking_status = $request->status;
-                $booking->save();
-            }
-            
-            // Log the status change
-            \Log::info('Booking status updated by admin', [
-                'booking_id' => $booking->id,
-                'booking_reference' => $booking->booking_reference,
-                'old_status' => $oldStatus,
-                'new_status' => $request->status,
-                'admin_id' => auth()->id(),
-                'reason' => $request->reason
-            ]);
-            
-            return redirect()->back()
-                ->with('success', "Booking status updated to {$request->status}.");
-                
-        } catch (\Exception $e) {
-            $this->logErrorAndRedirect($e, 'Error updating booking status: ');
-            
-            return redirect()->back()
-                ->with('error', 'Error updating booking status. Please try again.');
         }
     }
     

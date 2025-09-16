@@ -4,38 +4,31 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\FarmBooking;
-use Carbon\Carbon;
+use App\Services\FarmOwnerWalletService;
 use Exception;
+use Carbon\Carbon;
 
 class CompleteBookingsCommand extends Command
 {
-    /**
-     * The name and signature of the console command.
-     */
     protected $signature = 'bookings:complete {--limit=100 : Maximum number of bookings to process}';
+    protected $description = 'Mark confirmed bookings as completed and confirm their earnings';
 
-    /**
-     * The console command description.
-     */
-    protected $description = 'Mark confirmed bookings as completed when their time period has ended';
+    protected FarmOwnerWalletService $walletService;
 
-    /**
-     * Execute the console command.
-     */
+    public function __construct(FarmOwnerWalletService $walletService)
+    {
+        parent::__construct();
+        $this->walletService = $walletService;
+    }
+
     public function handle()
     {
         $limit = (int) $this->option('limit');
         
-        $this->info("Starting to complete expired bookings (limit: {$limit})...");
+        $this->info("Starting to complete expired bookings and confirm earnings (limit: {$limit})...");
         
-        // Get confirmed bookings that have ended
-        $bookingsToComplete = FarmBooking::with(['farm.pricing'])
-                                        ->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
-                                        ->limit($limit)
-                                        ->get()
-                                        ->filter(function ($booking) {
-                                            return $booking->hasEnded();
-                                        });
+        // IMPROVED: Filter at database level instead of in PHP memory
+        $bookingsToComplete = $this->getEndedBookings($limit);
         
         if ($bookingsToComplete->isEmpty()) {
             $this->info('No bookings found that need to be completed.');
@@ -45,17 +38,27 @@ class CompleteBookingsCommand extends Command
         $this->info("Found {$bookingsToComplete->count()} bookings to complete.");
         
         $completed = 0;
+        $earningsConfirmed = 0;
         $failed = 0;
+        
         $progressBar = $this->output->createProgressBar($bookingsToComplete->count());
         $progressBar->start();
 
         foreach ($bookingsToComplete as $booking) {
             try {
-                $this->completeBooking($booking);
-                $completed++;
+                $result = $this->completeBookingWithEarnings($booking);
+                
+                if ($result['completed']) {
+                    $completed++;
+                }
+                
+                if ($result['earnings_confirmed']) {
+                    $earningsConfirmed++;
+                }
                 
                 $this->newLine();
-                $this->line("✅ Completed: {$booking->booking_reference} - Farm: {$booking->farm->name_en}");
+                $this->line("✅ Completed: {$booking->booking_reference} - Farm: {$booking->farm->name_en}" . 
+                          ($result['earnings_confirmed'] ? ' (Earnings Confirmed)' : ''));
                 
             } catch (Exception $e) {
                 $failed++;
@@ -63,7 +66,6 @@ class CompleteBookingsCommand extends Command
                 $this->newLine();
                 $this->error("❌ Failed: {$booking->booking_reference} - Error: {$e->getMessage()}");
                 
-                // Log the error for debugging
                 \Log::error('Command failed to complete booking', [
                     'booking_id' => $booking->id,
                     'booking_reference' => $booking->booking_reference,
@@ -83,7 +85,8 @@ class CompleteBookingsCommand extends Command
         $this->table(
             ['Status', 'Count'],
             [
-                ['Completed Successfully', $completed],
+                ['Bookings Completed', $completed],
+                ['Earnings Confirmed', $earningsConfirmed],
                 ['Failed', $failed],
                 ['Total Processed', $completed + $failed],
             ]
@@ -98,16 +101,61 @@ class CompleteBookingsCommand extends Command
     }
 
     /**
-     * Complete a booking and handle related processes
+     * IMPROVED: Get ended bookings using database-level filtering
+     * Replicates the exact logic from FarmBooking::hasEnded() method
      */
-    private function completeBooking(FarmBooking $booking): void
+    private function getEndedBookings(int $limit)
+    {
+        $now = Carbon::now();
+        
+        return FarmBooking::with(['farm.pricing', 'farm.user'])
+            ->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
+            // Exact replica of hasEnded() logic at database level
+            ->whereNotNull('end_date')     // Must have end_date
+            ->whereNotNull('end_time')     // Must have end_time  
+            ->whereRaw('CONCAT(end_date, " ", TIME_FORMAT(end_time, "%H:%i:%s")) < ?', [$now])
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * Complete a booking and confirm its earnings
+     */
+    private function completeBookingWithEarnings(FarmBooking $booking): array
     {
         $oldStatus = $booking->booking_status;
+        $earningsWereProcessed = $booking->earnings_processed;
+        $earningsWereConfirmed = $booking->earnings_confirmed;
         
-        // Update booking status
+        // Mark booking as completed
         $booking->update([
             'booking_status' => FarmBooking::BOOKING_STATUS_COMPLETED
         ]);
+
+        $result = [
+            'completed' => true,
+            'earnings_confirmed' => false,
+        ];
+
+        // Confirm earnings if they were processed but not yet confirmed
+        if ($earningsWereProcessed && !$earningsWereConfirmed) {
+            try {
+                $confirmationResult = $this->walletService->confirmBookingEarning($booking);
+                $result['earnings_confirmed'] = true;
+                $result['earnings_amount'] = $confirmationResult['earning_amount'];
+                
+                $this->line("  💰 Earnings confirmed: AED {$confirmationResult['earning_amount']} moved to balance");
+                
+            } catch (Exception $e) {
+                \Log::error('Failed to confirm earnings for completed booking', [
+                    'booking_id' => $booking->id,
+                    'booking_reference' => $booking->booking_reference,
+                    'error' => $e->getMessage(),
+                ]);
+                
+                $this->warn("  ⚠️  Earnings confirmation failed for {$booking->booking_reference}: {$e->getMessage()}");
+            }
+        }
 
         // Log the completion
         \Log::info('Booking completed automatically', [
@@ -117,58 +165,12 @@ class CompleteBookingsCommand extends Command
             'customer_name' => $booking->customer_name,
             'old_status' => $oldStatus,
             'new_status' => FarmBooking::BOOKING_STATUS_COMPLETED,
+            'earnings_processed' => $earningsWereProcessed,
+            'earnings_confirmed' => $result['earnings_confirmed'],
+            'earnings_amount' => $result['earnings_amount'] ?? null,
             'end_datetime_passed' => true,
         ]);
 
-        // TODO: Send completion notification to customer
-        // $this->sendCustomerCompletionNotification($booking);
-        
-        // TODO: Send completion notification to farm owner  
-        // $this->sendFarmOwnerCompletionNotification($booking);
-        
-        // TODO: Trigger any post-completion processes (reviews, etc.)
-        // $this->triggerPostCompletionProcesses($booking);
+        return $result;
     }
-
-    // TODO: Implement notification methods when email system is ready
-    
-    /**
-     * Send completion notification to customer
-     * 
-     * @param FarmBooking $booking
-     */
-    // private function sendCustomerCompletionNotification(FarmBooking $booking): void
-    // {
-    //     // TODO: Implement customer notification
-    //     // - Thank customer for choosing the farm
-    //     // - Ask for review/rating
-    //     // - Provide support contact if needed
-    // }
-
-    /**
-     * Send completion notification to farm owner
-     * 
-     * @param FarmBooking $booking  
-     */
-    // private function sendFarmOwnerCompletionNotification(FarmBooking $booking): void
-    // {
-    //     // TODO: Implement farm owner notification
-    //     // - Notify that booking was completed successfully
-    //     // - Provide booking summary
-    //     // - Earnings information if relevant
-    // }
-
-    /**
-     * Trigger post-completion processes
-     * 
-     * @param FarmBooking $booking
-     */
-    // private function triggerPostCompletionProcesses(FarmBooking $booking): void
-    // {
-    //     // TODO: Implement post-completion logic
-    //     // - Enable review/rating for customer
-    //     // - Update farm availability if needed
-    //     // - Analytics tracking
-    //     // - Integration with other systems
-    // }
 }

@@ -16,56 +16,63 @@
     </div>
 </div>
 
-<!-- Summary Cards -->
+<!-- Enhanced Summary Cards -->
 <div class="row">
     <div class="col-lg-3 col-md-6">
-        <div class="card">
+        <div class="card border-0 bg-success-subtle">
+            <div class="card-body text-center">
+                <i class="mdi mdi-cash-check text-success" style="font-size: 24px;"></i>
+                <h3 class="mt-2 mb-1 text-success">{{ $pendingData['summary']['ready_for_payment'] }}</h3>
+                <p class="text-muted mb-0">Ready for Payment</p>
+                <small class="text-success">
+                    <i class="mdi mdi-check-circle me-1"></i>All conditions met
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="card border-0 bg-info-subtle">
+            <div class="card-body text-center">
+                <i class="mdi mdi-cash-usd text-info" style="font-size: 24px;"></i>
+                <h3 class="mt-2 mb-1 text-info">AED {{ number_format($pendingData['summary']['total_ready_amount'], 2) }}</h3>
+                <p class="text-muted mb-0">Ready Amount</p>
+                <small class="text-info">Confirmed balance only</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="card border-0 bg-warning-subtle">
             <div class="card-body text-center">
                 <i class="mdi mdi-clock-outline text-warning" style="font-size: 24px;"></i>
-                <h3 class="mt-2 mb-1 text-warning">{{ $pendingData['summary']['ready_for_payment'] }}</h3>
-                <p class="text-muted mb-0">Ready for Payment</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-        <div class="card">
-            <div class="card-body text-center">
-                <i class="mdi mdi-cash-usd text-success" style="font-size: 24px;"></i>
-                <h3 class="mt-2 mb-1 text-success">AED {{ number_format($pendingData['summary']['total_ready_amount'], 2) }}</h3>
-                <p class="text-muted mb-0">Ready Amount</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-        <div class="card">
-            <div class="card-body text-center">
-                <i class="mdi mdi-account-multiple text-info" style="font-size: 24px;"></i>
-                <h3 class="mt-2 mb-1 text-info">{{ $pendingData['summary']['eligible_but_not_ready'] }}</h3>
+                <h3 class="mt-2 mb-1 text-warning">{{ $pendingData['summary']['eligible_but_not_ready'] }}</h3>
                 <p class="text-muted mb-0">Not Ready Yet</p>
+                <small class="text-warning">Waiting for frequency</small>
             </div>
         </div>
     </div>
     <div class="col-lg-3 col-md-6">
-        <div class="card">
+        <div class="card border-0 bg-danger-subtle">
             <div class="card-body text-center">
                 <i class="mdi mdi-bank-off text-danger" style="font-size: 24px;"></i>
                 <h3 class="mt-2 mb-1 text-danger">{{ $pendingData['summary']['missing_bank_accounts'] }}</h3>
                 <p class="text-muted mb-0">Missing Bank Info</p>
+                <small class="text-danger">Action required</small>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Settings Info -->
+<!-- Enhanced Settings Info -->
 <div class="row">
     <div class="col-12">
         <div class="alert alert-info">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <i class="mdi mdi-information me-2"></i>
-                    <strong>Settings:</strong> 
-                    Transfers every {{ $pendingData['settings']['transfer_frequency_days'] }} days | 
-                    Minimum: AED {{ number_format($pendingData['settings']['minimum_transfer_amount'], 2) }}
+                    <strong>Payment Settings:</strong> 
+                    Transfers every <span class="badge bg-primary">{{ $pendingData['settings']['transfer_frequency_days'] }} days</span> | 
+                    Minimum amount: <span class="badge bg-success">AED {{ number_format($pendingData['settings']['minimum_transfer_amount'], 2) }}</span> |
+                    Only <span class="badge bg-warning">confirmed balance</span> can be paid out
                 </div>
                 <a href="{{ route('dashboard.settings.index') }}" class="btn btn-sm btn-outline-primary">
                     <i class="mdi mdi-cog me-1"></i> Settings
@@ -118,7 +125,7 @@
                         <span class="badge bg-success">{{ $readyForPayment->count() }}</span>
                     </h5>
                     <div>
-                        <span class="text-muted">Total: </span>
+                        <span class="text-muted">Total Confirmed: </span>
                         <span class="fw-bold text-success">AED {{ number_format($readyForPayment->sum('balance'), 2) }}</span>
                     </div>
                 </div>
@@ -128,7 +135,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Farm Owner</th>
-                                <th>Balance</th>
+                                <th>Balance Details</th>
                                 <th>Bank Account</th>
                                 <th>Last Payment</th>
                                 <th>Days Since</th>
@@ -157,25 +164,53 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="fw-bold text-success">AED {{ number_format($item['balance'], 2) }}</span>
-                                    <br><small class="text-muted">Earned: AED {{ number_format($item['total_earned'], 2) }}</small>
+                                    {{-- Confirmed Balance --}}
+                                    <div class="fw-bold text-success">
+                                        <i class="mdi mdi-cash-check me-1"></i>
+                                        AED {{ number_format($item['balance'], 2) }}
+                                    </div>
+                                    <small class="text-success">Confirmed & ready</small>
+                                    
+                                    {{-- Pending Balance (if exists) --}}
+                                    @if(isset($item['pending_balance']) && $item['pending_balance'] > 0)
+                                    <br><small class="text-warning">
+                                        <i class="mdi mdi-clock-outline me-1"></i>
+                                        +AED {{ number_format($item['pending_balance'], 2) }} pending
+                                    </small>
+                                    @endif
+                                    
+                                    {{-- Total Earned Reference --}}
+                                    <br><small class="text-muted">
+                                        Total earned: AED {{ number_format($item['total_earned'], 2) }}
+                                    </small>
                                 </td>
                                 <td>
                                     @if($item['has_bank_account'])
-                                        <span class="badge bg-success">{{ $item['bank_account']['account_type_label'] ?? 'Bank Account' }}</span>
+                                        <span class="badge bg-success">
+                                            <i class="mdi mdi-bank me-1"></i>
+                                            {{ $item['bank_account']['account_type_label'] ?? 'Bank Account' }}
+                                        </span>
+                                        <br><small class="text-success mt-1">Verified & ready</small>
                                     @else
-                                        <span class="badge bg-danger">No Bank Account</span>
+                                        <span class="badge bg-danger">
+                                            <i class="mdi mdi-bank-off me-1"></i>
+                                            No Bank Account
+                                        </span>
+                                        <br><small class="text-danger mt-1">Setup required</small>
                                     @endif
                                 </td>
                                 <td>
                                     @if($item['last_payment_at'])
-                                        <small>{{ \Carbon\Carbon::parse($item['last_payment_at'])->format('M d, Y') }}</small>
+                                        <div class="fw-bold">{{ \Carbon\Carbon::parse($item['last_payment_at'])->format('M d, Y') }}</div>
+                                        <small class="text-muted">{{ \Carbon\Carbon::parse($item['last_payment_at'])->format('H:i') }}</small>
                                     @else
-                                        <small class="text-muted">Never</small>
+                                        <span class="text-muted fw-bold">Never</span>
+                                        <br><small class="text-info">First payment</small>
                                     @endif
                                 </td>
                                 <td>
                                     <span class="badge bg-warning">{{ $item['days_since_last_payment'] }} days</span>
+                                    <br><small class="text-success">Ready to process</small>
                                 </td>
                                 <td>
                                     <div class="d-flex gap-1">
@@ -183,16 +218,17 @@
                                             <button class="btn btn-success btn-sm process-payment-btn"
                                                     data-user-id="{{ $item['user']['id'] }}" 
                                                     data-user-name="{{ $item['user']['name'] }}" 
-                                                    data-balance="{{ $item['balance'] }}">
+                                                    data-balance="{{ $item['balance'] }}"
+                                                    title="Process Payment">
                                                 <i class="mdi mdi-bank-transfer me-1"></i>Process
                                             </button>
                                         @else
-                                            <button class="btn btn-outline-danger btn-sm" disabled>
+                                            <button class="btn btn-outline-danger btn-sm" disabled title="No bank account">
                                                 <i class="mdi mdi-alert me-1"></i>No Bank
                                             </button>
                                         @endif
                                         <a href="{{ route('dashboard.wallet.wallets.show', $item['wallet_id']) }}" 
-                                           class="btn btn-outline-primary btn-sm">
+                                           class="btn btn-outline-primary btn-sm" title="View Wallet">
                                             <i class="mdi mdi-eye"></i>
                                         </a>
                                     </div>
@@ -215,13 +251,13 @@
         <div class="card">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="card-title mb-0 text-info">
+                    <h5 class="card-title mb-0 text-warning">
                         <i class="mdi mdi-clock-outline me-2"></i>Not Ready Yet
-                        <span class="badge bg-info">{{ $eligibleButNotReady->count() }}</span>
+                        <span class="badge bg-warning">{{ $eligibleButNotReady->count() }}</span>
                     </h5>
                     <div>
-                        <span class="text-muted">Total: </span>
-                        <span class="fw-bold text-info">AED {{ number_format($eligibleButNotReady->sum('balance'), 2) }}</span>
+                        <span class="text-muted">Total Confirmed: </span>
+                        <span class="fw-bold text-warning">AED {{ number_format($eligibleButNotReady->sum('balance'), 2) }}</span>
                     </div>
                 </div>
 
@@ -230,7 +266,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Farm Owner</th>
-                                <th>Balance</th>
+                                <th>Balance Details</th>
                                 <th>Bank Account</th>
                                 <th>Last Payment</th>
                                 <th>Days Until Ready</th>
@@ -259,21 +295,48 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="fw-bold">AED {{ number_format($item['balance'], 2) }}</span>
-                                    <br><small class="text-muted">Earned: AED {{ number_format($item['total_earned'], 2) }}</small>
+                                    {{-- Confirmed Balance --}}
+                                    <div class="fw-bold text-info">
+                                        <i class="mdi mdi-cash-check me-1"></i>
+                                        AED {{ number_format($item['balance'], 2) }}
+                                    </div>
+                                    <small class="text-warning">Waiting for frequency</small>
+                                    
+                                    {{-- Pending Balance (if exists) --}}
+                                    @if(isset($item['pending_balance']) && $item['pending_balance'] > 0)
+                                    <br><small class="text-warning">
+                                        <i class="mdi mdi-clock-outline me-1"></i>
+                                        +AED {{ number_format($item['pending_balance'], 2) }} pending
+                                    </small>
+                                    @endif
+                                    
+                                    {{-- Total Earned Reference --}}
+                                    <br><small class="text-muted">
+                                        Total earned: AED {{ number_format($item['total_earned'], 2) }}
+                                    </small>
                                 </td>
                                 <td>
                                     @if($item['has_bank_account'])
-                                        <span class="badge bg-success">{{ $item['bank_account']['account_type_label'] ?? 'Bank Account' }}</span>
+                                        <span class="badge bg-success">
+                                            <i class="mdi mdi-bank me-1"></i>
+                                            {{ $item['bank_account']['account_type_label'] ?? 'Bank Account' }}
+                                        </span>
+                                        <br><small class="text-success mt-1">Verified & ready</small>
                                     @else
-                                        <span class="badge bg-danger">No Bank Account</span>
+                                        <span class="badge bg-danger">
+                                            <i class="mdi mdi-bank-off me-1"></i>
+                                            No Bank Account
+                                        </span>
+                                        <br><small class="text-danger mt-1">Setup required</small>
                                     @endif
                                 </td>
                                 <td>
                                     @if($item['last_payment_at'])
-                                        <small>{{ \Carbon\Carbon::parse($item['last_payment_at'])->format('M d, Y') }}</small>
+                                        <div class="fw-bold">{{ \Carbon\Carbon::parse($item['last_payment_at'])->format('M d, Y') }}</div>
+                                        <small class="text-muted">{{ \Carbon\Carbon::parse($item['last_payment_at'])->format('H:i') }}</small>
                                     @else
-                                        <small class="text-muted">Never</small>
+                                        <span class="text-muted fw-bold">Never</span>
+                                        <br><small class="text-info">First payment</small>
                                     @endif
                                 </td>
                                 <td>
@@ -293,12 +356,12 @@
                                                 <i class="mdi mdi-bank-transfer"></i>
                                             </button>
                                         @else
-                                            <button class="btn btn-outline-danger btn-sm" disabled>
+                                            <button class="btn btn-outline-danger btn-sm" disabled title="No bank account">
                                                 <i class="mdi mdi-alert"></i>
                                             </button>
                                         @endif
                                         <a href="{{ route('dashboard.wallet.wallets.show', $item['wallet_id']) }}" 
-                                           class="btn btn-outline-primary btn-sm">
+                                           class="btn btn-outline-primary btn-sm" title="View Wallet">
                                             <i class="mdi mdi-eye"></i>
                                         </a>
                                     </div>
@@ -322,13 +385,19 @@
                 <i class="mdi mdi-cash-check text-muted" style="font-size: 48px;"></i>
                 <h5 class="mt-3">No Eligible Payments</h5>
                 <p class="text-muted">No farm owners are currently eligible for payment.</p>
+                <div class="mt-3">
+                    <small class="text-muted">
+                        Farm owners need at least AED {{ number_format($pendingData['settings']['minimum_transfer_amount'], 2) }} 
+                        in confirmed balance and a verified bank account to be eligible.
+                    </small>
+                </div>
             </div>
         </div>
     </div>
 </div>
 @endif
 
-<!-- Process Payment Modal -->
+<!-- Enhanced Process Payment Modal -->
 <div class="modal fade" id="processPaymentModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -342,21 +411,22 @@
                     <div class="alert alert-info">
                         <i class="mdi mdi-information me-2"></i>
                         Processing payment for <strong id="paymentUserName"></strong>
-                        <br>Available: <strong id="paymentBalance"></strong>
+                        <br>Available confirmed balance: <strong id="paymentBalance"></strong>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Amount (AED) *</label>
                         <input type="number" name="amount" class="form-control" id="paymentAmount" 
                                step="0.01" min="1" required>
+                        <div class="form-text">Only confirmed balance can be paid out (pending balance is not available)</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Notes</label>
                         <textarea name="notes" class="form-control" rows="3" 
-                                  placeholder="Optional notes..."></textarea>
+                                  placeholder="Optional notes for this payment..."></textarea>
                     </div>
                     <div class="alert alert-warning">
                         <i class="mdi mdi-alert me-2"></i>
-                        This will deduct the amount from the wallet. Ensure bank transfer is completed first.
+                        <strong>Important:</strong> Complete the actual bank transfer before processing this payment in the system.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -405,7 +475,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (amount > maxAmount) {
             e.preventDefault();
-            alert('Amount cannot exceed available balance');
+            alert('Amount cannot exceed available confirmed balance');
+            return false;
+        }
+        
+        if (amount < 1) {
+            e.preventDefault();
+            alert('Amount must be at least AED 1.00');
             return false;
         }
         

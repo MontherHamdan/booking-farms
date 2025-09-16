@@ -2,11 +2,15 @@
 
 namespace App\Http\Resources;
 
+use App\Traits\BookingFormatterTrait;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Carbon\Carbon;
 
 class IndexBookingResource extends JsonResource
 {
+    use BookingFormatterTrait;
+
     /**
      * Transform the resource into an array.
      *
@@ -31,7 +35,8 @@ class IndexBookingResource extends JsonResource
             'start_time' => $this->start_time?->format('H:i'),
             'end_time' => $this->end_time?->format('H:i'),
             'booking_period' => $this->booking_period,
-            'time_range' => $this->booking_time_range,
+            'time_range' => $this->getLocalizedTimeRange(),
+            'duration_hours' => $this->getDurationHours(),
             'duration_in_days' => $this->duration_in_days,
             'guest_count' => $this->guest_count,
             'subtotal' => $this->subtotal,

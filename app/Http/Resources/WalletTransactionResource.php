@@ -23,6 +23,9 @@ class WalletTransactionResource extends JsonResource
             'formatted_amount' => $this->formatted_amount,
             'balance_before' => $this->balance_before,
             'balance_after' => $this->balance_after,
+            // NEW: Add pending balance fields
+            'pending_balance_before' => $this->pending_balance_before,
+            'pending_balance_after' => $this->pending_balance_after,
             'description' => $this->description,
             'status' => $this->status,
             'status_label' => __('wallet.transaction_status.' . $this->status),
@@ -42,10 +45,16 @@ class WalletTransactionResource extends JsonResource
             'transaction_indicators' => [
                 'increases_balance' => method_exists($this, 'increasesBalance') ? $this->increasesBalance() : $this->amount > 0,
                 'decreases_balance' => method_exists($this, 'decreasesBalance') ? $this->decreasesBalance() : $this->amount < 0,
-                'is_earning' => $this->type === 'earning',
+                // FIXED: Updated earning checks
+                'is_earning' => in_array($this->type, ['pending_earning', 'earning_confirmed']),
+                'is_pending_earning' => $this->type === 'pending_earning', // NEW
+                'is_confirmed_earning' => $this->type === 'earning_confirmed', // NEW
+                'affects_pending_balance' => in_array($this->type, ['pending_earning', 'earning_confirmed']), // NEW
                 'is_payment' => $this->type === 'manual_payment',
                 'is_refund' => $this->type === 'refund',
                 'is_commission' => $this->type === 'commission',
+                'is_adjustment' => $this->type === 'adjustment', // NEW
+                'is_bonus' => $this->type === 'bonus', // NEW
             ],
             'created_at' => $this->created_at,
             'processed_at' => $this->processed_at,

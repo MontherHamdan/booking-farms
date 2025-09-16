@@ -302,4 +302,19 @@ return [
         'night' => 'ليلي',
         'full_day' => 'يوم كامل',
     ],
+
+    'time_format' => [
+        'am' => 'ص',
+        'pm' => 'م',
+    ],
+
+    'days' => [
+        'sunday' => 'الأحد',
+        'monday' => 'الاثنين',
+        'tuesday' => 'الثلاثاء', 
+        'wednesday' => 'الأربعاء',
+        'thursday' => 'الخميس',
+        'friday' => 'الجمعة',
+        'saturday' => 'السبت',
+    ],
 ];

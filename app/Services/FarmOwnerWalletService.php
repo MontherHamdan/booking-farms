@@ -33,8 +33,7 @@ class FarmOwnerWalletService
     }
 
     /**
-     * Process earnings from a confirmed booking
-     * UPDATED: Handle deposit vs full payment correctly
+     * Process earnings from a confirmed booking (UPDATED - goes to pending balance)
      */
     public function processBookingEarning(FarmBooking $booking): array
     {
@@ -53,7 +52,7 @@ class FarmOwnerWalletService
             $farmOwner = $booking->farm->user;
             $wallet = $this->getOrCreateWallet($farmOwner->id);
 
-            // UPDATED: Calculate earnings based on actual payment received
+            // Calculate earnings based on actual payment received
             $actualPaidAmount = $this->getActualPaidAmount($booking);
             $commissionRate = $wallet->platform_commission_rate;
             $commissionAmount = ($actualPaidAmount * $commissionRate) / 100;
@@ -68,33 +67,37 @@ class FarmOwnerWalletService
                 'earnings_processed_at' => now(),
             ]);
 
-            // Add earning to wallet
+            // Add earning to PENDING BALANCE (NEW - key change)
             $transaction = $wallet->addFunds(
                 $farmOwnerEarning,
-                $this->getEarningDescription($booking, $actualPaidAmount),
+                $this->getEarningDescription($booking, $actualPaidAmount, 'pending'),
                 [
                     'booking_id' => $booking->id,
                     'booking_reference' => $booking->booking_reference,
                     'total_booking_amount' => $booking->total_amount,
-                    'actual_paid_amount' => $actualPaidAmount, // NEW: track actual amount paid
-                    'payment_type' => $this->getPaymentTypeForEarning($booking), // NEW
+                    'actual_paid_amount' => $actualPaidAmount,
+                    'payment_type' => $this->getPaymentTypeForEarning($booking),
                     'commission_rate' => $commissionRate,
                     'commission_amount' => $commissionAmount,
                     'farm_owner_earning' => $farmOwnerEarning,
                     'customer_name' => $booking->customer_name,
                     'booking_dates' => $booking->booking_dates,
-                ]
+                    'status' => 'pending_completion', // NEW
+                ],
+                true // isPending = true (NEW parameter)
             );
 
             // Create commission transaction record (for platform tracking)
             $wallet->transactions()->create([
                 'booking_id' => $booking->id,
-                'reference' => 'COMM-' . strtoupper(uniqid()) . '-' . $wallet->user_id,
+                'reference' => $wallet->generateTransactionReference('COMM'), 
                 'type' => 'commission',
-                'amount' => -$commissionAmount, // Negative for platform commission
-                'balance_before' => $wallet->balance, // After earning was added
-                'balance_after' => $wallet->balance, // No change to wallet balance
-                'description' => $this->getCommissionDescription($booking, $actualPaidAmount),
+                'amount' => -$commissionAmount,
+                'balance_before' => $wallet->balance,
+                'balance_after' => $wallet->balance,
+                'pending_balance_before' => $wallet->pending_balance - $farmOwnerEarning, // Before pending earning was added
+                'pending_balance_after' => $wallet->pending_balance,
+                'description' => $this->getCommissionDescription($booking, $actualPaidAmount, 'pending'),
                 'status' => 'completed',
                 'metadata' => [
                     'booking_id' => $booking->id,
@@ -102,41 +105,45 @@ class FarmOwnerWalletService
                     'commission_rate' => $commissionRate,
                     'total_booking_amount' => $booking->total_amount,
                     'actual_paid_amount' => $actualPaidAmount,
-                    'payment_type' => $this->getPaymentTypeForEarning($booking), 
+                    'payment_type' => $this->getPaymentTypeForEarning($booking),
+                    'status' => 'pending_completion',
                 ],
                 'processed_at' => now(),
             ]);
 
             DB::commit();
 
-            Log::info('Booking earning processed successfully', [
+            Log::info('Booking earning processed to pending balance', [
                 'booking_id' => $booking->id,
                 'booking_reference' => $booking->booking_reference,
                 'farm_owner_id' => $farmOwner->id,
                 'total_booking_amount' => $booking->total_amount,
-                'actual_paid_amount' => $actualPaidAmount, 
-                'payment_type' => $this->getPaymentTypeForEarning($booking), 
+                'actual_paid_amount' => $actualPaidAmount,
+                'payment_type' => $this->getPaymentTypeForEarning($booking),
                 'commission_amount' => $commissionAmount,
                 'farm_owner_earning' => $farmOwnerEarning,
-                'new_wallet_balance' => $wallet->fresh()->balance,
+                'new_pending_balance' => $wallet->fresh()->pending_balance,
+                'confirmed_balance' => $wallet->fresh()->balance,
             ]);
 
             return [
                 'success' => true,
                 'total_booking_amount' => $booking->total_amount,
-                'actual_paid_amount' => $actualPaidAmount, 
-                'payment_type' => $this->getPaymentTypeForEarning($booking), 
+                'actual_paid_amount' => $actualPaidAmount,
+                'payment_type' => $this->getPaymentTypeForEarning($booking),
                 'commission_rate' => $commissionRate,
                 'commission_amount' => $commissionAmount,
                 'farm_owner_earning' => $farmOwnerEarning,
-                'new_wallet_balance' => $wallet->fresh()->balance,
+                'added_to_pending_balance' => true, // NEW
+                'new_pending_balance' => $wallet->fresh()->pending_balance,
+                'confirmed_balance' => $wallet->fresh()->balance,
                 'transaction' => $transaction,
             ];
 
         } catch (Exception $e) {
             DB::rollBack();
             
-            Log::error('Failed to process booking earning', [
+            Log::error('Failed to process booking earning to pending balance', [
                 'booking_id' => $booking->id,
                 'booking_reference' => $booking->booking_reference,
                 'error' => $e->getMessage(),
@@ -146,18 +153,98 @@ class FarmOwnerWalletService
         }
     }
 
-        /**
-     * NEW: Get the actual amount paid for earning calculation
+    /**
+     * Confirm booking earning (move from pending to confirmed balance) (NEW)
+     */
+    public function confirmBookingEarning(FarmBooking $booking): array
+    {
+        if ($booking->earnings_confirmed) {
+            throw new \InvalidArgumentException('Booking earnings already confirmed');
+        }
+
+        if (!$booking->earnings_processed) {
+            throw new \InvalidArgumentException('Booking earnings must be processed before confirmation');
+        }
+
+        if ($booking->booking_status !== FarmBooking::BOOKING_STATUS_COMPLETED) {
+            throw new \InvalidArgumentException('Only completed bookings can have earnings confirmed');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Get farm owner's wallet
+            $farmOwner = $booking->farm->user;
+            $wallet = $this->getOrCreateWallet($farmOwner->id);
+            $earningAmount = $booking->farm_owner_earning;
+
+            // Check if wallet has sufficient pending balance
+            if ($wallet->pending_balance < $earningAmount) {
+                throw new \InvalidArgumentException('Insufficient pending balance for confirmation');
+            }
+
+            // Move from pending to confirmed balance
+            $transaction = $wallet->confirmPendingFunds(
+                $earningAmount,
+                $this->getEarningDescription($booking, $this->getActualPaidAmount($booking), 'confirmed'),
+                [
+                    'booking_id' => $booking->id,
+                    'booking_reference' => $booking->booking_reference,
+                    'original_earning_amount' => $earningAmount,
+                    'customer_name' => $booking->customer_name,
+                    'status' => 'completed_and_confirmed',
+                ]
+            );
+
+            // Update booking
+            $booking->update([
+                'earnings_confirmed' => true,
+                'earnings_confirmed_at' => now(),
+            ]);
+
+            DB::commit();
+
+            Log::info('Booking earning confirmed (moved to balance)', [
+                'booking_id' => $booking->id,
+                'booking_reference' => $booking->booking_reference,
+                'farm_owner_id' => $farmOwner->id,
+                'earning_amount' => $earningAmount,
+                'new_pending_balance' => $wallet->fresh()->pending_balance,
+                'new_confirmed_balance' => $wallet->fresh()->balance,
+            ]);
+
+            return [
+                'success' => true,
+                'earning_amount' => $earningAmount,
+                'moved_from_pending' => true,
+                'new_pending_balance' => $wallet->fresh()->pending_balance,
+                'new_confirmed_balance' => $wallet->fresh()->balance,
+                'transaction' => $transaction,
+            ];
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Failed to confirm booking earning', [
+                'booking_id' => $booking->id,
+                'booking_reference' => $booking->booking_reference,
+                'error' => $e->getMessage(),
+            ]);
+            
+            throw $e;
+        }
+    }
+
+    /**
+     * Get the actual amount paid for earning calculation
      */
     private function getActualPaidAmount(FarmBooking $booking): float
     {
         switch ($booking->payment_status) {
             case FarmBooking::PAYMENT_STATUS_PAID:
-                // Full payment - use total amount
                 return $booking->total_amount;
                 
             case FarmBooking::PAYMENT_STATUS_PARTIALLY_PAID:
-                // Deposit payment - use only deposit amount
                 return $booking->deposit_amount;
                 
             default:
@@ -189,9 +276,15 @@ class FarmOwnerWalletService
     /**
      * NEW: Get earning description based on payment type
      */
-    private function getEarningDescription(FarmBooking $booking, float $actualPaidAmount): string
+    private function getEarningDescription(FarmBooking $booking, float $actualPaidAmount, string $status = 'pending'): string
     {
-        $baseDescription = "Earning from booking #{$booking->booking_reference}";
+        $statusLabel = match($status) {
+            'pending' => 'Pending earning',
+            'confirmed' => 'Confirmed earning',
+            default => 'Earning'
+        };
+
+        $baseDescription = "{$statusLabel} from booking #{$booking->booking_reference}";
         
         if ($booking->payment_status === FarmBooking::PAYMENT_STATUS_PARTIALLY_PAID) {
             return $baseDescription . " (Deposit: AED " . number_format($actualPaidAmount, 2) . ")";
@@ -203,9 +296,15 @@ class FarmOwnerWalletService
     /**
      * NEW: Get commission description based on payment type
      */
-    private function getCommissionDescription(FarmBooking $booking, float $actualPaidAmount): string
+    private function getCommissionDescription(FarmBooking $booking, float $actualPaidAmount, string $status = 'pending'): string
     {
-        $baseDescription = "Platform commission for booking #{$booking->booking_reference}";
+        $statusLabel = match($status) {
+            'pending' => 'Platform commission (pending)',
+            'confirmed' => 'Platform commission (confirmed)',
+            default => 'Platform commission'
+        };
+
+        $baseDescription = "{$statusLabel} for booking #{$booking->booking_reference}";
         
         if ($booking->payment_status === FarmBooking::PAYMENT_STATUS_PARTIALLY_PAID) {
             return $baseDescription . " (Deposit: AED " . number_format($actualPaidAmount, 2) . ")";
@@ -234,27 +333,65 @@ class FarmOwnerWalletService
             $wallet = $this->getOrCreateWallet($farmOwner->id);
             $refundAmount = $booking->farm_owner_earning;
 
-            // Check if wallet has sufficient balance
-            if ($wallet->balance < $refundAmount) {
-                throw new \InvalidArgumentException('Insufficient wallet balance for refund');
+            if ($booking->earnings_confirmed) {
+                // Earnings were confirmed - deduct from confirmed balance
+                if ($wallet->balance < $refundAmount) {
+                    throw new \InvalidArgumentException('Insufficient confirmed balance for refund');
+                }
+                
+                $transaction = $wallet->deductFunds(
+                    $refundAmount,
+                    'refund',
+                    "Refund for cancelled booking #{$booking->booking_reference} (was confirmed)",
+                    [
+                        'booking_id' => $booking->id,
+                        'booking_reference' => $booking->booking_reference,
+                        'original_earning' => $refundAmount,
+                        'customer_name' => $booking->customer_name,
+                        'refund_type' => 'confirmed_earnings',
+                    ]
+                );
+                
+                $refundSource = 'confirmed_balance';
+            } else {
+                // Earnings were pending - deduct from pending balance
+                if ($wallet->pending_balance < $refundAmount) {
+                    throw new \InvalidArgumentException('Insufficient pending balance for refund');
+                }
+                
+                // Manually deduct from pending balance
+                $pendingBalanceBefore = $wallet->pending_balance;
+                $wallet->decrement('pending_balance', $refundAmount);
+                $wallet->update(['last_transaction_at' => now()]);
+                
+                $transaction = $wallet->transactions()->create([
+                    'reference' => $wallet->generateTransactionReference('REF'),
+                    'type' => 'refund',
+                    'amount' => -$refundAmount,
+                    'balance_before' => $wallet->balance,
+                    'balance_after' => $wallet->balance,
+                    'pending_balance_before' => $pendingBalanceBefore,
+                    'pending_balance_after' => $wallet->fresh()->pending_balance,
+                    'description' => "Refund for cancelled booking #{$booking->booking_reference} (was pending)",
+                    'status' => 'completed',
+                    'metadata' => [
+                        'booking_id' => $booking->id,
+                        'booking_reference' => $booking->booking_reference,
+                        'original_earning' => $refundAmount,
+                        'customer_name' => $booking->customer_name,
+                        'refund_type' => 'pending_earnings',
+                    ],
+                    'processed_at' => now(),
+                ]);
+                
+                $refundSource = 'pending_balance';
             }
 
-            // Deduct refund from wallet
-            $transaction = $wallet->deductFunds(
-                $refundAmount,
-                'refund',
-                "Refund for cancelled booking #{$booking->booking_reference}",
-                [
-                    'booking_id' => $booking->id,
-                    'booking_reference' => $booking->booking_reference,
-                    'original_earning' => $refundAmount,
-                    'customer_name' => $booking->customer_name,
-                ]
-            );
-
-            // Mark booking as refund processed
+            // Reset booking earning to 0 after refund
             $booking->update([
-                'farm_owner_earning' => 0, // Reset earning to 0 after refund
+                'farm_owner_earning' => 0,
+                'earnings_confirmed' => false,
+                'earnings_confirmed_at' => null,
             ]);
 
             DB::commit();
@@ -264,13 +401,17 @@ class FarmOwnerWalletService
                 'booking_reference' => $booking->booking_reference,
                 'farm_owner_id' => $farmOwner->id,
                 'refund_amount' => $refundAmount,
-                'new_wallet_balance' => $wallet->fresh()->balance,
+                'refund_source' => $refundSource,
+                'new_confirmed_balance' => $wallet->fresh()->balance,
+                'new_pending_balance' => $wallet->fresh()->pending_balance,
             ]);
 
             return [
                 'success' => true,
                 'refund_amount' => $refundAmount,
-                'new_wallet_balance' => $wallet->fresh()->balance,
+                'refund_source' => $refundSource,
+                'new_confirmed_balance' => $wallet->fresh()->balance,
+                'new_pending_balance' => $wallet->fresh()->pending_balance,
                 'transaction' => $transaction,
             ];
 
@@ -285,6 +426,47 @@ class FarmOwnerWalletService
             
             throw $e;
         }
+    }
+
+    /**
+     * Auto-process earnings confirmation for completed bookings (NEW)
+     */
+    public function autoConfirmEarnings(int $limit = 100): array
+    {
+        $confirmed = [];
+        $failed = [];
+
+        // Get completed bookings that need earnings confirmation
+        $bookings = FarmBooking::needsEarningsConfirmation()
+                              ->limit($limit)
+                              ->get();
+
+        foreach ($bookings as $booking) {
+            try {
+                $result = $this->confirmBookingEarning($booking);
+                $confirmed[] = [
+                    'booking_reference' => $booking->booking_reference,
+                    'farm_owner_earning' => $result['earning_amount'],
+                ];
+            } catch (Exception $e) {
+                $failed[] = [
+                    'booking_reference' => $booking->booking_reference,
+                    'error' => $e->getMessage(),
+                ];
+                
+                Log::error('Auto-confirm earnings failed', [
+                    'booking_id' => $booking->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return [
+            'confirmed' => $confirmed,
+            'failed' => $failed,
+            'total_confirmed' => count($confirmed),
+            'total_failed' => count($failed),
+        ];
     }
 
     /**
@@ -430,7 +612,7 @@ class FarmOwnerWalletService
     }
 
     /**
-     * Get wallet dashboard data (UPDATED - removed withdrawal references)
+     * Get wallet dashboard data (UPDATED to show pending balance)
      */
     public function getWalletDashboard(int $userId): array
     {
@@ -440,32 +622,33 @@ class FarmOwnerWalletService
         return [
             'wallet' => [
                 'balance' => $wallet->balance,
-                'pending_balance' => $wallet->pending_balance,
+                'pending_balance' => $wallet->pending_balance, // HIGHLIGHTED
+                'total_available' => $wallet->getTotalAvailableBalance(), // NEW
                 'total_earned' => $wallet->total_earned,
-                'total_paid_out' => $wallet->total_paid_out, // UPDATED: renamed from total_withdrawn
+                'total_paid_out' => $wallet->total_paid_out,
                 'commission_rate' => $wallet->platform_commission_rate,
                 'last_transaction_at' => $wallet->last_transaction_at,
-                'last_payment_at' => $wallet->last_payment_at, // NEW
-                'is_eligible_for_payment' => $wallet->isEligibleForPayment(), // NEW
-                'days_since_last_payment' => $wallet->getDaysSinceLastPayment(), // NEW
+                'last_payment_at' => $wallet->last_payment_at,
+                'is_eligible_for_payment' => $wallet->isEligibleForPayment(),
+                'days_since_last_payment' => $wallet->getDaysSinceLastPayment(),
             ],
             'statistics' => $this->getWalletStatistics($wallet),
             'recent_transactions' => $wallet->recentTransactions(10)->get(),
-            'recent_payments' => $user->manualPayments() // NEW: replaced pending_withdrawals
+            'recent_payments' => $user->manualPayments()
                                     ->with('processedBy:id,name')
                                     ->orderBy('payment_date', 'desc')
                                     ->limit(5)
                                     ->get(),
-            'bank_account' => $user->farmOwnerBankAccount, // NEW
-            'payment_settings' => [ // NEW
+            'bank_account' => $user->farmOwnerBankAccount,
+            'payment_settings' => [
                 'transfer_frequency_days' => PlatformSetting::getTransferFrequencyDays(),
                 'minimum_transfer_amount' => PlatformSetting::getMinimumTransferAmount(),
             ],
         ];
     }
 
-    /**
-     * Get wallet statistics (UPDATED - removed withdrawal references)
+/**
+     * Get wallet statistics - CLEANED UP
      */
     public function getWalletStatistics(FarmOwnerWallet $wallet): array
     {
@@ -476,11 +659,11 @@ class FarmOwnerWalletService
             // This month stats
             'this_month' => [
                 'earnings' => $wallet->transactions()
-                                   ->earnings()
+                                   ->earnings() // Uses both pending_earning and earning_confirmed
                                    ->thisMonth()
                                    ->sum('amount'),
-                'payments' => abs($wallet->transactions() // UPDATED: was withdrawals
-                                      ->where('type', 'manual_payment')
+                'manual_payments' => abs($wallet->transactions()
+                                      ->manualPayments() // Uses manual_payment type
                                       ->thisMonth()
                                       ->sum('amount')),
                 'transactions_count' => $wallet->transactions()
@@ -494,8 +677,8 @@ class FarmOwnerWalletService
                                    ->earnings()
                                    ->lastMonth()
                                    ->sum('amount'),
-                'payments' => abs($wallet->transactions() // UPDATED: was withdrawals
-                                      ->where('type', 'manual_payment')
+                'manual_payments' => abs($wallet->transactions()
+                                      ->manualPayments()
                                       ->lastMonth()
                                       ->sum('amount')),
                 'transactions_count' => $wallet->transactions()
@@ -506,21 +689,40 @@ class FarmOwnerWalletService
             // All time stats
             'all_time' => [
                 'total_transactions' => $wallet->transactions()->count(),
-                'total_earnings_transactions' => $wallet->transactions()->earnings()->count(),
-                'total_payment_transactions' => $wallet->transactions()->where('type', 'manual_payment')->count(), // UPDATED
+                'total_earning_transactions' => $wallet->transactions()->earnings()->count(),
+                'total_manual_payment_transactions' => $wallet->transactions()->manualPayments()->count(),
                 'average_earning_per_transaction' => $wallet->transactions()
                                                            ->earnings()
                                                            ->avg('amount') ?: 0,
+                // NEW: Separate pending vs confirmed earnings
+                'pending_earnings_total' => $wallet->transactions()
+                                                  ->pendingEarnings()
+                                                  ->sum('amount'),
+                'confirmed_earnings_total' => $wallet->transactions()
+                                                    ->confirmedEarnings()
+                                                    ->sum('amount'),
             ],
 
-            // Payment stats (NEW - replaced withdrawal stats)
+            // Payment stats (CLEANED UP - no more withdrawal references)
             'payments' => [
-                'total_payments' => $wallet->manualPayments()->count(),
+                'total_manual_payments' => $wallet->manualPayments()->count(),
                 'total_amount_paid' => $wallet->manualPayments()->sum('amount'),
                 'last_payment' => $wallet->last_payment_at,
                 'days_since_last_payment' => $wallet->getDaysSinceLastPayment(),
                 'is_eligible_for_payment' => $wallet->isEligibleForPayment(),
                 'is_ready_for_payment' => $wallet->isReadyForPayment(),
+            ],
+
+            // NEW: Pending balance breakdown
+            'pending_balance_breakdown' => [
+                'current_pending_balance' => $wallet->pending_balance,
+                'pending_transactions_count' => $wallet->transactions()
+                                                      ->pendingEarnings()
+                                                      ->count(),
+                'pending_from_bookings' => $wallet->transactions()
+                                                 ->pendingEarnings()
+                                                 ->whereNotNull('booking_id')
+                                                 ->count(),
             ],
         ];
     }

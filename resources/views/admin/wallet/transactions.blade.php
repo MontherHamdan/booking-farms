@@ -16,27 +16,31 @@
     </div>
 </div>
 
-<!-- Summary Cards -->
+<!-- Enhanced Summary Cards with New Transaction Types -->
 <div class="row">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card border-0 bg-success-subtle">
             <div class="card-body text-center">
                 <i class="mdi mdi-trending-up text-success" style="font-size: 24px;"></i>
                 <h4 class="text-success mt-2 mb-1">AED {{ number_format($totalEarnings, 2) }}</h4>
                 <p class="text-muted mb-0 small">Total Earnings</p>
+                <div class="mt-1">
+                    <small class="text-warning">Pending: AED {{ number_format($pendingEarnings, 2) }}</small>
+                    <br><small class="text-success">Confirmed: AED {{ number_format($confirmedEarnings, 2) }}</small>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-2">
         <div class="card border-0 bg-warning-subtle">
             <div class="card-body text-center">
                 <i class="mdi mdi-bank-transfer-out text-warning" style="font-size: 24px;"></i>
-                <h4 class="text-warning mt-2 mb-1">AED {{ number_format($totalPayments, 2) }}</h4>
-                <p class="text-muted mb-0 small">Total Payments</p>
+                <h4 class="text-warning mt-2 mb-1">AED {{ number_format($totalManualPayments, 2) }}</h4>
+                <p class="text-muted mb-0 small">Manual Payments</p>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-2">
         <div class="card border-0 bg-info-subtle">
             <div class="card-body text-center">
                 <i class="mdi mdi-percent text-info" style="font-size: 24px;"></i>
@@ -45,9 +49,27 @@
             </div>
         </div>
     </div>
+    <div class="col-md-2">
+        <div class="card border-0 bg-danger-subtle">
+            <div class="card-body text-center">
+                <i class="mdi mdi-cash-refund text-danger" style="font-size: 24px;"></i>
+                <h4 class="text-danger mt-2 mb-1">AED {{ number_format($totalRefunds, 2) }}</h4>
+                <p class="text-muted mb-0 small">Refunds</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-secondary-subtle">
+            <div class="card-body text-center">
+                <i class="mdi mdi-plus-minus-variant text-secondary" style="font-size: 24px;"></i>
+                <h4 class="text-secondary mt-2 mb-1">AED {{ number_format($totalAdjustments, 2) }}</h4>
+                <p class="text-muted mb-0 small">Adjustments & Bonuses</p>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- Filters -->
+<!-- Enhanced Filters -->
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -61,12 +83,11 @@
                     <div class="col-md-2">
                         <label class="form-label">Type</label>
                         <select name="type" class="form-select">
-                            <option value="">All Types</option>
-                            <option value="earning" {{ request('type') === 'earning' ? 'selected' : '' }}>Earning</option>
-                            <option value="manual_payment" {{ request('type') === 'manual_payment' ? 'selected' : '' }}>Payment</option>
-                            <option value="commission" {{ request('type') === 'commission' ? 'selected' : '' }}>Commission</option>
-                            <option value="refund" {{ request('type') === 'refund' ? 'selected' : '' }}>Refund</option>
-                            <option value="adjustment" {{ request('type') === 'adjustment' ? 'selected' : '' }}>Adjustment</option>
+                            @foreach($filterOptions as $value => $label)
+                                <option value="{{ $value }}" {{ request('type') === $value ? 'selected' : '' }}>
+                                    {{ $label }}
+                                </option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -100,7 +121,7 @@
     </div>
 </div>
 
-<!-- Transactions Table -->
+<!-- Enhanced Transactions Table -->
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -131,6 +152,7 @@
                                 <th>Farm Owner</th>
                                 <th>Type</th>
                                 <th>Amount</th>
+                                <th>Balance Impact</th>
                                 <th>Description</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -158,29 +180,52 @@
                                 </td>
                                 <td>
                                     @php
-                                        $typeColors = [
-                                            'earning' => 'success',
-                                            'manual_payment' => 'warning', 
-                                            'commission' => 'info',
-                                            'refund' => 'danger',
-                                            'adjustment' => 'secondary'
+                                        $config = $transactionConfig[$transaction->type] ?? [
+                                            'color' => 'secondary', 
+                                            'label' => ucfirst(str_replace('_', ' ', $transaction->type)),
+                                            'icon' => 'help-circle'
                                         ];
-                                        $typeColor = $typeColors[$transaction->type] ?? 'light';
                                     @endphp
-                                    <span class="badge bg-{{ $typeColor }}">
-                                        {{ ucfirst(str_replace('_', ' ', $transaction->type)) }}
+                                    <span class="badge bg-{{ $config['color'] }}">
+                                        <i class="mdi mdi-{{ $config['icon'] }} me-1"></i>
+                                        {{ $config['label'] }}
                                     </span>
+                                    
+                                    {{-- Balance type indicator --}}
+                                    @if(in_array($transaction->type, ['pending_earning', 'earning_confirmed']))
+                                    <br><small class="text-muted mt-1">
+                                        @if($transaction->type === 'pending_earning')
+                                        <i class="mdi mdi-clock-outline text-warning"></i> → Pending
+                                        @else
+                                        <i class="mdi mdi-check-circle text-success"></i> → Confirmed
+                                        @endif
+                                    </small>
+                                    @endif
                                 </td>
                                 <td>
                                     <div class="fw-bold {{ $transaction->amount >= 0 ? 'text-success' : 'text-danger' }}">
                                         {{ $transaction->amount >= 0 ? '+' : '' }}AED {{ number_format($transaction->amount, 2) }}
                                     </div>
+                                </td>
+                                <td>
+                                    @if($transaction->type === 'pending_earning')
+                                    <small class="text-warning">
+                                        <i class="mdi mdi-clock-outline me-1"></i>
+                                        Pending: +AED {{ number_format($transaction->amount, 2) }}
+                                    </small>
+                                    @elseif($transaction->type === 'earning_confirmed')
+                                    <small class="text-success">
+                                        <i class="mdi mdi-check-circle me-1"></i>
+                                        Confirmed: +AED {{ number_format($transaction->amount, 2) }}
+                                    </small>
+                                    @else
                                     <small class="text-muted">
                                         Balance: AED {{ number_format($transaction->balance_after, 2) }}
                                     </small>
+                                    @endif
                                 </td>
                                 <td>
-                                    <div class="text-muted">{{ Str::limit($transaction->description, 50) }}</div>
+                                    <div class="text-muted">{{ Str::limit($transaction->description, 40) }}</div>
                                     @if($transaction->booking)
                                     <small class="text-primary">
                                         <i class="mdi mdi-calendar me-1"></i>{{ $transaction->booking->booking_reference }}
@@ -188,15 +233,7 @@
                                     @endif
                                 </td>
                                 <td>
-                                    @php
-                                        $statusColors = [
-                                            'completed' => 'success',
-                                            'pending' => 'warning', 
-                                            'failed' => 'danger'
-                                        ];
-                                        $statusColor = $statusColors[$transaction->status] ?? 'secondary';
-                                    @endphp
-                                    <span class="badge bg-{{ $statusColor }}">
+                                    <span class="badge bg-{{ $transaction->status === 'completed' ? 'success' : ($transaction->status === 'pending' ? 'warning' : 'danger') }}">
                                         {{ ucfirst($transaction->status) }}
                                     </span>
                                 </td>
@@ -213,9 +250,12 @@
                                                     'created_at' => $transaction->created_at->format('Y-m-d H:i:s'),
                                                     'balance_before' => $transaction->balance_before,
                                                     'balance_after' => $transaction->balance_after,
+                                                    'pending_balance_before' => $transaction->pending_balance_before,
+                                                    'pending_balance_after' => $transaction->pending_balance_after,
                                                     'user_name' => $transaction->wallet->user->name,
                                                     'user_email' => $transaction->wallet->user->email,
-                                                    'booking_reference' => $transaction->booking?->booking_reference ?? null
+                                                    'booking_reference' => $transaction->booking?->booking_reference ?? null,
+                                                    'wallet_id' => $transaction->wallet_id
                                                 ]) }}"
                                                 title="View Details">
                                             <i class="mdi mdi-eye"></i>
@@ -256,7 +296,7 @@
     </div>
 </div>
 
-<!-- Transaction Details Modal -->
+<!-- Enhanced Transaction Details Modal -->
 <div class="modal fade" id="transactionModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -292,19 +332,23 @@
                         </table>
                     </div>
                     <div class="col-md-6">
-                        <h6 class="text-muted">Balance Change</h6>
+                        <h6 class="text-muted">Balance Changes</h6>
                         <table class="table table-sm">
                             <tr>
-                                <th class="text-muted">Before:</th>
+                                <th class="text-muted">Confirmed Before:</th>
                                 <td id="modalBalanceBefore" class="fw-bold"></td>
                             </tr>
                             <tr>
-                                <th class="text-muted">After:</th>
+                                <th class="text-muted">Confirmed After:</th>
                                 <td id="modalBalanceAfter" class="fw-bold"></td>
                             </tr>
                             <tr>
-                                <th class="text-muted">Change:</th>
-                                <td id="modalBalanceChange" class="fw-bold"></td>
+                                <th class="text-muted">Pending Before:</th>
+                                <td id="modalPendingBefore" class="fw-bold text-warning"></td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Pending After:</th>
+                                <td id="modalPendingAfter" class="fw-bold text-warning"></td>
                             </tr>
                         </table>
 
@@ -368,16 +412,18 @@ document.addEventListener('DOMContentLoaded', function() {
             amountEl.textContent = (data.amount >= 0 ? '+' : '') + 'AED ' + parseFloat(data.amount).toLocaleString();
             amountEl.className = 'fw-bold ' + (data.amount >= 0 ? 'text-success' : 'text-danger');
             
-            // Type badge
-            const typeColors = {
-                'earning': 'bg-success',
-                'manual_payment': 'bg-warning',
-                'commission': 'bg-info', 
+            // Type badge with our configuration
+            const typeConfig = {
+                'pending_earning': 'bg-warning',
+                'earning_confirmed': 'bg-success',
+                'manual_payment': 'bg-info',
+                'commission': 'bg-secondary',
                 'refund': 'bg-danger',
-                'adjustment': 'bg-secondary'
+                'adjustment': 'bg-dark',
+                'bonus': 'bg-primary'
             };
             const typeEl = document.getElementById('modalType');
-            typeEl.className = 'badge ' + (typeColors[data.type] || 'bg-light');
+            typeEl.className = 'badge ' + (typeConfig[data.type] || 'bg-light');
             typeEl.textContent = data.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
             
             // Status badge
@@ -391,13 +437,10 @@ document.addEventListener('DOMContentLoaded', function() {
             statusEl.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
             
             // Balance Information
-            document.getElementById('modalBalanceBefore').textContent = 'AED ' + parseFloat(data.balance_before).toLocaleString();
-            document.getElementById('modalBalanceAfter').textContent = 'AED ' + parseFloat(data.balance_after).toLocaleString();
-            
-            const balanceChange = data.balance_after - data.balance_before;
-            const changeEl = document.getElementById('modalBalanceChange');
-            changeEl.textContent = (balanceChange >= 0 ? '+' : '') + 'AED ' + parseFloat(balanceChange).toLocaleString();
-            changeEl.className = 'fw-bold ' + (balanceChange >= 0 ? 'text-success' : 'text-danger');
+            document.getElementById('modalBalanceBefore').textContent = 'AED ' + parseFloat(data.balance_before || 0).toLocaleString();
+            document.getElementById('modalBalanceAfter').textContent = 'AED ' + parseFloat(data.balance_after || 0).toLocaleString();
+            document.getElementById('modalPendingBefore').textContent = 'AED ' + parseFloat(data.pending_balance_before || 0).toLocaleString();
+            document.getElementById('modalPendingAfter').textContent = 'AED ' + parseFloat(data.pending_balance_after || 0).toLocaleString();
             
             // User Information  
             document.getElementById('modalUserName').textContent = data.user_name;

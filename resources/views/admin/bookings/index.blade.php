@@ -123,6 +123,7 @@
                             <option value="paid" {{ request('payment_status') == 'paid' ? 'selected' : '' }}>Paid</option>
                             <option value="partially_paid" {{ request('payment_status') == 'partially_paid' ? 'selected' : '' }}>Partially Paid</option>
                             <option value="failed" {{ request('payment_status') == 'failed' ? 'selected' : '' }}>Failed</option>
+                            <option value="expired" {{ request('payment_status') == 'expired' ? 'selected' : '' }}>Expired</option>
                             <option value="refunded" {{ request('payment_status') == 'refunded' ? 'selected' : '' }}>Refunded</option>
                         </select>
                     </div>
@@ -345,6 +346,11 @@
                                                 </a>
                                             </li>
                                             <li>
+                                                <a class="dropdown-item" href="{{ route('dashboard.bookings.edit', $booking->id) }}">
+                                                    <i class="fas fa-edit me-2"></i>Edit Booking
+                                                </a>
+                                            </li>
+                                            <li>
                                                 <a class="dropdown-item" href="{{ route('dashboard.farms.show', $booking->farm->id) }}">
                                                     <i class="fas fa-home me-2"></i>View Farm
                                                 </a>
@@ -363,6 +369,22 @@
                                                 <button class="dropdown-item text-danger" 
                                                         onclick="updateBookingStatus({{ $booking->id }}, 'cancelled')">
                                                     <i class="fas fa-times-circle me-2"></i>Cancel
+                                                </button>
+                                            </li>
+                                            @endif
+                                            @if($booking->booking_status === 'confirmed' && !$booking->hasEnded())
+                                            <li>
+                                                <button class="dropdown-item text-primary" 
+                                                        onclick="updateBookingStatus({{ $booking->id }}, 'completed')">
+                                                    <i class="fas fa-flag-checkered me-2"></i>Complete
+                                                </button>
+                                            </li>
+                                            @endif
+                                            @if($booking->booking_status === 'failed')
+                                            <li>
+                                                <button class="dropdown-item text-warning" 
+                                                        onclick="updateBookingStatus({{ $booking->id }}, 'pending')">
+                                                    <i class="fas fa-undo me-2"></i>Reset
                                                 </button>
                                             </li>
                                             @endif

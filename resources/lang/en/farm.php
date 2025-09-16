@@ -302,4 +302,19 @@ return [
         'night' => 'Night',
         'full_day' => 'Full Day',
     ],
+
+    'time_format' => [
+        'am' => 'AM', 
+        'pm' => 'PM',
+    ],
+
+    'days' => [
+        'sunday' => 'Sunday',
+        'monday' => 'Monday', 
+        'tuesday' => 'Tuesday',
+        'wednesday' => 'Wednesday',
+        'thursday' => 'Thursday',
+        'friday' => 'Friday',
+        'saturday' => 'Saturday',
+    ],
 ];

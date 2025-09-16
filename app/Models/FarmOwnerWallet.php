@@ -17,22 +17,22 @@ class FarmOwnerWallet extends Model
         'balance',
         'pending_balance',
         'total_earned',
-        'total_paid_out', // RENAMED from total_withdrawn
+        'total_paid_out',
         'platform_commission_rate',
         'is_active',
         'last_transaction_at',
-        'last_payment_at', // NEW: track last manual payment
+        'last_payment_at',
     ];
 
     protected $casts = [
         'balance' => 'decimal:2',
         'pending_balance' => 'decimal:2',
         'total_earned' => 'decimal:2',
-        'total_paid_out' => 'decimal:2', // RENAMED
+        'total_paid_out' => 'decimal:2',
         'platform_commission_rate' => 'decimal:2',
         'is_active' => 'boolean',
         'last_transaction_at' => 'datetime',
-        'last_payment_at' => 'datetime', // NEW
+        'last_payment_at' => 'datetime',
     ];
 
     /**
@@ -62,21 +62,67 @@ class FarmOwnerWallet extends Model
     }
 
     /**
-     * Add money to wallet
+     * Add money to wallet (NEW: supports pending balance)
      */
-    public function addFunds(float $amount, string $description, array $metadata = []): WalletTransaction
+    public function addFunds(float $amount, string $description, array $metadata = [], bool $isPending = false): WalletTransaction
     {
         $balanceBefore = $this->balance;
+        $pendingBalanceBefore = $this->pending_balance;
+        
+        if ($isPending) {
+            // Add to pending balance
+            $this->increment('pending_balance', $amount);
+            $transactionType = 'pending_earning';
+        } else {
+            // Add to confirmed balance
+            $this->increment('balance', $amount);
+            $this->increment('total_earned', $amount);
+            $transactionType = 'earning_confirmed'; // ✅ FIXED
+        }
+        
+        $this->update(['last_transaction_at' => now()]);
+    
+        return $this->transactions()->create([
+            'reference' => $this->generateTransactionReference('ADD'),
+            'type' => $transactionType,
+            'amount' => $amount,
+            'balance_before' => $balanceBefore,
+            'balance_after' => $this->fresh()->balance,
+            'pending_balance_before' => $pendingBalanceBefore,
+            'pending_balance_after' => $this->fresh()->pending_balance,
+            'description' => $description,
+            'status' => 'completed',
+            'metadata' => $metadata,
+            'processed_at' => now(),
+        ]);
+    }
+
+    /**
+     * Move funds from pending to confirmed balance (NEW)
+     */
+    public function confirmPendingFunds(float $amount, string $description, array $metadata = []): WalletTransaction
+    {
+        if ($this->pending_balance < $amount) {
+            throw new \InvalidArgumentException('Insufficient pending balance');
+        }
+
+        $balanceBefore = $this->balance;
+        $pendingBalanceBefore = $this->pending_balance;
+
+        // Move from pending to confirmed
+        $this->decrement('pending_balance', $amount);
         $this->increment('balance', $amount);
         $this->increment('total_earned', $amount);
         $this->update(['last_transaction_at' => now()]);
 
         return $this->transactions()->create([
-            'reference' => $this->generateTransactionReference('ADD'),
-            'type' => 'earning',
+            'reference' => $this->generateTransactionReference('CONF'),
+            'type' => 'earning_confirmed',
             'amount' => $amount,
             'balance_before' => $balanceBefore,
             'balance_after' => $this->fresh()->balance,
+            'pending_balance_before' => $pendingBalanceBefore,
+            'pending_balance_after' => $this->fresh()->pending_balance,
             'description' => $description,
             'status' => 'completed',
             'metadata' => $metadata,
@@ -89,11 +135,13 @@ class FarmOwnerWallet extends Model
      */
     public function deductFunds(float $amount, string $type, string $description, array $metadata = []): WalletTransaction
     {
-        if ($this->available_balance < $amount) {
+        if ($this->balance < $amount) {
             throw new \InvalidArgumentException('Insufficient wallet balance');
         }
 
         $balanceBefore = $this->balance;
+        $pendingBalanceBefore = $this->pending_balance;
+        
         $this->decrement('balance', $amount);
         
         if ($type === 'manual_payment') {
@@ -105,9 +153,11 @@ class FarmOwnerWallet extends Model
         return $this->transactions()->create([
             'reference' => $this->generateTransactionReference('DED'),
             'type' => $type,
-            'amount' => -$amount, // Negative for deductions
+            'amount' => -$amount,
             'balance_before' => $balanceBefore,
             'balance_after' => $this->fresh()->balance,
+            'pending_balance_before' => $pendingBalanceBefore,
+            'pending_balance_after' => $this->fresh()->pending_balance,
             'description' => $description,
             'status' => 'completed',
             'metadata' => $metadata,
@@ -124,50 +174,16 @@ class FarmOwnerWallet extends Model
     }
 
     /**
-     * Process manual payment (NEW)
-     */
-    public function processManualPayment(float $amount, string $paymentMethod, array $bankDetails, int $adminId, ?string $notes = null): ManualPayment
-    {
-        if ($this->balance < $amount) {
-            throw new \InvalidArgumentException('Insufficient wallet balance');
-        }
-
-        DB::transaction(function() use ($amount, $paymentMethod, $bankDetails, $adminId, $notes) {
-            // Deduct from wallet
-            $this->deductFunds($amount, 'manual_payment', "Manual payment processed", [
-                'payment_method' => $paymentMethod,
-                'processed_by' => $adminId,
-            ]);
-
-            // Create payment record
-            $payment = ManualPayment::createPaymentRecord(
-                $this->user_id,
-                $amount,
-                $paymentMethod,
-                $bankDetails,
-                $adminId,
-                $notes
-            );
-
-            // Update wallet totals
-            $this->increment('total_paid_out', $amount);
-            $this->update(['last_payment_at' => now()]);
-
-            return $payment;
-        });
-    }
-
-    /**
-     * Check if wallet is eligible for payment 
+     * Check if wallet is eligible for payment (only confirmed balance)
      */
     public function isEligibleForPayment(): bool
     {
         $minimumAmount = PlatformSetting::getMinimumTransferAmount();
-        return $this->balance >= $minimumAmount;
+        return $this->balance >= $minimumAmount; // Only confirmed balance
     }
 
     /**
-     * Check if ready for next payment based on frequency setting (NEW)
+     * Check if ready for next payment based on frequency setting
      */
     public function isReadyForPayment(): bool
     {
@@ -188,29 +204,38 @@ class FarmOwnerWallet extends Model
     }
 
     /**
-     * Get wallet statistics
+     * Get total available balance (confirmed + pending) for display purposes
+     */
+    public function getTotalAvailableBalance(): float
+    {
+        return $this->balance + $this->pending_balance;
+    }
+
+    /**
+     * Get wallet statistics (UPDATED)
      */
     public function getStatistics(): array
     {
         return [
-            'total_earnings' => $this->total_earned,
+            'total_earned' => $this->total_earned,
             'current_balance' => $this->balance,
-            'total_paid_out' => $this->total_paid_out, // RENAMED
-            'pending_balance' => $this->pending_balance,
+            'pending_balance' => $this->pending_balance, // NEW
+            'total_available' => $this->getTotalAvailableBalance(), // NEW
+            'total_paid_out' => $this->total_paid_out,
             'total_transactions' => $this->transactions()->count(),
             'commission_rate' => $this->platform_commission_rate,
             'last_transaction' => $this->last_transaction_at,
-            'last_payment' => $this->last_payment_at, // NEW
-            'days_since_last_payment' => $this->getDaysSinceLastPayment(), // NEW
-            'is_eligible_for_payment' => $this->isEligibleForPayment(), // NEW
-            'is_ready_for_payment' => $this->isReadyForPayment(), // NEW
+            'last_payment' => $this->last_payment_at,
+            'days_since_last_payment' => $this->getDaysSinceLastPayment(),
+            'is_eligible_for_payment' => $this->isEligibleForPayment(),
+            'is_ready_for_payment' => $this->isReadyForPayment(),
         ];
     }
 
     /**
      * Generate transaction reference
      */
-    private function generateTransactionReference(string $prefix = 'TXN'): string
+    public function generateTransactionReference(string $prefix = 'TXN'): string 
     {
         return $prefix . '-' . strtoupper(uniqid()) . '-' . $this->user_id;
     }
@@ -226,5 +251,10 @@ class FarmOwnerWallet extends Model
     public function scopeWithBalance($query)
     {
         return $query->where('balance', '>', 0);
+    }
+
+    public function scopeWithPendingBalance($query)
+    {
+        return $query->where('pending_balance', '>', 0);
     }
 }

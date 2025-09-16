@@ -118,6 +118,7 @@ class ApiFarmBookingController extends Controller
 
             $couponCode = $request->coupon_code;
             $dates = $request->dates ?? [];
+            $priceType = $request->price_type ?? 'day_use';
             $userId = auth('sanctum')->id();
             $platform = $request->header('User-Agent-Platform', 'web');
 
@@ -126,7 +127,20 @@ class ApiFarmBookingController extends Controller
             }
 
             // Process dates if provided
-            $processedDates = !empty($dates) ? $this->processDatesByPriceType($dates, $request->price_type ?? 'day_use') : [];
+            $processedDates = !empty($dates) ? $this->processDatesByPriceType($dates, $priceType) : [];
+
+            // Check availability if dates are provided
+            if (!empty($processedDates)) {
+                $availabilityErrors = $this->bookingService->checkAvailability($farm, $processedDates, $priceType);
+                
+                if (isset($availabilityErrors['unavailable'])) {
+                    return $this->errorResponse(__('farm.unavailable_dates', ['dates' => implode(', ', $availabilityErrors['unavailable'])]), 400);
+                }
+                
+                if (isset($availabilityErrors['booked'])) {
+                    return $this->errorResponse(__('farm.dates_already_booked', ['dates' => implode(', ', $availabilityErrors['booked'])]), 400);
+                }
+            }
 
             // Validate coupon
             $validation = $this->bookingService->validateCoupon($couponCode, $farm, $processedDates, $userId, $platform);
@@ -153,8 +167,6 @@ class ApiFarmBookingController extends Controller
             return $this->errorResponse(__('error.internal_error'), 500);
         }
     }
-
-
 
     /**
      * Get checkout page data
@@ -184,12 +196,25 @@ class ApiFarmBookingController extends Controller
                 return $this->errorResponse(__('farm.deposit_not_available'), 400);
             }
 
+            // Process dates and check availability
+            $processedDates = $this->processDatesByPriceType($dates, $priceType);
+            
+            // Check availability
+            $availabilityErrors = $this->bookingService->checkAvailability($farm, $processedDates, $priceType);
+            
+            if (isset($availabilityErrors['unavailable'])) {
+                return $this->errorResponse(__('farm.unavailable_dates', ['dates' => implode(', ', $availabilityErrors['unavailable'])]), 400);
+            }
+            
+            if (isset($availabilityErrors['booked'])) {
+                return $this->errorResponse(__('farm.dates_already_booked', ['dates' => implode(', ', $availabilityErrors['booked'])]), 400);
+            }
+
             // Get user ID for coupon validation
             $userId = auth('sanctum')->id();
             $platform = $request->header('User-Agent-Platform', 'web');
 
-            // Process dates and calculate price
-            $processedDates = $this->processDatesByPriceType($dates, $priceType);
+            // Calculate price
             $pricingData = $this->bookingService->calculatePricing(
                 $farm, 
                 $processedDates, 
@@ -199,34 +224,46 @@ class ApiFarmBookingController extends Controller
                 $userId, 
                 $platform
             );
-            $periodData = $this->getFormattedBookingPeriod($processedDates);
 
-            // Get time information
-            $startTime = $pricing->start_time ? Carbon::parse($pricing->start_time)->format('H:i') : null;
-            $endTime = $pricing->end_time ? Carbon::parse($pricing->end_time)->format('H:i') : null;
+            // Get correct period data based on price type and timing
+            $periodData = $this->getCorrectBookingPeriod($processedDates, $priceType, $pricing);
+
+            // Get time information and calculate duration
+            $timeData = $this->getFormattedTimeData($pricing);
+
+            // Build booking data
+            $bookingData = [
+                'dates' => $processedDates,
+                'formatted_dates' => $this->formatDatesForDisplay($processedDates),
+                'start_date' => $periodData['start_date'],
+                'end_date' => $periodData['end_date'],
+                'start_time' => $timeData['start_time_12h'],
+                'end_time' => $timeData['end_time_12h'],
+                'time_range' => $timeData['time_range_12h'],
+                'duration_hours' => $timeData['duration_hours'],
+                'price_type' => $priceType,
+                'price_type_label' => __('farm.price_types.' . $priceType),
+                'guest_count' => $request->guest_count,
+            ];
+
+            // Only add duration_days for full_day bookings
+            if ($priceType === 'full_day') {
+                $bookingData['duration_days'] = $periodData['duration_days'];
+            }
 
             // Return checkout page data
             $data = [
                 'farm' => [
                     'id' => $farm->id,
-                    'name' => $farm->name_en ?: $farm->name_ar,
+                    'name_en' => $farm->name_en ?? null,
+                    'name_ar' => $farm->name_ar ?? null,
                     'main_image' => $farm->mainImage ? url($farm->mainImage->image_path) : null,
-                    'city' => $farm->city->name_en ?? $farm->city->name_ar ?? null,
-                    'area' => $farm->area->name_en ?? $farm->area->name_ar ?? null,
+                    'city_en' => $farm->city->name_en ?? null,
+                    'city_ar' => $farm->city->name_ar ?? null,
+                    'area_en' => $farm->area->name_en ?? null,
+                    'area_ar' => $farm->area->name_ar ?? null,
                 ],
-                'booking' => [
-                    'dates' => $processedDates,
-                    'formatted_dates' => $this->formatDatesForDisplay($processedDates),
-                    'start_date' => $periodData['start_date'],
-                    'end_date' => $periodData['end_date'],
-                    'start_time' => $startTime,
-                    'end_time' => $endTime,
-                    'time_range' => $pricing->time_range,
-                    'duration_days' => $periodData['duration_days'],
-                    'price_type' => $priceType,
-                    'price_type_label' => __('farm.price_types.' . $priceType),
-                    'guest_count' => $request->guest_count,
-                ],
+                'booking' => $bookingData,
                 'pricing' => [
                     'subtotal' => $pricingData['subtotal'],
                     'discount_amount' => $pricingData['discount_amount'],

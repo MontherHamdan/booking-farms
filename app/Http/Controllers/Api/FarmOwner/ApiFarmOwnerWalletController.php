@@ -208,40 +208,45 @@ class ApiFarmOwnerWalletController extends Controller
             $userId = Auth::id();
             $wallet = $this->walletService->getOrCreateWallet($userId);
             $statistics = $this->walletService->getWalletStatistics($wallet);
-
+    
             // Add additional period statistics if requested
             $fromDate = $request->input('from_date');
             $toDate = $request->input('to_date');
-
+    
             if ($fromDate && $toDate) {
                 $customPeriodStats = $wallet->transactions()
                                           ->whereBetween('created_at', [$fromDate, $toDate])
                                           ->selectRaw('
-                                              SUM(CASE WHEN type = "earning" THEN amount ELSE 0 END) as earnings,
+                                              SUM(CASE WHEN type IN ("pending_earning", "earning_confirmed") THEN amount ELSE 0 END) as earnings,
                                               SUM(CASE WHEN type = "manual_payment" THEN ABS(amount) ELSE 0 END) as payments,
+                                              SUM(CASE WHEN type = "pending_earning" THEN amount ELSE 0 END) as pending_earnings,
+                                              SUM(CASE WHEN type = "earning_confirmed" THEN amount ELSE 0 END) as confirmed_earnings,
                                               COUNT(*) as transactions_count
                                           ')
                                           ->first();
-
+    
                 $statistics['custom_period'] = [
                     'from_date' => $fromDate,
                     'to_date' => $toDate,
                     'earnings' => $customPeriodStats->earnings ?: 0,
+                    'pending_earnings' => $customPeriodStats->pending_earnings ?: 0, // NEW
+                    'confirmed_earnings' => $customPeriodStats->confirmed_earnings ?: 0, // NEW
                     'payments' => $customPeriodStats->payments ?: 0,
                     'transactions_count' => $customPeriodStats->transactions_count ?: 0,
                 ];
             }
-
-            // Add localized labels
+    
+            // Add localized labels - UPDATED
             $statistics['labels'] = [
-                'earnings' => __('wallet.transaction_types.earning'),
-                'payments' => __('wallet.transaction_types.manual_payment'),
+                'pending_earning' => __('wallet.transaction_types.pending_earning'),
+                'earning_confirmed' => __('wallet.transaction_types.earning_confirmed'),
+                'manual_payment' => __('wallet.transaction_types.manual_payment'),
                 'commission' => __('wallet.transaction_types.commission'),
-                'refunds' => __('wallet.transaction_types.refund'),
+                'refund' => __('wallet.transaction_types.refund'),
             ];
-
+    
             return $this->successResponse(true, $statistics, null, 200);
-
+    
         } catch (Exception $e) {
             $this->logException($e, [
                 'action' => 'get wallet statistics',
@@ -259,9 +264,14 @@ class ApiFarmOwnerWalletController extends Controller
         try {
             $transactionTypes = [
                 [
-                    'key' => 'earning',
-                    'label' => __('wallet.transaction_types.earning'),
-                    'description' => 'Income from bookings',
+                    'key' => 'pending_earning',
+                    'label' => __('wallet.transaction_types.pending_earning'),
+                    'description' => 'Pending earnings from confirmed bookings',
+                ],
+                [
+                    'key' => 'earning_confirmed',
+                    'label' => __('wallet.transaction_types.earning_confirmed'),
+                    'description' => 'Confirmed earnings from completed bookings',
                 ],
                 [
                     'key' => 'manual_payment',
@@ -278,10 +288,20 @@ class ApiFarmOwnerWalletController extends Controller
                     'label' => __('wallet.transaction_types.refund'),
                     'description' => 'Refunds for cancelled bookings',
                 ],
+                [
+                    'key' => 'adjustment',
+                    'label' => __('wallet.transaction_types.adjustment'),
+                    'description' => 'Admin balance adjustments',
+                ],
+                [
+                    'key' => 'bonus',
+                    'label' => __('wallet.transaction_types.bonus'),
+                    'description' => 'Admin bonus payments',
+                ],
             ];
-
+    
             return $this->successResponse(true, $transactionTypes, null, 200);
-
+    
         } catch (Exception $e) {
             $this->logException($e, [
                 'action' => 'get transaction types',

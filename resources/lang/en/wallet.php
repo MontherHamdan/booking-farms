@@ -2,11 +2,13 @@
 
 return [
     'transaction_types' => [
-        'earning' => 'Earning',
+        'pending_earning' => 'Pending Earning', // NEW
+        'earning_confirmed' => 'Confirmed Earning', // NEW
         'manual_payment' => 'Manual Payment',
         'commission' => 'Platform Commission',
         'refund' => 'Refund',
         'adjustment' => 'Balance Adjustment',
+        'bonus' => 'Bonus Payment', // NEW
     ],
 
     'transaction_status' => [
@@ -33,6 +35,7 @@ return [
         'insufficient_balance' => 'Insufficient wallet balance',
         'payment_processed' => 'Payment processed successfully',
         'earning_added' => 'Earning added to wallet',
+        'earning_confirmed' => 'Earning confirmed and moved to balance', // NEW
         'refund_processed' => 'Refund processed successfully',
     ],
 

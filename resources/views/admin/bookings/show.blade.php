@@ -35,7 +35,26 @@
                         </button>
                     </li>
                     @endif
+                    @if($booking->booking_status === 'confirmed' && !$booking->hasEnded())
+                    <li>
+                        <button class="dropdown-item text-primary" onclick="updateStatus('{{ $booking->id }}', 'completed')">
+                            <i class="fas fa-flag-checkered me-2"></i>Mark as Complete
+                        </button>
+                    </li>
+                    @endif
+                    @if($booking->booking_status === 'failed')
+                    <li>
+                        <button class="dropdown-item text-warning" onclick="updateStatus('{{ $booking->id }}', 'pending')">
+                            <i class="fas fa-undo me-2"></i>Reset to Pending
+                        </button>
+                    </li>
+                    @endif
                     <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item" href="{{ route('dashboard.bookings.edit', $booking->id) }}">
+                            <i class="fas fa-edit me-2"></i>Edit Booking
+                        </a>
+                    </li>
                     <li>
                         <a class="dropdown-item" href="{{ route('dashboard.farms.show', $booking->farm->id) }}">
                             <i class="fas fa-home me-2"></i>View Farm

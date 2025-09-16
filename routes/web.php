@@ -73,15 +73,17 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth'])->group(func
     });
     
     // ═══════════════════════════════════════════════════════════════════════════════════
-    //                              BOOKING MANAGEMENT
+    //                              BOOKING MANAGEMENT (Enhanced)
     // ═══════════════════════════════════════════════════════════════════════════════════
     
     Route::prefix('bookings')->name('bookings.')->controller(BookingController::class)->group(function () {
-        // Main CRUD
+        // Main CRUD (Enhanced with Edit/Update)
         Route::get('/', 'index')->name('index');
         Route::get('/{booking}', 'show')->name('show');
+        Route::get('/{booking}/edit', 'edit')->name('edit');              // NEW: Edit form
+        Route::put('/{booking}', 'update')->name('update');               // NEW: Update booking
         
-        // Status management
+        // Status management (Enhanced)
         Route::post('/{booking}/status', 'updateStatus')->name('update-status');
         
         // Reports and analytics
@@ -90,6 +92,10 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth'])->group(func
         
         // Export
         Route::get('/export/csv', 'export')->name('export');
+        
+        // Additional booking management endpoints
+        Route::post('/{booking}/payment-status', 'updatePaymentStatus')->name('update-payment-status'); // NEW: Separate payment status update
+        Route::post('/bulk-update', 'bulkUpdate')->name('bulk-update');                                    // NEW: Bulk operations
     });
     
     // ═══════════════════════════════════════════════════════════════════════════════════

@@ -2,11 +2,15 @@
 
 namespace App\Http\Resources;
 
+use App\Traits\BookingFormatterTrait;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Carbon\Carbon;
 
 class ShowBookingResource extends JsonResource
 {
+    use BookingFormatterTrait;
+
     /**
      * Transform the resource into an array.
      *
@@ -43,7 +47,8 @@ class ShowBookingResource extends JsonResource
             'formatted_start_datetime' => $this->formatted_start_datetime,
             'formatted_end_datetime' => $this->formatted_end_datetime,
             'booking_period' => $this->booking_period,
-            'time_range' => $this->booking_time_range,
+            'time_range' => $this->getLocalizedTimeRange(),
+            'duration_hours' => $this->getDurationHours(),
             'guest_count' => $this->guest_count,
             'subtotal' => $this->subtotal,
             'discount_amount' => $this->discount_amount,

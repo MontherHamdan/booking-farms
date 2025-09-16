@@ -2,11 +2,13 @@
 
 return [
     'transaction_types' => [
-        'earning' => 'إيرادات',
+        'pending_earning' => 'إيرادات معلقة', // NEW
+        'earning_confirmed' => 'إيرادات مؤكدة', // NEW
         'manual_payment' => 'دفع يدوي',
         'commission' => 'عمولة المنصة',
         'refund' => 'استرداد',
         'adjustment' => 'تعديل الرصيد',
+        'bonus' => 'مكافأة', // NEW
     ],
 
     'transaction_status' => [
@@ -33,6 +35,7 @@ return [
         'insufficient_balance' => 'رصيد المحفظة غير كافي',
         'payment_processed' => 'تم معالجة الدفع بنجاح',
         'earning_added' => 'تم إضافة الإيرادات إلى المحفظة',
+        'earning_confirmed' => 'تم تأكيد الإيرادات ونقلها إلى الرصيد', // NEW
         'refund_processed' => 'تم معالجة الاسترداد بنجاح',
     ],
 
