@@ -69,9 +69,12 @@ return [
     'validation' => [
         'payment_option.required' => 'Payment option is required',
         'payment_option.in' => 'The selected payment option is invalid. Allowed values: full, deposit',
-        'guest_count.required' => 'Guest count is required',
-        'guest_count.integer' => 'Guest count must be an integer',
-        'guest_count.min' => 'Guest count must be at least 1',
+        'guest_count' => [
+            'required' => 'Guest count is required',
+            'integer' => 'Guest count must be an integer', 
+            'min' => 'Guest count must be at least 1',
+            'exceeds_farm_capacity' => 'The number of guests (:requested) exceeds the farm capacity (:max guests maximum).',
+        ],
 
         'customer_name.required' => 'Customer name is required',
         'customer_email.required' => 'Customer email is required',

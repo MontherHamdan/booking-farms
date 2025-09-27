@@ -44,16 +44,25 @@ class ValidateCouponRequest extends FormRequest
 
     public function messages(): array
     {
-        return array_merge(
-            __('farm.validation'), 
-            __('booking.validation'), 
-            [
-                'coupon_code.required' => __('coupon.validation.code_required'),
-                'coupon_code.regex' => __('coupon.validation.invalid_format'),
-                'dates.size' => $this->getDatesSizeMessage(),
-                'dates.max' => __('farm.validation.dates.max'),
-            ]
-        );
+        $farmValidation = __('farm.validation');
+        $bookingValidation = __('booking.validation');
+        
+        return [
+            'coupon_code.required' => 'Coupon code is required',
+            'coupon_code.string' => $farmValidation['coupon_code.string'] ?? 'Coupon code must be a valid text',
+            'coupon_code.max' => $farmValidation['coupon_code.max'] ?? 'Coupon code cannot exceed 20 characters',
+            'coupon_code.regex' => $farmValidation['coupon_code.regex'] ?? 'Coupon code must contain only uppercase letters and numbers',
+            
+            'dates.array' => $farmValidation['dates.array'] ?? 'Dates must be an array',
+            'dates.min' => $farmValidation['dates.min'] ?? 'At least one date must be selected',
+            'dates.size' => $this->getDatesSizeMessage(),
+            'dates.max' => $farmValidation['dates.max'] ?? 'Full day price type can have maximum 2 dates for date range',
+            'dates.*.date_format' => $farmValidation['dates.*.date_format'] ?? 'Date must be in YYYY-MM-DD format',
+            'dates.*.after_or_equal' => $farmValidation['dates.*.after_or_equal'] ?? 'Date must be today or in the future',
+            
+            'price_type.string' => $farmValidation['price_type.string'] ?? 'Price type must be a string',
+            'price_type.in' => $farmValidation['price_type.in'] ?? 'The selected price type is invalid',
+        ];
     }
 
     public function attributes(): array
@@ -87,14 +96,14 @@ class ValidateCouponRequest extends FormRequest
         $validationMessages = __('farm.validation');
         
         if ($priceType === 'day_use') {
-            return $validationMessages['dates.day_use_single'];
+            return $validationMessages['dates.day_use_single'] ?? 'Day use price type must have exactly 1 date';
         }
         
         if ($priceType === 'night') {
-            return $validationMessages['dates.night_single'];
+            return $validationMessages['dates.night_single'] ?? 'Night price type must have exactly 1 date';
         }
         
-        return $validationMessages['dates.size'];
+        return $validationMessages['dates.size'] ?? 'Invalid number of dates for the selected price type';
     }
 
     /**
@@ -105,6 +114,7 @@ class ValidateCouponRequest extends FormRequest
         $validator->after(function ($validator) {
             $dates = $this->input('dates', []);
             $priceType = $this->input('price_type');
+            $validationMessages = __('farm.validation');
 
             // Skip validation if no dates or price_type provided
             if (empty($dates) || !$priceType) {
@@ -117,13 +127,15 @@ class ValidateCouponRequest extends FormRequest
                 $endDate = $dates[1] ?? null;
 
                 if ($startDate && $endDate && $startDate > $endDate) {
-                    $validator->errors()->add('dates', __('farm.validation.dates.date_range_invalid'));
+                    $message = $validationMessages['dates.date_range_invalid'] ?? 'Start date must be before or equal to end date';
+                    $validator->errors()->add('dates', $message);
                 }
             }
 
             // Validate dates are not duplicated
             if (count($dates) !== count(array_unique($dates))) {
-                $validator->errors()->add('dates', __('farm.validation.dates.duplicates_not_allowed'));
+                $message = $validationMessages['dates.duplicates_not_allowed'] ?? 'Duplicate dates are not allowed';
+                $validator->errors()->add('dates', $message);
             }
         });
     }

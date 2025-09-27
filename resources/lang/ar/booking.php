@@ -69,9 +69,12 @@ return [
     'validation' => [
         'payment_option.required' => 'خيار الدفع مطلوب',
         'payment_option.in' => 'خيار الدفع المحدد غير صالح. القيم المسموحة: كامل، عربون',
-        'guest_count.required' => 'عدد الضيوف مطلوب',
-        'guest_count.integer' => 'عدد الضيوف يجب أن يكون رقمًا صحيحًا',
-        'guest_count.min' => 'عدد الضيوف يجب أن يكون على الأقل 1',
+        'guest_count' => [
+            'required' => 'عدد الضيوف مطلوب',
+            'integer' => 'عدد الضيوف يجب أن يكون رقمًا صحيحًا',
+            'min' => 'عدد الضيوف يجب أن يكون على الأقل 1',
+            'exceeds_farm_capacity' => 'عدد الضيوف (:requested) يتجاوز سعة المزرعة (الحد الأقصى :max ضيف).',
+        ],
 
         'customer_name.required' => 'اسم العميل مطلوب',
         'customer_email.required' => 'البريد الإلكتروني مطلوب',

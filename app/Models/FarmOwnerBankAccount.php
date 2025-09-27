@@ -13,8 +13,8 @@ class FarmOwnerBankAccount extends Model
     protected $fillable = [
         'user_id',
         'account_type',
+        'bank_id',
         'iban',
-        'bank_name',
         'cliq_alias',
         'cliq_phone',
         'account_holder_name',
@@ -38,6 +38,14 @@ class FarmOwnerBankAccount extends Model
     }
 
     /**
+     * Get the bank associated with this account
+     */
+    public function bank(): BelongsTo
+    {
+        return $this->belongsTo(Bank::class);
+    }
+
+    /**
      * Check if account is IBAN type
      */
     public function isIbanAccount(): bool
@@ -58,11 +66,13 @@ class FarmOwnerBankAccount extends Model
      */
     public function getFormattedAccountDetailsAttribute(): array
     {
+        $bankName = $this->bank ? $this->bank->localized_name : 'Unknown Bank';
+        
         if ($this->isIbanAccount()) {
             return [
                 'type' => 'IBAN Transfer',
                 'iban' => $this->iban,
-                'bank_name' => $this->bank_name,
+                'bank_name' => $bankName,
                 'account_holder' => $this->account_holder_name,
             ];
         }
@@ -72,6 +82,7 @@ class FarmOwnerBankAccount extends Model
                 'type' => 'CLIQ Transfer',
                 'alias' => $this->cliq_alias,
                 'phone' => $this->cliq_phone,
+                'bank_name' => $bankName,
                 'account_holder' => $this->account_holder_name,
             ];
         }
@@ -130,5 +141,13 @@ class FarmOwnerBankAccount extends Model
     public function scopeCliq($query)
     {
         return $query->where('account_type', self::TYPE_CLIQ);
+    }
+
+    /**
+     * Scope to include bank information
+     */
+    public function scopeWithBank($query)
+    {
+        return $query->with('bank');
     }
 }

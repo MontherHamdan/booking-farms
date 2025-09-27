@@ -17,7 +17,6 @@ return [
         'account_type' => 'Account Type',
         'account_holder_name' => 'Account Holder Name',
         'iban' => 'IBAN Number',
-        'bank_name' => 'Bank Name',
         'cliq_alias' => 'CLIQ Alias',
         'cliq_phone' => 'CLIQ Phone Number',
         'is_active' => 'Account Status',
@@ -37,10 +36,6 @@ return [
         'iban.regex' => 'Please enter a valid IBAN format',
         'iban.unique' => 'This IBAN is already registered',
         
-        'bank_name.required_if' => 'Bank name is required for IBAN transfers',
-        'bank_name.string' => 'Bank name must be text',
-        'bank_name.max' => 'Bank name cannot exceed :max characters',
-        
         'cliq_alias.string' => 'CLIQ alias must be text',
         'cliq_alias.max' => 'CLIQ alias cannot exceed :max characters',
         
@@ -49,14 +44,20 @@ return [
         'cliq_phone.regex' => 'Please enter a valid phone number format',
         
         'cliq_details_required' => 'Either CLIQ alias or phone number is required for CLIQ transfers',
+
+        'bank_id' => [
+            'required' => 'Bank selection is required.',
+            'exists' => 'Selected bank does not exist.',
+            'inactive' => 'Selected bank is not active.',
+        ],
     ],
 
     'attributes' => [
         'account_type' => 'Account Type',
         'account_holder_name' => 'Account Holder Name',
         'iban' => 'IBAN Number',
-        'bank_name' => 'Bank Name',
         'cliq_alias' => 'CLIQ Alias',
         'cliq_phone' => 'CLIQ Phone Number',
+        'bank_id' => 'Bank',
     ],
 ];

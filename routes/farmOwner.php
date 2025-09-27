@@ -64,6 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', 'store');                  // Save/Update bank account
         Route::delete('/', 'destroy');              // Delete bank account
         Route::get('/types', 'accountTypes');       // Get available account types
+        Route::get('/banks', 'banks');              // get the bank names 
     });
 
 });

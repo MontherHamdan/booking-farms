@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\FarmOwner;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FarmOwner\StoreFarmOwnerBankAccountRequest;
 use App\Models\FarmOwnerBankAccount;
+use App\Models\Bank;
 use App\Traits\JsonResponseTrait;
 use App\Traits\ExceptionLoggerTrait;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +25,7 @@ class ApiFarmOwnerBankAccountController extends Controller
     {
         try {
             $user = Auth::user();
-            $bankAccount = $user->farmOwnerBankAccount;
+            $bankAccount = $user->farmOwnerBankAccount()->with('bank')->first();
 
             if (!$bankAccount) {
                 return $this->successResponse(true, null, __('bank_account.messages.not_found'), 200);
@@ -35,6 +36,16 @@ class ApiFarmOwnerBankAccountController extends Controller
                 'account_type' => $bankAccount->account_type,
                 'account_type_label' => __('bank_account.account_types.' . $bankAccount->account_type),
                 'account_holder_name' => $bankAccount->account_holder_name,
+                'bank_id' => $bankAccount->bank_id,
+                'bank_name' => $bankAccount->bank ? $bankAccount->bank->localized_name : null,
+                'bank_details' => $bankAccount->bank ? [
+                    'id' => $bankAccount->bank->id,
+                    'name_en' => $bankAccount->bank->name_en,
+                    'name_ar' => $bankAccount->bank->name_ar,
+                ] : null,
+                'iban' => $bankAccount->iban,
+                'cliq_alias' => $bankAccount->cliq_alias,
+                'cliq_phone' => $bankAccount->cliq_phone,
                 'primary_identifier' => $bankAccount->primary_identifier,
                 'formatted_details' => $bankAccount->formatted_account_details,
                 'is_active' => $bankAccount->is_active,
@@ -69,20 +80,19 @@ class ApiFarmOwnerBankAccountController extends Controller
                 'user_id' => $userId,
                 'account_type' => $request->account_type,
                 'account_holder_name' => $request->account_holder_name,
+                'bank_id' => $request->bank_id,
                 'is_active' => true,
             ];
 
             // Add type-specific fields
             if ($request->account_type === FarmOwnerBankAccount::TYPE_IBAN) {
                 $bankData['iban'] = $request->iban;
-                $bankData['bank_name'] = $request->bank_name;
                 $bankData['cliq_alias'] = null;
                 $bankData['cliq_phone'] = null;
             } elseif ($request->account_type === FarmOwnerBankAccount::TYPE_CLIQ) {
                 $bankData['cliq_alias'] = $request->cliq_alias;
                 $bankData['cliq_phone'] = $request->cliq_phone;
                 $bankData['iban'] = null;
-                $bankData['bank_name'] = null;
             }
 
             // Create or update bank account
@@ -91,6 +101,9 @@ class ApiFarmOwnerBankAccountController extends Controller
                 $bankData
             );
 
+            // Load bank relationship
+            $bankAccount->load('bank');
+
             DB::commit();
 
             $responseData = [
@@ -98,6 +111,15 @@ class ApiFarmOwnerBankAccountController extends Controller
                 'account_type' => $bankAccount->account_type,
                 'account_type_label' => __('bank_account.account_types.' . $bankAccount->account_type),
                 'account_holder_name' => $bankAccount->account_holder_name,
+                'bank_id' => $bankAccount->bank_id,
+                'bank_details' => $bankAccount->bank ? [
+                    'id' => $bankAccount->bank->id,
+                    'name_en' => $bankAccount->bank->name_en,
+                    'name_ar' => $bankAccount->bank->name_ar,
+                ] : null,
+                'iban' => $bankAccount->iban,
+                'cliq_alias' => $bankAccount->cliq_alias,
+                'cliq_phone' => $bankAccount->cliq_phone,
                 'primary_identifier' => $bankAccount->primary_identifier,
                 'formatted_details' => $bankAccount->formatted_account_details,
                 'is_active' => $bankAccount->is_active,
@@ -115,7 +137,8 @@ class ApiFarmOwnerBankAccountController extends Controller
             $this->logException($e, [
                 'action' => 'save bank account',
                 'user_id' => Auth::id(),
-                'account_type' => $request->account_type ?? null
+                'account_type' => $request->account_type ?? null,
+                'bank_id' => $request->bank_id ?? null
             ]);
             return $this->errorResponse(__('error.internal_error'), 500);
         }
@@ -148,6 +171,33 @@ class ApiFarmOwnerBankAccountController extends Controller
     }
 
     /**
+     * Get available banks
+     */
+    public function banks(): JsonResponse
+    {
+        try {
+            $banks = Bank::active()->get(['id', 'name_en', 'name_ar']);
+            
+            $banksData = $banks->map(function ($bank) {
+                return [
+                    'id' => $bank->id,
+                    'name_en' => $bank->name_en,
+                    'name_ar' => $bank->name_ar,
+                ];
+            });
+
+            return $this->successResponse(true, $banksData, null, 200);
+
+        } catch (Exception $e) {
+            $this->logException($e, [
+                'action' => 'get banks',
+                'user_id' => Auth::id()
+            ]);
+            return $this->errorResponse(__('error.internal_error'), 500);
+        }
+    }
+
+    /**
      * Get available account types and their validation requirements
      */
     public function accountTypes(): JsonResponse
@@ -157,19 +207,20 @@ class ApiFarmOwnerBankAccountController extends Controller
                 'iban' => [
                     'key' => FarmOwnerBankAccount::TYPE_IBAN,
                     'label' => __('bank_account.account_types.iban'),
-                    'required_fields' => ['account_holder_name', 'iban', 'bank_name'],
+                    'required_fields' => ['account_holder_name', 'bank_id', 'iban'],
                     'description' => 'Traditional bank account using IBAN',
                     'validation_hints' => [
+                        'bank_id' => 'Select your bank from the list',
                         'iban' => 'Format: XX00XXXX0000000000000 (Country code + check digits + account identifier)',
-                        'bank_name' => 'Full name of your bank',
                     ]
                 ],
                 'cliq' => [
                     'key' => FarmOwnerBankAccount::TYPE_CLIQ,
                     'label' => __('bank_account.account_types.cliq'),
-                    'required_fields' => ['account_holder_name', 'cliq_alias_or_phone'],
+                    'required_fields' => ['account_holder_name', 'bank_id', 'cliq_alias_or_phone'],
                     'description' => 'Instant transfer using CLIQ alias or phone number',
                     'validation_hints' => [
+                        'bank_id' => 'Select your bank from the list',
                         'cliq_alias' => 'Your CLIQ alias (text identifier)',
                         'cliq_phone' => 'Phone number registered with CLIQ',
                         'note' => 'You need either alias OR phone number (or both)',

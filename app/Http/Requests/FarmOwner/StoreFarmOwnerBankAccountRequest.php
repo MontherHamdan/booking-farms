@@ -28,6 +28,7 @@ class StoreFarmOwnerBankAccountRequest extends FormRequest
         return [
             'account_type' => 'required|in:iban,cliq',
             'account_holder_name' => 'required|string|max:100',
+            'bank_id' => 'required|exists:banks,id',
             
             // IBAN specific fields
             'iban' => [
@@ -38,7 +39,6 @@ class StoreFarmOwnerBankAccountRequest extends FormRequest
                 'regex:/^[A-Z]{2}[0-9]{2}[A-Z0-9]{4}[0-9]{7}([A-Z0-9]?){0,16}$/',
                 Rule::unique('farm_owner_bank_accounts', 'iban')->ignore($userId, 'user_id')
             ],
-            'bank_name' => 'required_if:account_type,iban|nullable|string|max:100',
             
             // CLIQ specific fields
             'cliq_alias' => 'nullable|string|max:50',
@@ -80,10 +80,20 @@ class StoreFarmOwnerBankAccountRequest extends FormRequest
                     'QA' => 29, // Qatar
                     'KW' => 30, // Kuwait
                     'BH' => 22, // Bahrain
+                    'LB' => 28, // Lebanon
+                    'EG' => 29, // Egypt
                 ];
 
                 if (isset($expectedLengths[$countryCode]) && strlen($iban) !== $expectedLengths[$countryCode]) {
                     $validator->errors()->add('iban', "IBAN for {$countryCode} should be {$expectedLengths[$countryCode]} characters long.");
+                }
+            }
+
+            // Validate that bank is active
+            if ($this->filled('bank_id')) {
+                $bank = \App\Models\Bank::find($this->bank_id);
+                if ($bank && !$bank->is_active) {
+                    $validator->errors()->add('bank_id', __('bank_account.validation.bank_id.inactive'));
                 }
             }
         });
@@ -104,15 +114,14 @@ class StoreFarmOwnerBankAccountRequest extends FormRequest
             'account_holder_name.string' => __('bank_account.validation.account_holder_name.string'),
             'account_holder_name.max' => __('bank_account.validation.account_holder_name.max'),
             
+            'bank_id.required' => __('bank_account.validation.bank_id.required'),
+            'bank_id.exists' => __('bank_account.validation.bank_id.exists'),
+            
             'iban.required_if' => __('bank_account.validation.iban.required_if'),
             'iban.string' => __('bank_account.validation.iban.string'),
             'iban.max' => __('bank_account.validation.iban.max'),
             'iban.regex' => __('bank_account.validation.iban.regex'),
             'iban.unique' => __('bank_account.validation.iban.unique'),
-            
-            'bank_name.required_if' => __('bank_account.validation.bank_name.required_if'),
-            'bank_name.string' => __('bank_account.validation.bank_name.string'),
-            'bank_name.max' => __('bank_account.validation.bank_name.max'),
             
             'cliq_alias.string' => __('bank_account.validation.cliq_alias.string'),
             'cliq_alias.max' => __('bank_account.validation.cliq_alias.max'),
@@ -133,8 +142,8 @@ class StoreFarmOwnerBankAccountRequest extends FormRequest
         return [
             'account_type' => __('bank_account.attributes.account_type'),
             'account_holder_name' => __('bank_account.attributes.account_holder_name'),
+            'bank_id' => __('bank_account.attributes.bank_id'),
             'iban' => __('bank_account.attributes.iban'),
-            'bank_name' => __('bank_account.attributes.bank_name'),
             'cliq_alias' => __('bank_account.attributes.cliq_alias'),
             'cliq_phone' => __('bank_account.attributes.cliq_phone'),
         ];

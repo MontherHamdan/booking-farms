@@ -302,6 +302,17 @@ class ApiFarmBookingController extends Controller
                     return $this->errorResponse(__('farm.not_found', ['id' => $farmId]), 404);
                 }
 
+                // Validate guest count against farm capacity
+                if ($request->guest_count > $farm->guest_count) {
+                    return $this->errorResponse(
+                        __('booking.validation.guest_count.exceeds_farm_capacity', [
+                            'requested' => $request->guest_count,
+                            'max' => $farm->guest_count
+                        ]), 
+                        422
+                    );
+                }
+
                 $dates = $request->dates;
                 $priceType = $request->price_type;
                 $paymentOption = $request->payment_option ?? 'full';

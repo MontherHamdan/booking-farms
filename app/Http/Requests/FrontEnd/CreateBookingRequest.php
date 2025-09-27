@@ -26,7 +26,7 @@ class CreateBookingRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:1000'],
             'coupon_code' => ['nullable', 'string', 'max:20', 'regex:/^[A-Z0-9]+$/'],
             
-            // NEW: Payment method fields
+            // Payment method fields
             'payment_method_id' => ['nullable', 'string', 'max:255'],
             'save_card' => ['nullable', 'boolean'],
         ];
@@ -52,17 +52,45 @@ class CreateBookingRequest extends FormRequest
 
     public function messages(): array
     {
-        return array_merge(
-            __('farm.validation'), 
-            __('booking.validation'), 
-            [
-                'dates.size' => $this->getDatesSizeMessage(),
-                'dates.max' => __('farm.validation.dates.max'),
-                'coupon_code.regex' => __('coupon.validation.invalid_format'),
-                'payment_method_id.string' => __('card.validation.payment_method_id_invalid'),
-                'save_card.boolean' => __('card.validation.save_card_boolean'),
-            ]
-        );
+        $farmValidation = __('farm.validation');
+        $bookingValidation = __('booking.validation');
+        
+        return [
+            // Access flat structure from your language files
+            'dates.size' => $this->getDatesSizeMessage(),
+            'dates.max' => $farmValidation['dates.max'] ?? 'Full day price type can have maximum 2 dates for date range',
+            'dates.min' => $farmValidation['dates.min'] ?? 'At least one date must be selected',
+            'dates.required' => $farmValidation['dates.required'] ?? 'Dates are required',
+            'dates.array' => $farmValidation['dates.array'] ?? 'Dates must be an array',
+            'dates.*.required' => $farmValidation['dates.*.required'] ?? 'Date is required',
+            'dates.*.date_format' => $farmValidation['dates.*.date_format'] ?? 'Date must be in YYYY-MM-DD format',
+            'dates.*.after_or_equal' => $farmValidation['dates.*.after_or_equal'] ?? 'Date must be today or in the future',
+            
+            'price_type.required' => $farmValidation['price_type.required'] ?? 'Price type is required',
+            'price_type.string' => $farmValidation['price_type.string'] ?? 'Price type must be a string',
+            'price_type.in' => $farmValidation['price_type.in'] ?? 'The selected price type is invalid',
+            
+            'guest_count.required' => $bookingValidation['guest_count.required'] ?? 'Guest count is required',
+            'guest_count.integer' => $bookingValidation['guest_count.integer'] ?? 'Guest count must be an integer',
+            'guest_count.min' => $bookingValidation['guest_count.min'] ?? 'Guest count must be at least 1',
+            
+            'customer_name.required' => $bookingValidation['customer_name.required'] ?? 'Customer name is required',
+            'customer_email.required' => $bookingValidation['customer_email.required'] ?? 'Customer email is required',
+            'customer_email.email' => $bookingValidation['customer_email.email'] ?? 'Customer email must be valid',
+            'customer_phone.required' => $bookingValidation['customer_phone.required'] ?? 'Customer phone is required',
+            
+            'payment_option.required' => $bookingValidation['payment_option.required'] ?? 'Payment option is required',
+            'payment_option.in' => $bookingValidation['payment_option.in'] ?? 'The selected payment option is invalid',
+            
+            'notes.max' => $bookingValidation['notes.max'] ?? 'Notes cannot exceed 1000 characters',
+            
+            'coupon_code.string' => $farmValidation['coupon_code.string'] ?? 'Coupon code must be a valid text',
+            'coupon_code.max' => $farmValidation['coupon_code.max'] ?? 'Coupon code cannot exceed 20 characters',
+            'coupon_code.regex' => $farmValidation['coupon_code.regex'] ?? 'Coupon code must contain only uppercase letters and numbers',
+            
+            'payment_method_id.string' => 'Payment method ID must be a valid string',
+            'save_card.boolean' => 'Save card must be true or false',
+        ];
     }
 
     public function attributes(): array
@@ -70,7 +98,10 @@ class CreateBookingRequest extends FormRequest
         return array_merge(
             __('farm.attributes'), 
             __('booking.attributes'),
-            __('card.attributes')
+            [
+                'payment_method_id' => 'Payment Method',
+                'save_card' => 'Save Card',
+            ]
         );
     }
 
@@ -107,16 +138,17 @@ class CreateBookingRequest extends FormRequest
     private function getDatesSizeMessage(): string
     {
         $priceType = $this->input('price_type');
+        $validationMessages = __('farm.validation');
         
         if ($priceType === 'day_use') {
-            return __('farm.validation.dates.day_use_single');
+            return $validationMessages['dates.day_use_single'] ?? 'Day use price type must have exactly 1 date';
         }
         
         if ($priceType === 'night') {
-            return __('farm.validation.dates.night_single');
+            return $validationMessages['dates.night_single'] ?? 'Night price type must have exactly 1 date';
         }
         
-        return __('farm.validation.dates.size');
+        return $validationMessages['dates.size'] ?? 'Invalid number of dates for the selected price type';
     }
 
     /**
@@ -127,6 +159,7 @@ class CreateBookingRequest extends FormRequest
         $validator->after(function ($validator) {
             $dates = $this->input('dates', []);
             $priceType = $this->input('price_type');
+            $validationMessages = __('farm.validation');
 
             // If full_day with 2 dates, ensure first date <= second date
             if ($priceType === 'full_day' && count($dates) === 2) {
@@ -134,26 +167,25 @@ class CreateBookingRequest extends FormRequest
                 $endDate = $dates[1] ?? null;
 
                 if ($startDate && $endDate && $startDate > $endDate) {
-                    $validator->errors()->add('dates', __('farm.validation.dates.date_range_invalid'));
+                    $message = $validationMessages['dates.date_range_invalid'] ?? 'Start date must be before or equal to end date';
+                    $validator->errors()->add('dates', $message);
                 }
             }
 
             // Validate dates are not duplicated
             if (count($dates) !== count(array_unique($dates))) {
-                $validator->errors()->add('dates', __('farm.validation.dates.duplicates_not_allowed'));
+                $message = $validationMessages['dates.duplicates_not_allowed'] ?? 'Duplicate dates are not allowed';
+                $validator->errors()->add('dates', $message);
             }
 
-            // NEW: Validate payment method logic
+            // Validate payment method logic
             $paymentMethodId = $this->input('payment_method_id');
             $saveCard = $this->input('save_card', false);
 
             // If payment_method_id is provided, user shouldn't request to save card
             if ($paymentMethodId && $saveCard) {
-                $validator->errors()->add('save_card', __('card.validation.cannot_save_existing_card'));
+                $validator->errors()->add('save_card', 'Cannot save an existing card');
             }
-
-            // Additional validation can be added here for farm-specific rules
-            // like deposit availability, farm capacity, etc.
         });
     }
 }
