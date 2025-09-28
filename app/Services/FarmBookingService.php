@@ -42,13 +42,13 @@ class FarmBookingService
 
     /**
      * Get all booked dates for a farm and price type
-     * Only considers CONFIRMED bookings
+     * Consider both CONFIRMED and non-expired PENDING bookings
      */
     public function getBookedDates(int $farmId, string $priceType): array
     {
         $bookedDates = [];
         
-        // Get CONFIRMED bookings for this price type
+        // Get CONFIRMED bookings (always block dates)
         $confirmedBookings = FarmBooking::where('farm_id', $farmId)
             ->where('price_type', $priceType)
             ->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
@@ -58,12 +58,29 @@ class FarmBookingService
             $bookedDates = array_merge($bookedDates, $booking->booking_dates ?? []);
         }
 
+        // Get non-expired PENDING bookings (should also block dates temporarily)
+        $pendingBookings = FarmBooking::where('farm_id', $farmId)
+            ->where('price_type', $priceType)
+            ->where('booking_status', FarmBooking::BOOKING_STATUS_PENDING)
+            ->where('expires_at', '>', now()) // Only non-expired pending
+            ->get();
+
+        foreach ($pendingBookings as $booking) {
+            $bookedDates = array_merge($bookedDates, $booking->booking_dates ?? []);
+        }
+
         // Handle cross-price-type conflicts
         if (in_array($priceType, ['day_use', 'night'])) {
             // Day use or night conflicts with full day bookings
             $fullDayBookings = FarmBooking::where('farm_id', $farmId)
                 ->where('price_type', 'full_day')
-                ->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
+                ->where(function($query) {
+                    $query->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
+                        ->orWhere(function($q) {
+                            $q->where('booking_status', FarmBooking::BOOKING_STATUS_PENDING)
+                                ->where('expires_at', '>', now());
+                        });
+                })
                 ->get();
                 
             foreach ($fullDayBookings as $booking) {
@@ -75,7 +92,13 @@ class FarmBookingService
             // Full day conflicts with any partial bookings
             $partialBookings = FarmBooking::where('farm_id', $farmId)
                 ->whereIn('price_type', ['day_use', 'night'])
-                ->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
+                ->where(function($query) {
+                    $query->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)
+                        ->orWhere(function($q) {
+                            $q->where('booking_status', FarmBooking::BOOKING_STATUS_PENDING)
+                                ->where('expires_at', '>', now());
+                        });
+                })
                 ->get();
                 
             foreach ($partialBookings as $booking) {

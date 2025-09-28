@@ -234,31 +234,37 @@ class Farm extends Model
     }
 
     /**
-     * Get the minimum price across all pricing types.
+     * Get the minimum price across only COMPLETE pricing types.
      */
     public function getMinimumPriceAttribute(): float
     {
-        $allPrices = [];
+        $completePrices = [];
         
         foreach ($this->pricing as $pricing) {
-            $allPrices[] = $pricing->min_price;
+            // Only include complete price types
+            if ($this->isPriceTypeComplete($pricing)) {
+                $completePrices[] = $pricing->min_price;
+            }
         }
         
-        return empty($allPrices) ? 0 : min($allPrices);
+        return empty($completePrices) ? 0 : min($completePrices);
     }
 
     /**
-     * Get the maximum price across all pricing types.
+     * Get the maximum price across only COMPLETE pricing types.
      */
     public function getMaximumPriceAttribute(): float
     {
-        $allPrices = [];
+        $completePrices = [];
         
         foreach ($this->pricing as $pricing) {
-            $allPrices[] = $pricing->max_price;
+            // Only include complete price types
+            if ($this->isPriceTypeComplete($pricing)) {
+                $completePrices[] = $pricing->max_price;
+            }
         }
         
-        return empty($allPrices) ? 0 : max($allPrices);
+        return empty($completePrices) ? 0 : max($completePrices);
     }
 
     /**

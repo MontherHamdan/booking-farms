@@ -115,36 +115,34 @@ class ApiFarmBookingController extends Controller
             if (!$farm) {
                 return $this->errorResponse(__('farm.not_found', ['id' => $farmId]), 404);
             }
-
+    
             $couponCode = $request->coupon_code;
-            $dates = $request->dates ?? [];
-            $priceType = $request->price_type ?? 'day_use';
+            $dates = $request->dates; // NOW REQUIRED
+            $priceType = $request->price_type; // NOW REQUIRED
+            $platform = $request->platform; // NEW REQUIRED FIELD
             $userId = auth('sanctum')->id();
-            $platform = $request->header('User-Agent-Platform', 'web');
-
+    
             if (!$userId) {
                 return $this->errorResponse(__('auth.unauthenticated'), 401);
             }
-
-            // Process dates if provided
-            $processedDates = !empty($dates) ? $this->processDatesByPriceType($dates, $priceType) : [];
-
-            // Check availability if dates are provided
-            if (!empty($processedDates)) {
-                $availabilityErrors = $this->bookingService->checkAvailability($farm, $processedDates, $priceType);
-                
-                if (isset($availabilityErrors['unavailable'])) {
-                    return $this->errorResponse(__('farm.unavailable_dates', ['dates' => implode(', ', $availabilityErrors['unavailable'])]), 400);
-                }
-                
-                if (isset($availabilityErrors['booked'])) {
-                    return $this->errorResponse(__('farm.dates_already_booked', ['dates' => implode(', ', $availabilityErrors['booked'])]), 400);
-                }
+    
+            // Process dates (now always provided)
+            $processedDates = $this->processDatesByPriceType($dates, $priceType);
+    
+            // Check availability (now always performed)
+            $availabilityErrors = $this->bookingService->checkAvailability($farm, $processedDates, $priceType);
+            
+            if (isset($availabilityErrors['unavailable'])) {
+                return $this->errorResponse(__('farm.unavailable_dates', ['dates' => implode(', ', $availabilityErrors['unavailable'])]), 400);
             }
-
-            // Validate coupon
+            
+            if (isset($availabilityErrors['booked'])) {
+                return $this->errorResponse(__('farm.dates_already_booked', ['dates' => implode(', ', $availabilityErrors['booked'])]), 400);
+            }
+    
+            // Validate coupon with platform validation
             $validation = $this->bookingService->validateCoupon($couponCode, $farm, $processedDates, $userId, $platform);
-
+    
             if ($validation['valid']) {
                 return $this->successResponse(true, [
                     'valid' => true,
@@ -161,7 +159,7 @@ class ApiFarmBookingController extends Controller
             } else {
                 return $this->errorResponse(implode(' ', $validation['errors']), 400);
             }
-
+    
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'validate coupon', 'farm_id' => $farmId]);
             return $this->errorResponse(__('error.internal_error'), 500);
@@ -184,22 +182,34 @@ class ApiFarmBookingController extends Controller
             $priceType = $request->price_type;
             $paymentOption = $request->payment_option;
             $couponCode = $request->coupon_code;
+            $platform = $request->platform; 
+            $guestCount = $request->guest_count;
 
-            // Validate pricing exists
-            $pricing = $farm->pricing()->where('price_type', $priceType)->first();
-            if (!$pricing) {
-                return $this->errorResponse(__('farm.pricing_not_available'), 400);
+            // 1. VALIDATE GUEST COUNT AGAINST FARM CAPACITY
+            if ($guestCount > $farm->guest_count) {
+                return $this->errorResponse(
+                    __('booking.validation.guest_count.exceeds_farm_capacity', [
+                        'requested' => $guestCount,
+                        'max' => $farm->guest_count
+                    ]), 
+                    422
+                );
             }
 
-            // Validate deposit if requested
+            // 2. VALIDATE PRICING EXISTS
+            $pricing = $farm->pricing()->where('price_type', $priceType)->first();
+            if (!$pricing) {
+                return $this->errorResponse(__('farm.pricing_not_available', ['price_type' => __('farm.price_types.' . $priceType)]), 400);
+            }
+
+            // 3. VALIDATE DEPOSIT OPTION IF REQUESTED
             if ($paymentOption === 'deposit' && (!$farm->deposit_rate || $farm->deposit_rate <= 0)) {
                 return $this->errorResponse(__('farm.deposit_not_available'), 400);
             }
 
-            // Process dates and check availability
+            // 4. PROCESS DATES AND CHECK AVAILABILITY
             $processedDates = $this->processDatesByPriceType($dates, $priceType);
             
-            // Check availability
             $availabilityErrors = $this->bookingService->checkAvailability($farm, $processedDates, $priceType);
             
             if (isset($availabilityErrors['unavailable'])) {
@@ -210,11 +220,22 @@ class ApiFarmBookingController extends Controller
                 return $this->errorResponse(__('farm.dates_already_booked', ['dates' => implode(', ', $availabilityErrors['booked'])]), 400);
             }
 
-            // Get user ID for coupon validation
+            // 5. GET USER FOR AUTHENTICATION AND COUPON VALIDATION
             $userId = auth('sanctum')->id();
-            $platform = $request->header('User-Agent-Platform', 'web');
+            if (!$userId) {
+                return $this->errorResponse(__('auth.unauthenticated'), 401);
+            }
 
-            // Calculate price
+            // 6. VALIDATE COUPON IF PROVIDED (COMPREHENSIVE CHECK)
+            if ($couponCode) {
+                $couponValidation = $this->bookingService->validateCoupon($couponCode, $farm, $processedDates, $userId, $platform);
+                
+                if (!$couponValidation['valid']) {
+                    return $this->errorResponse('Coupon validation failed: ' . implode(' ', $couponValidation['errors']), 400);
+                }
+            }
+
+            // 7. CALCULATE PRICING WITH ALL VALIDATIONS
             $pricingData = $this->bookingService->calculatePricing(
                 $farm, 
                 $processedDates, 
@@ -225,13 +246,16 @@ class ApiFarmBookingController extends Controller
                 $platform
             );
 
-            // Get correct period data based on price type and timing
-            $periodData = $this->getCorrectBookingPeriod($processedDates, $priceType, $pricing);
+            // 8. CHECK FOR COUPON ERRORS IN PRICING
+            if (!empty($pricingData['coupon_errors'])) {
+                return $this->errorResponse('Coupon error: ' . implode(' ', $pricingData['coupon_errors']), 400);
+            }
 
-            // Get time information and calculate duration
+            // 9. GET BOOKING PERIOD AND TIME DATA
+            $periodData = $this->getCorrectBookingPeriod($processedDates, $priceType, $pricing);
             $timeData = $this->getFormattedTimeData($pricing);
 
-            // Build booking data
+            // 10. BUILD COMPREHENSIVE BOOKING DATA
             $bookingData = [
                 'dates' => $processedDates,
                 'formatted_dates' => $this->formatDatesForDisplay($processedDates),
@@ -243,10 +267,11 @@ class ApiFarmBookingController extends Controller
                 'duration_hours' => $timeData['duration_hours'],
                 'price_type' => $priceType,
                 'price_type_label' => __('farm.price_types.' . $priceType),
-                'guest_count' => $request->guest_count,
+                'guest_count' => $guestCount,
+                'platform' => $platform, // INCLUDE PLATFORM INFO
             ];
 
-            // Only add duration_days for full_day bookings
+            // Add duration_days for full_day bookings
             if ($priceType === 'full_day') {
                 $bookingData['duration_days'] = $periodData['duration_days'];
             }
@@ -318,6 +343,9 @@ class ApiFarmBookingController extends Controller
                 $paymentOption = $request->payment_option ?? 'full';
                 $couponCode = $request->coupon_code;
                 
+                // FIXED: Get platform consistently - prioritize request over header
+                $platform = $request->platform ?? $request->header('User-Agent-Platform', 'web');
+                
                 // Handle saved cards and new card saving
                 $paymentMethodId = $request->payment_method_id; // Saved card ID
                 $saveCard = $request->save_card ?? false; // Whether to save new card
@@ -356,9 +384,16 @@ class ApiFarmBookingController extends Controller
                     return $this->errorResponse(__('farm.dates_already_booked', ['dates' => implode(', ', $availabilityErrors['booked'])]), 400);
                 }
 
-                $platform = $request->header('User-Agent-Platform', 'web');
+                // ADDED: Validate coupon if provided (COMPREHENSIVE CHECK WITH PLATFORM)
+                if ($couponCode) {
+                    $couponValidation = $this->bookingService->validateCoupon($couponCode, $farm, $processedDates, $userId, $platform);
+                    
+                    if (!$couponValidation['valid']) {
+                        return $this->errorResponse('Coupon validation failed: ' . implode(' ', $couponValidation['errors']), 400);
+                    }
+                }
 
-                // Calculate pricing with coupon
+                // Calculate pricing with coupon (using the validated platform)
                 $pricingData = $this->bookingService->calculatePricing(
                     $farm, 
                     $processedDates, 
@@ -366,12 +401,12 @@ class ApiFarmBookingController extends Controller
                     $paymentOption, 
                     $couponCode, 
                     $userId, 
-                    $platform
+                    $platform 
                 );
 
-                // Check for coupon errors
+                // DOUBLE CHECK: Verify coupon errors again after pricing calculation
                 if (!empty($pricingData['coupon_errors'])) {
-                    return $this->errorResponse(implode(' ', $pricingData['coupon_errors']), 400);
+                    return $this->errorResponse('Coupon error: ' . implode(' ', $pricingData['coupon_errors']), 400);
                 }
 
                 // Validate deposit option
@@ -399,6 +434,7 @@ class ApiFarmBookingController extends Controller
                     'deposit_amount' => $pricingData['is_deposit'] ? $pricingData['deposit_amount'] : 0,
                     'remaining_amount' => $pricingData['is_deposit'] ? $pricingData['remaining_amount'] : 0,
                     'payment_option' => $paymentOption,
+                    'platform' => $platform, // Use the consistent platform value
                     'customer_name' => $request->customer_name,
                     'customer_email' => $request->customer_email,
                     'customer_phone' => $request->customer_phone,
@@ -428,6 +464,7 @@ class ApiFarmBookingController extends Controller
                         'user_id' => $userId,
                         'booking_reference' => $booking->booking_reference,
                         'payment_type' => $pricingData['is_deposit'] ? 'deposit' : 'full',
+                        'platform' => $platform, // Include platform in metadata
                         'coupon_code' => $booking->coupon_code ?? null,
                         'coupon_discount' => $booking->coupon_discount_amount ?? 0,
                     ],
@@ -473,6 +510,7 @@ class ApiFarmBookingController extends Controller
                         'expires_at' => $booking->expires_at,
                         'booking_period' => $booking->booking_period,
                         'time_range' => $booking->booking_time_range,
+                        'platform' => $platform, // Include platform in response
                         'coupon_applied' => $pricingData['coupon_applied'] ?? false,
                         'coupon_savings' => $pricingData['coupon_discount_amount'] ?? 0,
                     ]

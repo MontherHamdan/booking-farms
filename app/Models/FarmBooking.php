@@ -32,6 +32,7 @@ class FarmBooking extends Model
         'deposit_amount',
         'remaining_amount',
         'payment_option',
+        'platform', 
         'stripe_session_id',
         'stripe_payment_intent_id',
         'payment_status',
@@ -47,7 +48,7 @@ class FarmBooking extends Model
         'farm_owner_earning',
         'earnings_processed',
         'earnings_processed_at',
-        // NEW PENDING BALANCE FIELDS
+        // PENDING BALANCE FIELDS
         'earnings_confirmed',
         'earnings_confirmed_at',
     ];
@@ -71,7 +72,7 @@ class FarmBooking extends Model
         'farm_owner_earning' => 'decimal:2',
         'earnings_processed' => 'boolean',
         'earnings_processed_at' => 'datetime',
-        // NEW PENDING BALANCE CASTS
+        // PENDING BALANCE CASTS
         'earnings_confirmed' => 'boolean',
         'earnings_confirmed_at' => 'datetime',
     ];
@@ -80,15 +81,15 @@ class FarmBooking extends Model
     const PAYMENT_STATUS_PENDING = 'pending';
     const PAYMENT_STATUS_PAID = 'paid';
     const PAYMENT_STATUS_FAILED = 'failed';
-    const PAYMENT_STATUS_EXPIRED = 'expired';      // NEW: Payment window expired
+    const PAYMENT_STATUS_EXPIRED = 'expired';      
     const PAYMENT_STATUS_REFUNDED = 'refunded';
     const PAYMENT_STATUS_PARTIALLY_PAID = 'partially_paid';
 
     // BOOKING STATUS CONSTANTS
     const BOOKING_STATUS_PENDING = 'pending';
     const BOOKING_STATUS_CONFIRMED = 'confirmed';
-    const BOOKING_STATUS_FAILED = 'failed';       // Payment failed OR expired
-    const BOOKING_STATUS_CANCELLED = 'cancelled'; // User cancelled confirmed booking
+    const BOOKING_STATUS_FAILED = 'failed';       
+    const BOOKING_STATUS_CANCELLED = 'cancelled'; 
     const BOOKING_STATUS_COMPLETED = 'completed';
 
     // PRICE TYPE CONSTANTS
@@ -99,6 +100,10 @@ class FarmBooking extends Model
     // PAYMENT OPTION CONSTANTS
     const PAYMENT_OPTION_FULL = 'full';
     const PAYMENT_OPTION_DEPOSIT = 'deposit';
+
+    // PLATFORM CONSTANTS
+    const PLATFORM_WEB = 'web';
+    const PLATFORM_MOBILE = 'mobile';
 
     /**
      * Boot method to generate booking reference
@@ -114,6 +119,10 @@ class FarmBooking extends Model
             
             if (empty($booking->payment_option)) {
                 $booking->payment_option = self::PAYMENT_OPTION_FULL;
+            }
+
+            if (empty($booking->platform)) {
+                $booking->platform = self::PLATFORM_WEB;
             }
         });
     }
@@ -196,6 +205,17 @@ class FarmBooking extends Model
         return $query->whereNotNull('coupon_id');
     }
 
+    // NEW: Platform scopes
+    public function scopeWeb($query)
+    {
+        return $query->where('platform', self::PLATFORM_WEB);
+    }
+
+    public function scopeMobile($query)
+    {
+        return $query->where('platform', self::PLATFORM_MOBILE);
+    }
+
     /**
      * Scope for bookings that need earnings processing
      */
@@ -210,7 +230,7 @@ class FarmBooking extends Model
     }
 
     /**
-     * NEW: Scope for bookings that need earnings confirmation
+     * Scope for bookings that need earnings confirmation
      */
     public function scopeNeedsEarningsConfirmation($query)
     {
@@ -228,7 +248,7 @@ class FarmBooking extends Model
     }
 
     /**
-     * NEW: Scope for bookings with confirmed earnings
+     * Scope for bookings with confirmed earnings
      */
     public function scopeWithConfirmedEarnings($query)
     {
@@ -300,11 +320,22 @@ class FarmBooking extends Model
     }
 
     /**
-     * NEW: Check if earnings have been confirmed
+     * Check if earnings have been confirmed
      */
     public function hasConfirmedEarnings(): bool
     {
         return $this->earnings_confirmed && $this->earnings_confirmed_at;
+    }
+
+    // NEW: Platform checks
+    public function isWebBooking(): bool
+    {
+        return $this->platform === self::PLATFORM_WEB;
+    }
+
+    public function isMobileBooking(): bool
+    {
+        return $this->platform === self::PLATFORM_MOBILE;
     }
 
     /**
@@ -386,6 +417,16 @@ class FarmBooking extends Model
         return "{$startDate} - {$endDate}" . ($this->booking_time_range ? ' (' . $this->booking_time_range . ')' : '');
     }
 
+    // NEW: Platform label
+    public function getPlatformLabelAttribute(): string
+    {
+        return match($this->platform) {
+            self::PLATFORM_WEB => 'Web',
+            self::PLATFORM_MOBILE => 'Mobile',
+            default => 'Unknown'
+        };
+    }
+
     public function getBookingSummaryAttribute(): array
     {
         return [
@@ -395,6 +436,7 @@ class FarmBooking extends Model
             'period' => $this->booking_period,
             'time_range' => $this->booking_time_range,
             'guests' => $this->guest_count,
+            'platform' => $this->platform_label,
             'subtotal' => $this->subtotal,
             'offer_discount' => $this->discount_amount ?? 0,
             'coupon_discount' => $this->coupon_discount_amount ?? 0,
@@ -455,7 +497,6 @@ class FarmBooking extends Model
     {
         $wasAlreadyPaid = $this->isFullyPaid() || $this->isPartiallyPaid();
         
-        // ORIGINAL LOGIC (preserved)
         $newStatus = $this->hasDepositPayment() 
             ? self::PAYMENT_STATUS_PARTIALLY_PAID 
             : self::PAYMENT_STATUS_PAID;
@@ -471,7 +512,7 @@ class FarmBooking extends Model
             $this->coupon->markAsUsed($this->user_id, $this->id);
         }
         
-        // NEW FUNCTIONALITY - Process earnings if this is the first time being marked as paid
+        // Process earnings if this is the first time being marked as paid
         if (!$wasAlreadyPaid && $this->shouldProcessEarnings()) {
             try {
                 $this->processEarnings();
@@ -480,9 +521,8 @@ class FarmBooking extends Model
                     'booking_id' => $this->id,
                     'booking_reference' => $this->booking_reference,
                     'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString() // ADD THIS
+                    'trace' => $e->getTraceAsString()
                 ]);
-                // Don't throw exception - earnings can be processed later via command
             }
         }
     }
@@ -520,20 +560,17 @@ class FarmBooking extends Model
 
     public function cancel(): void
     {
-        // ORIGINAL LOGIC (preserved)
         if ($this->booking_status !== self::BOOKING_STATUS_CONFIRMED) {
             throw new \InvalidArgumentException('Only confirmed bookings can be cancelled');
         }
         
         $wasEarningsProcessed = $this->earnings_processed;
-        $wasEarningsConfirmed = $this->earnings_confirmed; // NEW: also check confirmed status
+        $wasEarningsConfirmed = $this->earnings_confirmed;
     
         $this->update([
             'booking_status' => self::BOOKING_STATUS_CANCELLED,
-            // payment_status remains unchanged for refund processing
         ]);
         
-        // UPDATED: Process refund if earnings were already processed OR confirmed
         if ($wasEarningsProcessed || $wasEarningsConfirmed) {
             try {
                 $walletService = app(\App\Services\FarmOwnerWalletService::class);
@@ -544,7 +581,6 @@ class FarmBooking extends Model
                     'booking_reference' => $this->booking_reference,
                     'error' => $e->getMessage()
                 ]);
-                // Don't throw exception - refund can be processed manually
             }
         }
     }
@@ -566,7 +602,6 @@ class FarmBooking extends Model
 
         switch ($this->price_type) {
             case self::PRICE_TYPE_DAY_USE:
-                // Day use: same date for start and end
                 $this->start_date = Carbon::parse(min($this->booking_dates));
                 $this->end_date = Carbon::parse(max($this->booking_dates));
                 $this->start_time = Carbon::parse($pricing->start_time);
@@ -574,19 +609,15 @@ class FarmBooking extends Model
                 break;
                 
             case self::PRICE_TYPE_NIGHT:
-                // Night: start date is the selected date, end date is next day
-                $selectedDate = Carbon::parse($this->booking_dates[0]); // Night bookings have only 1 date
+                $selectedDate = Carbon::parse($this->booking_dates[0]);
                 $this->start_date = $selectedDate;
                 
-                // Parse times
                 $startTime = Carbon::parse($pricing->start_time);
                 $endTime = Carbon::parse($pricing->end_time);
                 
-                // If end time is earlier than start time, it means it goes to next day
                 if ($endTime->format('H:i') < $startTime->format('H:i')) {
                     $this->end_date = $selectedDate->copy()->addDay();
                 } else {
-                    // Same day night (unusual but possible)
                     $this->end_date = $selectedDate;
                 }
                 
@@ -595,7 +626,6 @@ class FarmBooking extends Model
                 break;
                 
             case self::PRICE_TYPE_FULL_DAY:
-                // Full day: can be single day or date range
                 $this->start_date = Carbon::parse(min($this->booking_dates));
                 $this->end_date = Carbon::parse(max($this->booking_dates));
                 
@@ -606,12 +636,10 @@ class FarmBooking extends Model
                     $this->start_time = Carbon::parse($dayUsePricing->start_time);
                     $this->end_time = Carbon::parse($nightPricing->end_time);
                     
-                    // For full day, if night ends on next day, adjust end_date accordingly
                     $nightStart = Carbon::parse($nightPricing->start_time);
                     $nightEnd = Carbon::parse($nightPricing->end_time);
                     
                     if ($nightEnd->format('H:i') < $nightStart->format('H:i')) {
-                        // Night goes to next day, so full day ends on the day after end_date
                         $this->end_date = $this->end_date->addDay();
                     }
                 } else {
@@ -647,7 +675,7 @@ class FarmBooking extends Model
     }
 
     /**
-     * NEW: Confirm earnings (move from pending to confirmed balance)
+     * Confirm earnings (move from pending to confirmed balance)
      */
     public function confirmEarnings(): void
     {
@@ -676,12 +704,12 @@ class FarmBooking extends Model
             && !$this->earnings_processed 
             && in_array($this->payment_status, [
                 self::PAYMENT_STATUS_PAID,
-                self::PAYMENT_STATUS_PARTIALLY_PAID // ADD THIS
+                self::PAYMENT_STATUS_PARTIALLY_PAID
             ]);
     }
 
     /**
-     * NEW: Check if earnings should be confirmed automatically
+     * Check if earnings should be confirmed automatically
      */
     public function shouldConfirmEarnings(): bool
     {
@@ -699,7 +727,7 @@ class FarmBooking extends Model
     }
 
     /**
-     * Get earning breakdown (UPDATED)
+     * Get earning breakdown
      */
     public function getEarningBreakdown(): array
     {
@@ -710,14 +738,14 @@ class FarmBooking extends Model
             'farm_owner_earning' => $this->farm_owner_earning,
             'earnings_processed' => $this->earnings_processed,
             'earnings_processed_at' => $this->earnings_processed_at,
-            'earnings_confirmed' => $this->earnings_confirmed, // NEW
-            'earnings_confirmed_at' => $this->earnings_confirmed_at, // NEW
-            'earning_status' => $this->getEarningStatus(), // NEW
+            'earnings_confirmed' => $this->earnings_confirmed,
+            'earnings_confirmed_at' => $this->earnings_confirmed_at,
+            'earning_status' => $this->getEarningStatus(),
         ];
     }
 
     /**
-     * NEW: Get earning status for display
+     * Get earning status for display
      */
     public function getEarningStatus(): string
     {
@@ -737,7 +765,7 @@ class FarmBooking extends Model
     }
 
     /**
-     * NEW: Get earning status label
+     * Get earning status label
      */
     public function getEarningStatusLabel(): string
     {
@@ -751,7 +779,6 @@ class FarmBooking extends Model
 
     /**
      * Calculate what the earning would be with current commission rate
-     * Useful for recalculating old bookings
      */
     public function calculateCurrentEarning(): array
     {

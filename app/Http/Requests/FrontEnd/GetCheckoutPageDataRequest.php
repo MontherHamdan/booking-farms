@@ -20,6 +20,7 @@ class GetCheckoutPageDataRequest extends FormRequest
             'payment_option' => ['required', 'string', 'in:full,deposit'],
             'guest_count' => ['required', 'integer', 'min:1'],
             'coupon_code' => ['nullable', 'string', 'max:20', 'regex:/^[A-Z0-9]+$/'],
+            'platform' => ['required', 'string', 'in:web,mobile'],
         ];
 
         // Add specific date count validation based on price type
@@ -72,12 +73,18 @@ class GetCheckoutPageDataRequest extends FormRequest
             'coupon_code.string' => $farmValidation['coupon_code.string'] ?? 'Coupon code must be a valid text',
             'coupon_code.max' => $farmValidation['coupon_code.max'] ?? 'Coupon code cannot exceed 20 characters',
             'coupon_code.regex' => $farmValidation['coupon_code.regex'] ?? 'Coupon code must contain only uppercase letters and numbers',
+            
+            'platform.required' => 'Platform is required',
+            'platform.string' => 'Platform must be a string',
+            'platform.in' => 'Platform must be either web or mobile',
         ];
     }
 
     public function attributes(): array
     {
-        return array_merge(__('farm.attributes'), __('booking.attributes'));
+        return array_merge(__('farm.attributes'), __('booking.attributes'), [
+            'platform' => 'Platform',
+        ]);
     }
 
     protected function prepareForValidation()
@@ -94,6 +101,11 @@ class GetCheckoutPageDataRequest extends FormRequest
             $this->merge([
                 'coupon_code' => strtoupper($this->coupon_code),
             ]);
+        }
+
+        // Default platform to web if not provided
+        if (!$this->has('platform')) {
+            $this->merge(['platform' => 'web']);
         }
     }
 

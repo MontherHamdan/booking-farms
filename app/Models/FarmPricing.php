@@ -5,10 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Traits\BookingFormatterTrait;
+use Carbon\Carbon;
 
 class FarmPricing extends Model
 {
-    use HasFactory;
+    use HasFactory, BookingFormatterTrait;
 
     /**
      * The attributes that are mass assignable.
@@ -116,23 +118,31 @@ class FarmPricing extends Model
     }
 
     /**
-     * Get formatted start time.
+     * Get formatted start time in 12-hour format
      */
     public function getFormattedStartTimeAttribute(): string
     {
-        return $this->start_time ? $this->start_time->format('H:i') : '';
+        if (!$this->start_time) {
+            return '';
+        }
+
+        return $this->formatTimeWithLocalizedAmPm(Carbon::parse($this->start_time));
     }
 
     /**
-     * Get formatted end time.
+     * Get formatted end time in 12-hour format
      */
     public function getFormattedEndTimeAttribute(): string
     {
-        return $this->end_time ? $this->end_time->format('H:i') : '';
+        if (!$this->end_time) {
+            return '';
+        }
+
+        return $this->formatTimeWithLocalizedAmPm(Carbon::parse($this->end_time));
     }
 
     /**
-     * Get time range as a formatted string.
+     * Get time range in 12-hour format
      */
     public function getTimeRangeAttribute(): string
     {
@@ -140,7 +150,10 @@ class FarmPricing extends Model
             return '';
         }
 
-        return $this->start_time->format('H:i') . ' - ' . $this->end_time->format('H:i');
+        $startTime12h = $this->formatTimeWithLocalizedAmPm(Carbon::parse($this->start_time));
+        $endTime12h = $this->formatTimeWithLocalizedAmPm(Carbon::parse($this->end_time));
+        
+        return $startTime12h . ' - ' . $endTime12h;
     }
 
     /**
