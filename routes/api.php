@@ -38,6 +38,7 @@ Route::prefix('cities')->controller(ApiCityController::class)->group(function ()
 Route::prefix('farms')->controller(ApiFarmController::class)->group(function () {
     Route::get('/',                    'index');
     Route::get('/filter-fields',       'getFilterFields');
+    Route::get('/available-times',     'getAvailableTimeOptions'); 
     Route::get('/{farm_id}',           'show');
     Route::post('/filter',             'filter');
     Route::post('/search',             'search');  

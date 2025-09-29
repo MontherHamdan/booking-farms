@@ -241,4 +241,19 @@ class ApiFarmController extends Controller
             return $this->errorResponse(__('error.internal_error'), 500);
         }    
     }
+
+    /**
+     * Get available time options
+     */
+    public function getAvailableTimeOptions(Request $request): JsonResponse
+    {
+        $options = [
+            ['value' => 'day_use', 'label' => __('farm.price_types.day_use')],
+            ['value' => 'night', 'label' => __('farm.price_types.night')],
+            ['value' => 'full_day', 'label' => __('farm.price_types.full_day')]
+        ];
+        
+        return $this->successResponse(true, $options, null, 200);
+    }
+    
 }
