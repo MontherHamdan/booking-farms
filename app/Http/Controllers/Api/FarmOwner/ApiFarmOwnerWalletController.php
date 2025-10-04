@@ -266,37 +266,37 @@ class ApiFarmOwnerWalletController extends Controller
                 [
                     'key' => 'pending_earning',
                     'label' => __('wallet.transaction_types.pending_earning'),
-                    'description' => 'Pending earnings from confirmed bookings',
+                    'description' => __('wallet.transaction_descriptions.pending_earning'),
                 ],
                 [
                     'key' => 'earning_confirmed',
                     'label' => __('wallet.transaction_types.earning_confirmed'),
-                    'description' => 'Confirmed earnings from completed bookings',
+                    'description' => __('wallet.transaction_descriptions.earning_confirmed'),
                 ],
                 [
                     'key' => 'manual_payment',
                     'label' => __('wallet.transaction_types.manual_payment'),
-                    'description' => 'Payments processed by admin',
+                    'description' => __('wallet.transaction_descriptions.manual_payment'),
                 ],
                 [
                     'key' => 'commission',
                     'label' => __('wallet.transaction_types.commission'),
-                    'description' => 'Platform commission deductions',
+                    'description' => __('wallet.transaction_descriptions.commission'),
                 ],
                 [
                     'key' => 'refund',
                     'label' => __('wallet.transaction_types.refund'),
-                    'description' => 'Refunds for cancelled bookings',
+                    'description' => __('wallet.transaction_descriptions.refund'),
                 ],
                 [
                     'key' => 'adjustment',
                     'label' => __('wallet.transaction_types.adjustment'),
-                    'description' => 'Admin balance adjustments',
+                    'description' => __('wallet.transaction_descriptions.adjustment'),
                 ],
                 [
                     'key' => 'bonus',
                     'label' => __('wallet.transaction_types.bonus'),
-                    'description' => 'Admin bonus payments',
+                    'description' => __('wallet.transaction_descriptions.bonus'),
                 ],
             ];
     

@@ -2,13 +2,23 @@
 
 return [
     'transaction_types' => [
-        'pending_earning' => 'Pending Earning', // NEW
-        'earning_confirmed' => 'Confirmed Earning', // NEW
+        'pending_earning' => 'Pending Earning',
+        'earning_confirmed' => 'Confirmed Earning',
         'manual_payment' => 'Manual Payment',
         'commission' => 'Platform Commission',
         'refund' => 'Refund',
         'adjustment' => 'Balance Adjustment',
-        'bonus' => 'Bonus Payment', // NEW
+        'bonus' => 'Bonus Payment',
+    ],
+
+    'transaction_descriptions' => [
+        'pending_earning' => 'Pending earnings from confirmed bookings',
+        'earning_confirmed' => 'Confirmed earnings from completed bookings',
+        'manual_payment' => 'Payments processed by admin',
+        'commission' => 'Platform commission deductions',
+        'refund' => 'Refunds for cancelled bookings',
+        'adjustment' => 'Admin balance adjustments',
+        'bonus' => 'Admin bonus payments',
     ],
 
     'transaction_status' => [
@@ -35,7 +45,7 @@ return [
         'insufficient_balance' => 'Insufficient wallet balance',
         'payment_processed' => 'Payment processed successfully',
         'earning_added' => 'Earning added to wallet',
-        'earning_confirmed' => 'Earning confirmed and moved to balance', // NEW
+        'earning_confirmed' => 'Earning confirmed and moved to balance',
         'refund_processed' => 'Refund processed successfully',
     ],
 
