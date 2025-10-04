@@ -106,30 +106,37 @@ class ApiFarmBookingController extends Controller
     }
 
     /**
-     * Validate coupon code
+     * Validate coupon code and return pricing details
      */
     public function validateCoupon(ValidateCouponRequest $request, $farmId): JsonResponse
     {
         try {
-            $farm = Farm::find($farmId);
+            $farm = Farm::with(['pricing', 'offers'])->find($farmId);
             if (!$farm) {
                 return $this->errorResponse(__('farm.not_found', ['id' => $farmId]), 404);
             }
-    
+
             $couponCode = $request->coupon_code;
-            $dates = $request->dates; // NOW REQUIRED
-            $priceType = $request->price_type; // NOW REQUIRED
-            $platform = $request->platform; // NEW REQUIRED FIELD
+            $dates = $request->dates;
+            $priceType = $request->price_type;
+            $platform = $request->platform;
+            $paymentOption = $request->payment_option ?? 'full';
             $userId = auth('sanctum')->id();
-    
+
             if (!$userId) {
                 return $this->errorResponse(__('auth.unauthenticated'), 401);
             }
-    
-            // Process dates (now always provided)
+
+            // Validate pricing exists
+            $pricing = $farm->pricing()->where('price_type', $priceType)->first();
+            if (!$pricing) {
+                return $this->errorResponse(__('farm.pricing_not_available', ['price_type' => __('farm.price_types.' . $priceType)]), 400);
+            }
+
+            // Process dates
             $processedDates = $this->processDatesByPriceType($dates, $priceType);
-    
-            // Check availability (now always performed)
+
+            // Check availability
             $availabilityErrors = $this->bookingService->checkAvailability($farm, $processedDates, $priceType);
             
             if (isset($availabilityErrors['unavailable'])) {
@@ -139,27 +146,58 @@ class ApiFarmBookingController extends Controller
             if (isset($availabilityErrors['booked'])) {
                 return $this->errorResponse(__('farm.dates_already_booked', ['dates' => implode(', ', $availabilityErrors['booked'])]), 400);
             }
-    
+
             // Validate coupon with platform validation
             $validation = $this->bookingService->validateCoupon($couponCode, $farm, $processedDates, $userId, $platform);
-    
-            if ($validation['valid']) {
-                return $this->successResponse(true, [
-                    'valid' => true,
-                    'coupon' => [
-                        'id' => $validation['coupon']->id,
-                        'code' => $validation['coupon']->code,
-                        'name' => $validation['coupon']->name,
-                        'description' => $validation['coupon']->discount_description,
-                        'discount_type' => $validation['coupon']->discount_type,
-                        'discount_value' => $validation['coupon']->discount_value,
-                        'max_discount' => $validation['coupon']->max_discount,
-                    ]
-                ], __('coupon.valid'), 200);
-            } else {
+
+            if (!$validation['valid']) {
                 return $this->errorResponse(implode(' ', $validation['errors']), 400);
             }
-    
+
+            // Calculate pricing WITH coupon
+            $pricingData = $this->bookingService->calculatePricing(
+                $farm, 
+                $processedDates, 
+                $priceType, 
+                $paymentOption,
+                $couponCode,
+                $userId, 
+                $platform
+            );
+
+            // Check for coupon errors in pricing calculation
+            if (!empty($pricingData['coupon_errors'])) {
+                return $this->errorResponse('Coupon error: ' . implode(' ', $pricingData['coupon_errors']), 400);
+            }
+
+            return $this->successResponse(true, [
+                'valid' => true,
+                'coupon' => [
+                    'id' => $validation['coupon']->id,
+                    'code' => $validation['coupon']->code,
+                    'name' => $validation['coupon']->name,
+                    'description' => $validation['coupon']->discount_description,
+                    'discount_type' => $validation['coupon']->discount_type,
+                    'discount_value' => $validation['coupon']->discount_value,
+                    'max_discount' => $validation['coupon']->max_discount,
+                ],
+                'pricing' => [
+                    'subtotal' => $pricingData['subtotal'],
+                    'discount_amount' => $pricingData['discount_amount'],
+                    'offer_percentage' => $pricingData['offer_percentage'],
+                    'coupon_applied' => $pricingData['coupon_applied'] ?? false,
+                    'coupon_discount_amount' => $pricingData['coupon_discount_amount'] ?? 0,
+                    'coupon_details' => $pricingData['coupon_details'] ?? null,
+                    'coupon_errors' => $pricingData['coupon_errors'] ?? null,
+                    'total' => $pricingData['total'],
+                    'payment_option' => $paymentOption,
+                    'paying_now' => $pricingData['payment_amount'],
+                    'deposit_amount' => $pricingData['deposit_amount'],
+                    'remaining_amount' => $pricingData['remaining_amount'],
+                    'is_deposit' => $pricingData['is_deposit'],
+                ]
+            ], __('coupon.valid'), 200);
+
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'validate coupon', 'farm_id' => $farmId]);
             return $this->errorResponse(__('error.internal_error'), 500);

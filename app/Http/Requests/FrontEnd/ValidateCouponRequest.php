@@ -15,10 +15,11 @@ class ValidateCouponRequest extends FormRequest
     {
         $rules = [
             'coupon_code' => ['required', 'string', 'max:20', 'regex:/^[A-Z0-9]+$/'],
-            'dates' => ['required', 'array', 'min:1'], // NOW REQUIRED
+            'dates' => ['required', 'array', 'min:1'],
             'dates.*' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
-            'price_type' => ['required', 'string', 'in:day_use,night,full_day'], // NOW REQUIRED
-            'platform' => ['required', 'string', 'in:web,mobile'], // NEW REQUIRED FIELD
+            'price_type' => ['required', 'string', 'in:day_use,night,full_day'],
+            'platform' => ['required', 'string', 'in:web,mobile'],
+            'payment_option' => ['nullable', 'string', 'in:full,deposit'],
         ];
 
         // Add specific date count validation based on price type
@@ -70,6 +71,9 @@ class ValidateCouponRequest extends FormRequest
             'platform.required' => 'Platform is required',
             'platform.string' => 'Platform must be a string',
             'platform.in' => 'Platform must be either web or mobile',
+            
+            'payment_option.string' => $bookingValidation['payment_option.string'] ?? 'Payment option must be a string',
+            'payment_option.in' => $bookingValidation['payment_option.in'] ?? 'Payment option must be either full or deposit',
         ];
     }
 
@@ -77,6 +81,7 @@ class ValidateCouponRequest extends FormRequest
     {
         return array_merge(__('farm.attributes'), __('booking.attributes'), [
             'platform' => 'Platform',
+            'payment_option' => 'Payment Option',
         ]);
     }
 
@@ -99,6 +104,11 @@ class ValidateCouponRequest extends FormRequest
         // Default platform to web if not provided
         if (!$this->has('platform')) {
             $this->merge(['platform' => 'web']);
+        }
+
+        // Default payment option to full if not provided
+        if (!$this->has('payment_option')) {
+            $this->merge(['payment_option' => 'full']);
         }
     }
 
