@@ -63,10 +63,11 @@ class ApiUserBookingController extends Controller
     {
         try {
             $booking = FarmBooking::with([
-                    'farm:id,name_ar,name_en,city_id,area_id',
+                    'farm:id,name_ar,name_en,city_id,area_id,user_id', // Added user_id
                     'farm.city:id,name_ar,name_en',
                     'farm.area:id,name_ar,name_en',
-                    'farm.mainImage:id,farm_id,image_path'
+                    'farm.mainImage:id,farm_id,image_path',
+                    'farm.user:id,name,avatar,phone,email' // Added farm owner
                 ])
                 ->where('id', $bookingId)
                 ->where('user_id', auth('sanctum')->id())
@@ -76,13 +77,13 @@ class ApiUserBookingController extends Controller
                     FarmBooking::BOOKING_STATUS_CANCELLED,
                 ])
                 ->first();
-
+    
             if (!$booking) {
                 return $this->errorResponse(__('booking.not_found'), 404);
             }
-
+    
             return $this->successResponse(true, new ShowBookingResource($booking), null, 200);
-
+    
         } catch (Exception $e) {
             $this->logException($e, ['action' => 'get booking details', 'booking_id' => $bookingId]);
             return $this->errorResponse(__('error.internal_error'), 500);

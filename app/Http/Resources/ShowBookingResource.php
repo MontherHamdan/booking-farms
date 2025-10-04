@@ -36,6 +36,13 @@ class ShowBookingResource extends JsonResource
                     'name_ar' => $this->farm->area->name_ar,
                     'name_en' => $this->farm->area->name_en,
                 ] : null,
+                'owner' => $this->farm->user ? [
+                    'id' => $this->farm->user->id,
+                    'name' => $this->farm->user->name,
+                    'avatar' => $this->farm->user->avatar ? url($this->farm->user->avatar) : null,
+                    'phone' => $this->farm->user->phone,
+                    'email' => $this->farm->user->email,
+                ] : null,
             ],
             'price_type' => $this->price_type,
             'price_type_label' => __('farm.price_types.' . $this->price_type),
