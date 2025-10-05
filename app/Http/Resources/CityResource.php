@@ -21,8 +21,8 @@ class CityResource extends JsonResource
             'description_en'      => $this->description_en,
             'description_ar'      => $this->description_ar,
             'image_url'           => $this->image,
-            'farms_count'         => $this->farms_count ?? 0,
-            'areas_count'         => $this->areas_count ?? 0,
+            'farms_count'         => $this->active_farms_count ?? 0, 
+            'areas_count'         => $this->published_areas_count ?? 0, // Use published areas count
         ];
     }
 }

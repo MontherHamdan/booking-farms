@@ -30,7 +30,14 @@ class ApiCityController extends Controller
             $cities = Cache::remember('cities_list_with_counts', 3600, function () {
                 return City::published()
                     ->ordered()
-                    ->withCount(['farms', 'areas']) // Count both farms and areas
+                    ->withCount([
+                        'farms as active_farms_count' => function ($query) {
+                            $query->active(); // Only count active farms
+                        },
+                        'areas as published_areas_count' => function ($query) {
+                            $query->published(); // Only count published areas
+                        }
+                    ])
                     ->get();
             });
 

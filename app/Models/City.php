@@ -101,6 +101,38 @@ class City extends Model
     }
 
     /**
+     * Get active farms for this city
+     */
+    public function activeFarms()
+    {
+        return $this->farms()->active();
+    }
+
+    /**
+     * Get active farms count attribute
+     */
+    public function getActiveFarmsCountAttribute()
+    {
+        // This will be used when active_farms_count is not loaded via withCount
+        if (!array_key_exists('active_farms_count', $this->attributes)) {
+            return $this->farms()->active()->count();
+        }
+        return $this->attributes['active_farms_count'];
+    }
+
+    /**
+     * Get published areas count attribute
+     */
+    public function getPublishedAreasCountAttribute()
+    {
+        // This will be used when published_areas_count is not loaded via withCount
+        if (!array_key_exists('published_areas_count', $this->attributes)) {
+            return $this->areas()->published()->count();
+        }
+        return $this->attributes['published_areas_count'];
+    }
+
+    /**
      * Get the coordinates as a formatted string
      */
     public function getCoordinatesAttribute()
