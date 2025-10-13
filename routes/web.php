@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\Dashboard\CityController;
 use App\Http\Controllers\Dashboard\FeatureController;
+use App\Http\Controllers\Dashboard\FarmOwnerApplicationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,7 +38,7 @@ Route::prefix('dashboard')->name('dashboard.')->controller(AuthController::class
 //                              DASHBOARD ROUTES (Protected)
 // ═══════════════════════════════════════════════════════════════════════════════════
 
-Route::prefix('dashboard')->name('dashboard.')->middleware(['auth'])->group(function () {
+Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'admin'])->group(function () {
     
     // Dashboard home
     Route::get('/home', [DashboardController::class, 'index'])->name('home');
@@ -132,5 +133,15 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth'])->group(func
         Route::get('/', 'index')->name('index');
         Route::post('/payment-settings', 'updatePaymentSettings')->name('payment-settings.update');
         Route::post('/commission-settings', 'updateCommissionSettings')->name('commission-settings.update');
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════════════
+    //                              FARM OWNER APPLICATION
+    // ═══════════════════════════════════════════════════════════════════════════════════
+    Route::prefix('farm-owner-applications')->name('farm-owner-applications.')->controller(FarmOwnerApplicationController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/{id}', 'show')->name('show');
+        Route::post('/{id}/verify', 'verify')->name('verify');
+        Route::get('/statistics', 'statistics')->name('statistics');
     });
 });

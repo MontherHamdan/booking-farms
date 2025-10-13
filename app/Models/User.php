@@ -15,10 +15,11 @@ use Stripe\Customer;
 use Stripe\Stripe;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Log;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, HasRoles;
 
     /**
      * The attributes that are mass assignable.
@@ -63,6 +64,9 @@ class User extends Authenticatable
         'otp_expires_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    // Add guard name for Spatie
+    protected $guard_name = 'web';
 
     public const STATUS_ACTIVE   = 'active';
     public const STATUS_INACTIVE = 'inactive';
@@ -216,6 +220,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the user's farm owner application
+     */
+    public function farmOwnerApplication(): HasOne
+    {
+        return $this->hasOne(FarmOwnerApplication::class);
+    }
+
+    /**
      * Get the farm owner's wallet
      */
     public function farmOwnerWallet(): HasOne
@@ -242,11 +254,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Check if user is a farm owner
+     * Check if user is a farm owner (has the role)
      */
     public function isFarmOwner(): bool
     {
-        return $this->ownedFarms()->exists();
+        return $this->hasRole('farm_owner');
     }
 
     /**
@@ -296,6 +308,57 @@ class User extends Authenticatable
             })->where('booking_status', FarmBooking::BOOKING_STATUS_CONFIRMED)->count(),
             'has_bank_account' => $this->hasBankAccount(), // NEW
             'pending_payment_amount' => $wallet?->balance ?? 0, // NEW: amount pending for next manual payment
+        ];
+    }
+
+    /**
+     * Check if user is an admin
+     */
+    public function isAdmin(): bool
+    {
+        return $this->hasRole(['admin', 'super_admin']);
+    }
+
+    /**
+     * Check if user is a super admin
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('super_admin');
+    }
+
+    /**
+     * Get user's primary role name
+     */
+    public function getPrimaryRole(): ?string
+    {
+        $role = $this->roles->first();
+        return $role ? $role->name : null;
+    }
+
+    /**
+     * Get farm owner verification status
+     */
+    public function getFarmOwnerVerifications(): array
+    {
+        if (!$this->isFarmOwner()) {
+            return [
+                'is_farm_owner' => false,
+            ];
+        }
+
+        $application = $this->farmOwnerApplication;
+        $bankAccount = $this->farmOwnerBankAccount;
+
+        return [
+            'is_farm_owner' => true,
+            'id_image' => [
+                'uploaded' => $application && $application->hasIdImage(),
+                'status' => $application ? $application->id_verification_status : null,
+            ],
+            'bank_account' => [
+                'added' => $bankAccount !== null, // Just true/false, no verification status
+            ],
         ];
     }
 }

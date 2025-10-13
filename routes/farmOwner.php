@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\FarmOwner\ApiFarmController;
 use App\Http\Controllers\Api\FarmOwner\ApiFarmOwnerBookingController;
 use App\Http\Controllers\Api\FarmOwner\ApiFarmOwnerWalletController;
 use App\Http\Controllers\Api\FarmOwner\ApiFarmOwnerBankAccountController;
+use App\Http\Controllers\Api\FarmOwner\ApiFarmOwnerApplicationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -12,8 +13,15 @@ use App\Http\Controllers\Api\FarmOwner\ApiFarmOwnerBankAccountController;
 |--------------------------------------------------------------------------
 */
 
-# Protected routes
-Route::middleware('auth:sanctum')->group(function () {
+# Protected routes - Farm Owner Only
+Route::middleware(['auth:sanctum', 'farm_owner'])->group(function () {
+
+    // ──────────────────────────────────Application Management────────────────────────────────────────
+    
+    // ID Image management for farm owners
+    Route::prefix('application')->controller(ApiFarmOwnerApplicationController::class)->group(function () {
+        Route::post('/id-image', 'uploadIdImage');      // Upload/Update ID image
+    });
 
     // ──────────────────────────────────Farms────────────────────────────────────────
 
@@ -53,18 +61,20 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Transactions
         Route::get('/transactions', 'transactions');         // List wallet transactions
-        Route::get('/transactionTypes', 'transactionTypes');         // List wallet transactions
+        Route::get('/transactionTypes', 'transactionTypes'); // List wallet transactions
 
-        // Payment History (NEW)
+        // Payment History
         Route::get('/payment-history', 'paymentHistory');    // Get manual payment history
     });
+
+    // ──────────────────────────────────Bank Account────────────────────────────────────────
 
     Route::prefix('bank-account')->controller(ApiFarmOwnerBankAccountController::class)->group(function () {
         Route::get('/', 'show');                    // Get current bank account
         Route::post('/', 'store');                  // Save/Update bank account
         Route::delete('/', 'destroy');              // Delete bank account
         Route::get('/types', 'accountTypes');       // Get available account types
-        Route::get('/banks', 'banks');              // get the bank names 
+        Route::get('/banks', 'banks');              // Get bank names 
     });
 
 });

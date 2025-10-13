@@ -264,6 +264,21 @@
                     </a>
                 </li>
 
+                <!-- FARM OWNER MANAGEMENT -->
+                <li class="menu-title mt-2">Farm Owner Management</li>
+                <li>
+                    <a href="{{ route('dashboard.farm-owner-applications.index') }}">
+                        <i class="mdi mdi-account-check"></i>
+                        <span>Application Verifications</span>
+                        @php
+                            $pendingVerifications = \App\Models\FarmOwnerApplication::withIdImage()->pending()->count();
+                        @endphp
+                        @if($pendingVerifications > 0)
+                            <span class="badge bg-warning rounded-pill float-end">{{ $pendingVerifications }}</span>
+                        @endif
+                    </a>
+                </li>
+
                 <!-- PLATFORM SETTINGS -->
                 <li class="menu-title mt-2">Settings</li>
                 <li>

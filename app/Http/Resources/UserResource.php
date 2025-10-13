@@ -20,12 +20,10 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'phone' => $this->phone,
             'city' => $this->when($this->relationLoaded('city'), function () {
-                // If city_id is null or city doesn't exist, return null
                 if (!$this->city) {
                     return null;
                 }
                 
-                // Return city data if it exists
                 return [
                     'id' => $this->city->id,
                     'name_ar' => $this->city->name_ar,
@@ -33,6 +31,9 @@ class UserResource extends JsonResource
                 ];
             }),
             'avatar' => $this->avatar,
+            'role' => $this->getPrimaryRole(),
+            'is_farm_owner' => $this->isFarmOwner(), 
+            'verifications' => $this->getFarmOwnerVerifications(),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

@@ -11,7 +11,7 @@ use App\Http\Controllers\Api\Auth\ApiAuthController;
 use App\Http\Controllers\Api\FrontEnd\ApiCityController;
 use App\Http\Controllers\Api\Users\ApiUserProfileController;
 use App\Http\Controllers\Api\Users\ApiCardController;
-
+use App\Http\Controllers\Api\FarmOwner\ApiFarmOwnerApplicationController;
 /*
 |--------------------------------------------------------------------------
 | User API Routes
@@ -79,6 +79,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Logout
     Route::post('/logout', [ApiAuthController::class, 'logout']);
+
+    // ──────────────────────────────────Farm Owner Application────────────────────────────────────────
+    
+    // Farm Owner Application (Regular users can apply to become farm owners)
+    Route::prefix('farm-owner-application')->controller(ApiFarmOwnerApplicationController::class)->group(function () {
+        Route::post('/', 'store');                      // Submit application (become farm owner)
+        Route::get('/', 'show');                        // Get application status
+    });
 
     // ──────────────────────────────────Farms────────────────────────────────────────
 

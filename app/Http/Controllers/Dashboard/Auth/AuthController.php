@@ -41,28 +41,30 @@ class AuthController extends Controller
             'phone.required' => 'Phone number is required.',
             'password.required' => 'Password is required.',
         ]);
-
+    
         $credentials = $request->only('phone', 'password');
         $remember = $request->boolean('remember');
-
+    
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
             
-            // Optional: Check if user has admin role/permission
             $user = Auth::user();
             
-            // Uncomment and modify if you want to restrict access to specific users
-            // if (!$user->hasRole('admin') || !$user->is_admin) {
-            //     Auth::logout();
-            //     return back()->withErrors([
-            //         'phone' => 'You do not have permission to access the admin dashboard.',
-            //     ])->withInput();
-            // }
-
+            // Check if user has admin role (using Spatie)
+            if (!$user->isAdmin()) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+                
+                return back()->withErrors([
+                    'phone' => 'You do not have permission to access the admin dashboard.',
+                ])->withInput($request->only('phone'));
+            }
+    
             return redirect()->intended(route('dashboard.home'))
                              ->with('success', 'Welcome back, ' . $user->name . '!');
         }
-
+    
         throw ValidationException::withMessages([
             'phone' => 'The provided credentials do not match our records.',
         ]);
