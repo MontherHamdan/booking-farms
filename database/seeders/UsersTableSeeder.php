@@ -26,7 +26,7 @@ class UsersTableSeeder extends Seeder
         $admin = User::create([
             'name'              => 'Monther Hamdan',
             'phone'             => '0785452835',
-            'city'              => City::inRandomOrder()->value('id'),
+            'city_id'           => City::inRandomOrder()->value('id'),
             'password'          => Hash::make('password123'),
             'otp_code'          => null,
             'otp_expires_at'    => null,
@@ -64,7 +64,7 @@ class UsersTableSeeder extends Seeder
             $user = User::create([
                 'name'              => $faker->name,
                 'phone'             => $phone,
-                'city'              => City::inRandomOrder()->value('id'),
+                'city_id'           => City::inRandomOrder()->value('id'),
                 'password'          => Hash::make('password'),
                 'otp_code'          => null,
                 'otp_expires_at'    => null,
